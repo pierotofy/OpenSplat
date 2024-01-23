@@ -11,10 +11,13 @@ mve::ByteImage::Ptr tensorToImage(const torch::Tensor &t){
 
     mve::ByteImage::Ptr image = mve::ByteImage::create(w, h, c);
     uint8_t *dataPtr = static_cast<uint8_t *>((t * 255.0).toType(torch::kU8).data_ptr());
-    
     std::copy(dataPtr, dataPtr + (w * h * c), image->get_data().data());
 
     return image;
+}
+
+torch::Tensor imageToTensor(const mve::ByteImage::Ptr &image){
+    return torch::from_blob(image->get_data().data(), { image->height(), image->width(), image->channels() }, torch::kByte);
 }
 
 int main(int argc, char **argv){
@@ -33,4 +36,5 @@ int main(int argc, char **argv){
 
     mve::ByteImage::Ptr image = tensorToImage(gtImage);
     mve::image::save_file(image, "test.png");
+
 }
