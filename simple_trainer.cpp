@@ -3,14 +3,13 @@
 
 #include <torch/torch.h>
 #include <mve/image_io.h>
-#include <glm/vec3.hpp>
-#include <glm/gtx/string_cast.hpp>
+
+#include "project_gaussians.h"
 
 #define PI 3.14159265358979323846
 
 using namespace torch::indexing;
 
-typedef glm::ivec3 TileBounds;
 
 mve::ByteImage::Ptr tensorToImage(const torch::Tensor &t){
     int w = t.sizes()[1];
@@ -61,7 +60,7 @@ int main(int argc, char **argv){
     double fovX = PI / 2.0; // horizontal field of view (90 deg)
     double focal = 0.5 * static_cast<double>(width) / std::tan(0.5 * fovX);
 
-    TileBounds bounds((width + BLOCK_X - 1) / BLOCK_X,
+    TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
                       (height + BLOCK_Y - 1) / BLOCK_Y,
                       1);
     
@@ -105,4 +104,20 @@ int main(int argc, char **argv){
     quats.requires_grad_(true);
     rgbs.requires_grad_(true);
     opacities.requires_grad_(true);
+
+    torch::optim::Adam optimizer({rgbs, means, scales, opacities, quats}, learningRate);
+    torch::nn::MSELoss mseLoss;
+
+    for (size_t i = 0; i < iterations; i++){
+        ProjectGaussians::apply(means, scales, 1, 
+                                quats, viewMat, viewMat,
+                                focal, focal,
+                                width / 2,
+                                height / 2,
+                                height,
+                                width,
+                                tileBounds);
+
+        break;
+    }
 }

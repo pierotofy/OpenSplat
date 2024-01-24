@@ -1,0 +1,30 @@
+#ifndef PROJECT_GAUSSIANS_H
+#define PROJECT_GAUSSIANS_H
+
+#include <torch/torch.h>
+
+typedef std::tuple<int, int, int> TileBounds; 
+
+using namespace torch::autograd;
+
+class ProjectGaussians : public Function<ProjectGaussians>{
+public:
+    static tensor_list forward(AutogradContext *ctx, 
+            torch::Tensor means,
+            torch::Tensor scales,
+            float globScale,
+            torch::Tensor quats,
+            torch::Tensor viewMat,
+            torch::Tensor projMat,
+            float fx,
+            float fy,
+            float cx,
+            float cy,
+            int imgHeight,
+            int imgWidth,
+            TileBounds tileBounds,
+            float clipThresh = 0.01);
+    static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs);
+};
+
+#endif

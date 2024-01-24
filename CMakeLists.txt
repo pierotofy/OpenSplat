@@ -16,20 +16,20 @@ set(PYTHON_EXECUTABLE /usr/bin/python3)
 find_package(CUDA REQUIRED)
 set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 find_package(Torch REQUIRED)
-
 add_subdirectory(vendor/mve)
 
-add_library(opensplat forward.cu backward.cu helpers.cuh)
+add_library(opensplat forward.cu backward.cu bindings.cu helpers.cuh)
 target_link_libraries(opensplat PUBLIC cuda)
 target_include_directories(opensplat PRIVATE
     ${PROJECT_SOURCE_DIR}/vendor/glm        
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+    ${TORCH_INCLUDE_DIRS}
 )
 set_target_properties(opensplat PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(opensplat PROPERTIES CUDA_ARCHITECTURES "70;75")
 
-# # To add an executable that uses the opensplat library,
-add_executable(simple_trainer simple_trainer.cpp)
+# TODO: move project_gaussians.cpp to another target?
+add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp)
 target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm)
 target_link_libraries(simple_trainer PUBLIC cuda opensplat mve ${TORCH_LIBRARIES})
 
