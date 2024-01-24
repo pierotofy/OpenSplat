@@ -30,7 +30,7 @@ set_target_properties(opensplat PROPERTIES CUDA_ARCHITECTURES "70;75")
 
 # # To add an executable that uses the opensplat library,
 add_executable(simple_trainer simple_trainer.cpp)
-target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve)
+target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm)
 target_link_libraries(simple_trainer PUBLIC cuda opensplat mve ${TORCH_LIBRARIES})
 
 # The following code block is suggested to be used on Windows.
