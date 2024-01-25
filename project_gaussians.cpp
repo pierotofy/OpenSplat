@@ -1,7 +1,7 @@
 #include "project_gaussians.h"
 #include "bindings.h"
 
-tensor_list ProjectGaussians::forward(AutogradContext *ctx, 
+variable_list ProjectGaussians::forward(AutogradContext *ctx, 
                 torch::Tensor means,
                 torch::Tensor scales,
                 float globScale,
@@ -38,13 +38,14 @@ tensor_list ProjectGaussians::forward(AutogradContext *ctx,
     ctx->saved_data["fy"] = fy;
     ctx->saved_data["cx"] = cx;
     ctx->saved_data["cy"] = cy;
-    
+
     ctx->save_for_backward({ means, scales, quats, viewMat, projMat, cov3d, radii, conics });
-    
     return { xys, depths, radii, conics, numTilesHit, cov3d };
 }
 
 tensor_list ProjectGaussians::backward(AutogradContext *ctx, tensor_list grad_outputs) {
+    std::cerr << "PG" << std::endl;
+    exit(1);
     torch::Tensor v_xys = grad_outputs[0];
     torch::Tensor v_depths = grad_outputs[1];
     torch::Tensor v_radii = grad_outputs[2];

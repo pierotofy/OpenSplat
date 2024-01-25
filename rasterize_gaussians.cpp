@@ -55,8 +55,8 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
         (imgHeight + BLOCK_Y - 1) / BLOCK_Y,
         1
     );
-    block = std::make_tuple(BLOCK_X, BLOCK_Y, 1);
-    imgSize = std::make_tuple(imgWidth, imgHeight, 1);
+    std::tuple<int, int, int> block = std::make_tuple(BLOCK_X, BLOCK_Y, 1);
+    std::tuple<int, int, int> imgSize = std::make_tuple(imgWidth, imgHeight, 1);
     
     torch::Tensor cumTilesHit = torch::cumsum(numTilesHit, 0, torch::kInt32);
     int numIntersects = cumTilesHit[cumTilesHit.size(0) - 1].item<int>();
@@ -71,12 +71,12 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
                             xys,
                             conics,
                             colors,
-                            opacities,
+                            opacity,
                             background);
     // Final image
     torch::Tensor outImg = std::get<0>(t);
 
-    // Map of ?
+    // Map of alpha-inverse (1 - finalTs = alpha)
     torch::Tensor finalTs = std::get<1>(t);
 
     // Map of tile bin IDs
@@ -105,30 +105,37 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     torch::Tensor background = saved[6];
     torch::Tensor finalTs = saved[7];
     torch::Tensor finalIdx = saved[8];
-    
-    
-    // auto t = project_gaussians_backward_tensor(ctx->saved_data["numPoints"].toInt(), 
-    //                                         means, scales, ctx->saved_data["globScale"].toDouble(),
-    //                                         quats, viewMat, projMat, 
-    //                                         ctx->saved_data["fx"].toDouble(), ctx->saved_data["fy"].toDouble(),
-    //                                         ctx->saved_data["cx"].toDouble(), ctx->saved_data["cy"].toDouble(), 
-    //                                         ctx->saved_data["imgHeight"].toInt(), ctx->saved_data["imgWidth"].toInt(), 
-    //                                         cov3d, radii,
-    //                                         conics, v_xys, v_depths, v_conics);
 
-    // return {std::get<2>(t), // v_mean
-    //         std::get<3>(t), // v_scale
-    //         torch::Tensor(), // globScale
-    //         std::get<4>(t), // v_quat
-    //         torch::Tensor(), // viewMat
-    //         torch::Tensor(), // projMat
-    //         torch::Tensor(), // fx
-    //         torch::Tensor(), // fy
-    //         torch::Tensor(), // cx
-    //         torch::Tensor(), // cy
-    //         torch::Tensor(), // imgHeight
-    //         torch::Tensor(), // imgWidth
-    //         torch::Tensor(), // tileBounds
-    //         torch::Tensor() // clipThresh
-    //     };
+    torch::Tensor v_outAlpha = torch::zeros({imgHeight, imgWidth});
+    
+    auto t = rasterize_backward_tensor(imgHeight, imgWidth, 
+                            gaussianIdsSorted,
+                            tileBins,
+                            xys,
+                            conics,
+                            colors,
+                            opacity,
+                            background,
+                            finalTs,
+                            finalIdx,
+                            v_outImg,
+                            v_outAlpha);
+
+    torch::Tensor v_xy = std::get<0>(t);
+    torch::Tensor v_conic = std::get<1>(t);
+    torch::Tensor v_colors = std::get<2>(t);
+    torch::Tensor v_opacity = std::get<3>(t);
+    // torch::Tensor none;
+
+    return { v_xy,
+            torch::Tensor(), // depths
+            torch::Tensor(), // radii
+            v_conic,
+            torch::Tensor(), // numTilesHit
+            v_colors,
+            v_opacity,
+            torch::Tensor(), // imgHeight
+            torch::Tensor(), // imgWidth
+            torch::Tensor() // background
+    };
 }

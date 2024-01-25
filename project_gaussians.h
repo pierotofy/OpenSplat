@@ -8,7 +8,7 @@ using namespace torch::autograd;
 
 class ProjectGaussians : public Function<ProjectGaussians>{
 public:
-    static tensor_list forward(AutogradContext *ctx, 
+    static variable_list forward(AutogradContext *ctx, 
             torch::Tensor means,
             torch::Tensor scales,
             float globScale,
@@ -25,5 +25,6 @@ public:
             float clipThresh = 0.01);
     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs);
 };
+
 
 #endif

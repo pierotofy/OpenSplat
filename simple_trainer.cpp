@@ -101,16 +101,18 @@ int main(int argc, char **argv){
 
     torch::Tensor background = torch::zeros(gtImage.size(2), device);
 
-    means.requires_grad_(true);
-    scales.requires_grad_(true);
-    quats.requires_grad_(true);
-    rgbs.requires_grad_(true);
-    opacities.requires_grad_(true);
+    means.requires_grad_();
+    scales.requires_grad_();
+    quats.requires_grad_();
+    rgbs.requires_grad_();
+    opacities.requires_grad_();
 
     torch::optim::Adam optimizer({rgbs, means, scales, opacities, quats}, learningRate);
     torch::nn::MSELoss mseLoss;
 
     for (size_t i = 0; i < iterations; i++){
+        std::cerr << "Begin loop" << std::endl;
+
         auto p = ProjectGaussians::apply(means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,
@@ -119,20 +121,35 @@ int main(int argc, char **argv){
                                 height,
                                 width,
                                 tileBounds);
+
+        torch::cuda::synchronize();
+
+        // torch::Tensor outImg = RasterizeGaussians::apply(
+        //     p[0], // xys
+        //     p[1], // depths
+        //     p[2], // radii,
+        //     p[3], // conics
+        //     p[4], // numTilesHit
+        //     torch::sigmoid(rgbs),
+        //     torch::sigmoid(opacities),
+        //     height,
+        //     width,
+        //     background);
         
         torch::cuda::synchronize();
 
-        torch::Tensor outImg = RasterizeGaussians::apply(
-            p[0], // xys
-            p[1], // depths
-            p[2], // radii,
-            p[3], // conics
-            p[4], // numTilesHit
-            torch::sigmoid(rgbs),
-            torch::sigmoid(opacities),
-            height,
-            width,
-            background);
-        break;
+        torch::Tensor outImg = torch::rand({height, width, 3}, device);
+        torch::Tensor loss = mseLoss(outImg, gtImage);
+        
+        optimizer.zero_grad();
+
+        std::cerr << "About to call backward" << std::endl;
+
+        loss.backward();
+        std::cerr << "Called backward" << std::endl;
+        torch::cuda::synchronize();
+        optimizer.step();
+
+        std::cout << "Iteration " << std::to_string(i + 1) << "/" << std::to_string(iterations) << " Loss: " << loss.item<float>() << std::endl; 
     }
 }
