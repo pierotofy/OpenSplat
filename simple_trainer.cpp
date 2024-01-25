@@ -2,9 +2,12 @@
 #include <cmath>
 
 #include <torch/torch.h>
+#include <torch/cuda.h>
 #include <mve/image_io.h>
 
+#include "config.h"
 #include "project_gaussians.h"
+#include "rasterize_gaussians.h"
 
 #define PI 3.14159265358979323846
 
@@ -24,7 +27,8 @@ mve::ByteImage::Ptr tensorToImage(const torch::Tensor &t){
 }
 
 torch::Tensor imageToTensor(const mve::ByteImage::Ptr &image){
-    return torch::from_blob(image->get_data().data(), { image->height(), image->width(), image->channels() }, torch::kByte);
+    torch::Tensor img = torch::from_blob(image->get_data().data(), { image->height(), image->width(), image->channels() }, torch::kU8);
+    return (img.toType(torch::kFloat32) / 255.0f);
 }
 
 
@@ -55,8 +59,6 @@ int main(int argc, char **argv){
     // mve::image::save_file(image, "test.png");
 
     gtImage = gtImage.to(device);
-    const int BLOCK_X = 16;
-    const int BLOCK_Y = 16;
     double fovX = PI / 2.0; // horizontal field of view (90 deg)
     double focal = 0.5 * static_cast<double>(width) / std::tan(0.5 * fovX);
 
@@ -64,8 +66,8 @@ int main(int argc, char **argv){
                       (height + BLOCK_Y - 1) / BLOCK_Y,
                       1);
     
-    torch::Tensor imgSize = torch::tensor({width, height, 1}, device);
-    torch::Tensor block = torch::tensor({BLOCK_X, BLOCK_Y, 1}, device);
+    // torch::Tensor imgSize = torch::tensor({width, height, 1}, device);
+    // torch::Tensor block = torch::tensor({BLOCK_X, BLOCK_Y, 1}, device);
     
     // Init gaussians
     torch::cuda::manual_seed_all(0);
@@ -97,8 +99,8 @@ int main(int argc, char **argv){
             {0.0, 0.0, 0.0, 1.0}
         }, device);
 
-    torch::Tensor background = torch::zeros(3, device);
-    
+    torch::Tensor background = torch::zeros(gtImage.size(2), device);
+
     means.requires_grad_(true);
     scales.requires_grad_(true);
     quats.requires_grad_(true);
@@ -109,7 +111,7 @@ int main(int argc, char **argv){
     torch::nn::MSELoss mseLoss;
 
     for (size_t i = 0; i < iterations; i++){
-        ProjectGaussians::apply(means, scales, 1, 
+        auto p = ProjectGaussians::apply(means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,
                                 width / 2,
@@ -117,7 +119,20 @@ int main(int argc, char **argv){
                                 height,
                                 width,
                                 tileBounds);
+        
+        torch::cuda::synchronize();
 
+        torch::Tensor outImg = RasterizeGaussians::apply(
+            p[0], // xys
+            p[1], // depths
+            p[2], // radii,
+            p[3], // conics
+            p[4], // numTilesHit
+            torch::sigmoid(rgbs),
+            torch::sigmoid(opacities),
+            height,
+            width,
+            background);
         break;
     }
 }

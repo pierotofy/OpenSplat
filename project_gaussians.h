@@ -2,8 +2,7 @@
 #define PROJECT_GAUSSIANS_H
 
 #include <torch/torch.h>
-
-typedef std::tuple<int, int, int> TileBounds; 
+#include "tile_bounds.h"
 
 using namespace torch::autograd;
 

@@ -28,8 +28,8 @@ target_include_directories(opensplat PRIVATE
 set_target_properties(opensplat PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(opensplat PROPERTIES CUDA_ARCHITECTURES "70;75")
 
-# TODO: move project_gaussians.cpp to another target?
-add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp)
+# TODO: move project_gaussians.cpp, rasterize.cpp to another target?
+add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp)
 target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm)
 target_link_libraries(simple_trainer PUBLIC cuda opensplat mve ${TORCH_LIBRARIES})
 

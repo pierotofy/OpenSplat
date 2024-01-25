@@ -20,18 +20,70 @@ tensor_list ProjectGaussians::forward(AutogradContext *ctx,
     
     int numPoints = means.size(0);
 
-    auto r = project_gaussians_forward_tensor(numPoints, means, scales, globScale,
+    auto t = project_gaussians_forward_tensor(numPoints, means, scales, globScale,
                                               quats, viewMat, projMat, fx, fy,
                                               cx, cy, imgHeight, imgWidth, tileBounds, clipThresh);
-    std::cout << std::get<0>(r) << std::endl;
-    exit(1);
-    // ctx->saved_data["constant"] = constant;
-    return { means, means, means, means, means, means };
+    torch::Tensor cov3d = std::get<0>(t);
+    torch::Tensor xys = std::get<1>(t);
+    torch::Tensor depths = std::get<2>(t);
+    torch::Tensor radii = std::get<3>(t);
+    torch::Tensor conics = std::get<4>(t);
+    torch::Tensor numTilesHit = std::get<5>(t);
+
+    ctx->saved_data["imgHeight"] = imgHeight;
+    ctx->saved_data["imgWidth"] = imgWidth;
+    ctx->saved_data["numPoints"] = numPoints;
+    ctx->saved_data["globScale"] = globScale;
+    ctx->saved_data["fx"] = fx;
+    ctx->saved_data["fy"] = fy;
+    ctx->saved_data["cx"] = cx;
+    ctx->saved_data["cy"] = cy;
+    
+    ctx->save_for_backward({ means, scales, quats, viewMat, projMat, cov3d, radii, conics });
+    
+    return { xys, depths, radii, conics, numTilesHit, cov3d };
 }
 
 tensor_list ProjectGaussians::backward(AutogradContext *ctx, tensor_list grad_outputs) {
-    // We return as many input gradients as there were arguments.
-    // Gradients of non-tensor arguments to forward must be `torch::Tensor()`.
-    // return {grad_outputs[0] * ctx->saved_data["constant"].toDouble(), torch::Tensor()};
-    return {torch::Tensor()};
+    torch::Tensor v_xys = grad_outputs[0];
+    torch::Tensor v_depths = grad_outputs[1];
+    torch::Tensor v_radii = grad_outputs[2];
+    torch::Tensor v_conics = grad_outputs[3];
+    torch::Tensor v_numTiles = grad_outputs[4];
+    torch::Tensor v_cov3d = grad_outputs[5];
+
+    variable_list saved = ctx->get_saved_variables();
+    torch::Tensor means = saved[0];
+    torch::Tensor scales = saved[1];
+    torch::Tensor quats = saved[2];
+    torch::Tensor viewMat = saved[3];
+    torch::Tensor projMat = saved[4];
+    torch::Tensor cov3d = saved[5];
+    torch::Tensor radii = saved[6];
+    torch::Tensor conics = saved[7];
+    
+    auto t = project_gaussians_backward_tensor(ctx->saved_data["numPoints"].toInt(), 
+                                            means, scales, ctx->saved_data["globScale"].toDouble(),
+                                            quats, viewMat, projMat, 
+                                            ctx->saved_data["fx"].toDouble(), ctx->saved_data["fy"].toDouble(),
+                                            ctx->saved_data["cx"].toDouble(), ctx->saved_data["cy"].toDouble(), 
+                                            ctx->saved_data["imgHeight"].toInt(), ctx->saved_data["imgWidth"].toInt(), 
+                                            cov3d, radii,
+                                            conics, v_xys, v_depths, v_conics);
+
+    return {std::get<2>(t), // v_mean
+            std::get<3>(t), // v_scale
+            torch::Tensor(), // globScale
+            std::get<4>(t), // v_quat
+            torch::Tensor(), // viewMat
+            torch::Tensor(), // projMat
+            torch::Tensor(), // fx
+            torch::Tensor(), // fy
+            torch::Tensor(), // cx
+            torch::Tensor(), // cy
+            torch::Tensor(), // imgHeight
+            torch::Tensor(), // imgWidth
+            torch::Tensor(), // tileBounds
+            torch::Tensor() // clipThresh
+        };
 }
