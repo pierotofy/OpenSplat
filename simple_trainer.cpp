@@ -144,5 +144,7 @@ int main(int argc, char **argv){
         optimizer.step();
 
         std::cout << "Iteration " << std::to_string(i + 1) << "/" << std::to_string(iterations) << " Loss: " << loss.item<float>() << std::endl; 
+
+        // mve::image::save_file(tensorToImage(outImg.detach().cpu()), "render/" + std::to_string(i + 1) + ".png");
     }
 }
