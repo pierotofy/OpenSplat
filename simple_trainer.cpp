@@ -111,8 +111,6 @@ int main(int argc, char **argv){
     torch::nn::MSELoss mseLoss;
 
     for (size_t i = 0; i < iterations; i++){
-        std::cerr << "Begin loop" << std::endl;
-
         auto p = ProjectGaussians::apply(means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,
@@ -123,30 +121,25 @@ int main(int argc, char **argv){
                                 tileBounds);
 
         torch::cuda::synchronize();
-
-        // torch::Tensor outImg = RasterizeGaussians::apply(
-        //     p[0], // xys
-        //     p[1], // depths
-        //     p[2], // radii,
-        //     p[3], // conics
-        //     p[4], // numTilesHit
-        //     torch::sigmoid(rgbs),
-        //     torch::sigmoid(opacities),
-        //     height,
-        //     width,
-        //     background);
+        
+        torch::Tensor outImg = RasterizeGaussians::apply(
+            p[0], // xys
+            p[1], // depths
+            p[2], // radii,
+            p[3], // conics
+            p[4], // numTilesHit
+            torch::sigmoid(rgbs),
+            torch::sigmoid(opacities),
+            height,
+            width,
+            background);
         
         torch::cuda::synchronize();
 
-        torch::Tensor outImg = torch::rand({height, width, 3}, device);
+        outImg.requires_grad_();
         torch::Tensor loss = mseLoss(outImg, gtImage);
-        
         optimizer.zero_grad();
-
-        std::cerr << "About to call backward" << std::endl;
-
         loss.backward();
-        std::cerr << "Called backward" << std::endl;
         torch::cuda::synchronize();
         optimizer.step();
 

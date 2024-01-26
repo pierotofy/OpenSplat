@@ -44,8 +44,6 @@ variable_list ProjectGaussians::forward(AutogradContext *ctx,
 }
 
 tensor_list ProjectGaussians::backward(AutogradContext *ctx, tensor_list grad_outputs) {
-    std::cerr << "PG" << std::endl;
-    exit(1);
     torch::Tensor v_xys = grad_outputs[0];
     torch::Tensor v_depths = grad_outputs[1];
     torch::Tensor v_radii = grad_outputs[2];
@@ -71,20 +69,21 @@ tensor_list ProjectGaussians::backward(AutogradContext *ctx, tensor_list grad_ou
                                             ctx->saved_data["imgHeight"].toInt(), ctx->saved_data["imgWidth"].toInt(), 
                                             cov3d, radii,
                                             conics, v_xys, v_depths, v_conics);
+    torch::Tensor none;
 
     return {std::get<2>(t), // v_mean
             std::get<3>(t), // v_scale
-            torch::Tensor(), // globScale
+            none, // globScale
             std::get<4>(t), // v_quat
-            torch::Tensor(), // viewMat
-            torch::Tensor(), // projMat
-            torch::Tensor(), // fx
-            torch::Tensor(), // fy
-            torch::Tensor(), // cx
-            torch::Tensor(), // cy
-            torch::Tensor(), // imgHeight
-            torch::Tensor(), // imgWidth
-            torch::Tensor(), // tileBounds
-            torch::Tensor() // clipThresh
+            none, // viewMat
+            none, // projMat
+            none, // fx
+            none, // fy
+            none, // cx
+            none, // cy
+            none, // imgHeight
+            none, // imgWidth
+            none, // tileBounds
+            none // clipThresh
         };
 }
