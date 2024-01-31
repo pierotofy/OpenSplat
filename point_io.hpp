@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <torch/torch.h>
 #ifdef WITH_PDAL
 #include <pdal/Options.hpp>
 #include <pdal/PointTable.hpp>
@@ -76,6 +77,14 @@ struct PointSet {
             kdTree = nullptr;
         }
     }
+
+    inline torch::Tensor colorsTensor(){
+        return torch::from_blob(colors.data(), { static_cast<long int>(colors.size()), 3 }, torch::kU8);
+    }
+    inline torch::Tensor pointsTensor(){
+        return torch::from_blob(points.data(), { static_cast<long int>(points.size()), 3 }, torch::kFloat32);
+    }
+    
 
     ~PointSet() {
     }
