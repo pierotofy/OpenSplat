@@ -1,5 +1,5 @@
 #include "project_gaussians.h"
-#include "bindings.h"
+#include "vendor/gsplat/bindings.h"
 
 variable_list ProjectGaussians::forward(AutogradContext *ctx, 
                 torch::Tensor means,

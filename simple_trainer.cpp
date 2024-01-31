@@ -5,7 +5,7 @@
 #include <torch/cuda.h>
 #include <mve/image_io.h>
 
-#include "config.h"
+#include "vendor/gsplat/config.h"
 #include "project_gaussians.h"
 #include "rasterize_gaussians.h"
 

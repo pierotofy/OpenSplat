@@ -18,20 +18,25 @@ set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 find_package(Torch REQUIRED)
 add_subdirectory(vendor/mve)
 
-add_library(opensplat forward.cu backward.cu bindings.cu helpers.cuh)
-target_link_libraries(opensplat PUBLIC cuda)
-target_include_directories(opensplat PRIVATE
+add_library(gsplat vendor/gsplat/forward.cu vendor/gsplat/backward.cu vendor/gsplat/bindings.cu vendor/gsplat/helpers.cuh)
+target_link_libraries(gsplat PUBLIC cuda)
+target_include_directories(gsplat PRIVATE
     ${PROJECT_SOURCE_DIR}/vendor/glm        
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
     ${TORCH_INCLUDE_DIRS}
 )
-set_target_properties(opensplat PROPERTIES LINKER_LANGUAGE CXX)
-set_target_properties(opensplat PROPERTIES CUDA_ARCHITECTURES "70;75")
+set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(gsplat PROPERTIES CUDA_ARCHITECTURES "70;75")
 
 # TODO: move project_gaussians.cpp, rasterize.cpp to another target?
 add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp)
 target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm)
-target_link_libraries(simple_trainer PUBLIC cuda opensplat mve ${TORCH_LIBRARIES})
+target_link_libraries(simple_trainer PUBLIC cuda gsplat mve ${TORCH_LIBRARIES})
+
+add_executable(opensplat opensplat.cpp)
+target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm ${PROJECT_SOURCE_DIR}/vendor/json)
+target_link_libraries(opensplat PUBLIC cuda gsplat mve ${TORCH_LIBRARIES})
+
 
 # The following code block is suggested to be used on Windows.
 # According to https://github.com/pytorch/pytorch/issues/25457,
