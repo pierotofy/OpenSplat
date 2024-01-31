@@ -1,4 +1,4 @@
-#include "rasterize_gaussians.h"
+#include "rasterize_gaussians.hpp"
 #include "vendor/gsplat/bindings.h"
 #include "vendor/gsplat/config.h"
 

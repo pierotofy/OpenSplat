@@ -1,4 +1,4 @@
-#include "project_gaussians.h"
+#include "project_gaussians.hpp"
 #include "vendor/gsplat/bindings.h"
 
 variable_list ProjectGaussians::forward(AutogradContext *ctx, 

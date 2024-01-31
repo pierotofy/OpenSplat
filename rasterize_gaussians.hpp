@@ -2,7 +2,7 @@
 #define RASTERIZE_GAUSSIANS_H
 
 #include <torch/torch.h>
-#include "tile_bounds.h"
+#include "tile_bounds.hpp"
 
 using namespace torch::autograd;
 

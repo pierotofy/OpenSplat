@@ -13,6 +13,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CUDA_STANDARD 17)
 set(PYTHON_EXECUTABLE /usr/bin/python3)
 
+if (NOT WIN32 AND NOT APPLE)
+    set(STDPPFS_LIBRARY stdc++fs)
+endif()
+
 find_package(CUDA REQUIRED)
 set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 find_package(Torch REQUIRED)
@@ -33,9 +37,9 @@ add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize
 target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm)
 target_link_libraries(simple_trainer PUBLIC cuda gsplat mve ${TORCH_LIBRARIES})
 
-add_executable(opensplat opensplat.cpp)
+add_executable(opensplat opensplat.cpp point_io.cpp)
 target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm ${PROJECT_SOURCE_DIR}/vendor/json)
-target_link_libraries(opensplat PUBLIC cuda gsplat mve ${TORCH_LIBRARIES})
+target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} cuda gsplat mve ${TORCH_LIBRARIES})
 
 
 # The following code block is suggested to be used on Windows.
