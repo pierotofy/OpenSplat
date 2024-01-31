@@ -11,9 +11,12 @@ int main(int argc, char *argv[]){
     if (t.plyFilePath.empty()) throw std::runtime_error("ply_file_path is empty");
 
     PointSet *pSet = readPointSet((nfProjectRoot / t.plyFilePath).string());
+    torch::Tensor unorientedPoses = ns::posesFromTransforms(t);
+    
+    auto r = ns::autoOrientAndCenterPoses(unorientedPoses);
+    torch::Tensor poses = std::get<0>(r);
+    torch::Tensor transformMatrix = std::get<1>(r);
 
-    // std::cout << pSet->pointsTensor() << std::endl;
-    // std::cout << pSet->colorsTensor() << std::endl;
-    auto p = ns::posesFromTransforms(t);
-    std::cout << p << std::endl;
+    std::cout << transformMatrix;
+
 }

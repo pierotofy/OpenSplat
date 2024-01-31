@@ -2,6 +2,7 @@
 #include <json.hpp>
 
 using json = nlohmann::json;
+using namespace torch::indexing;
 
 namespace ns{
     void to_json(json &j, const Frame &f){
@@ -73,5 +74,42 @@ namespace ns{
             }
         }
         return poses;
+    }
+
+    std::tuple<torch::Tensor, torch::Tensor> autoOrientAndCenterPoses(const torch::Tensor &poses){
+        // Center at mean and orient up
+        torch::Tensor origins = poses.index({"...", Slice(None, 3), 3});
+        torch::Tensor translation = torch::mean(origins, 0);
+        torch::Tensor up = torch::mean(poses.index({Slice(), Slice(None, 3), 1}), 0);
+        up = up / up.norm();
+        
+        torch::Tensor rotation = rotationMatrix(up, torch::tensor({0, 0, 1}, torch::kFloat32));
+        torch::Tensor transform = torch::cat({rotation, torch::matmul(rotation, -translation.index({"...", None}))}, -1);
+        torch::Tensor orientedPoses = torch::matmul(transform, poses);
+        return std::make_tuple(orientedPoses, transform);
+    }
+
+
+    torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b){
+        // Rotation matrix that rotates vector a to vector b
+        torch::Tensor a1 = a / a.norm();
+        torch::Tensor b1 = b / b.norm();
+        torch::Tensor v = torch::cross(a1, b1);
+        torch::Tensor c = torch::dot(a1, b1);
+        const float EPS = 1e-8;
+        if (c.item<float>() < -1 + EPS){
+            torch::Tensor eps = (torch::rand(3) - 0.5f) * 0.01f;
+            return rotationMatrix(a1 + eps, b1);
+        }
+        torch::Tensor s = v.norm();
+        torch::Tensor skew = torch::zeros({3, 3}, torch::kFloat32);
+        skew[0][1] = -v[2];
+        skew[0][2] = v[1];
+        skew[1][0] = v[2];
+        skew[1][2] = -v[0];
+        skew[2][0] = -v[1];
+        skew[2][1] = v[0];
+    
+        return torch::eye(3) + skew + torch::matmul(skew, skew * ((1 - c) / (s.pow(2) + EPS)));
     }
 }

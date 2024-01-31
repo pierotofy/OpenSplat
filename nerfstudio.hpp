@@ -42,7 +42,11 @@ namespace ns{
     Transforms readTransforms(const std::string &filename);
 
     torch::Tensor posesFromTransforms(const Transforms &t);
-    // std::tuple<torch::Tensor, torch::Tensor> 
-}
+    std::tuple<torch::Tensor, torch::Tensor> autoOrientAndCenterPoses(const torch::Tensor &poses);
+
+    torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b);
+}   
+
+
 
 #endif
