@@ -12,7 +12,8 @@ int main(int argc, char *argv[]){
 
     PointSet *pSet = readPointSet((nfProjectRoot / t.plyFilePath).string());
 
-    std::cout << pSet->pointsTensor() << std::endl;
+    // std::cout << pSet->pointsTensor() << std::endl;
     // std::cout << pSet->colorsTensor() << std::endl;
-    
+    auto p = ns::posesFromTransforms(t);
+    std::cout << p << std::endl;
 }

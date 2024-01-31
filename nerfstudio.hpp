@@ -5,10 +5,13 @@
 #include <string>
 #include <fstream>
 #include <json_fwd.hpp>
+#include <torch/torch.h>
 
 using json = nlohmann::json;
 
 namespace ns{
+    typedef std::vector<std::vector<float>> Mat4;
+
     struct Frame{
         std::string filePath;
         int width;
@@ -22,7 +25,7 @@ namespace ns{
         double p1;
         double p2;
         double k3;
-        std::vector<std::vector<double>> transformMatrix;
+        Mat4 transformMatrix;
     };
     void to_json(json &j, const Frame &f);
     void from_json(const json& j, Frame &f);
@@ -37,6 +40,9 @@ namespace ns{
 
 
     Transforms readTransforms(const std::string &filename);
+
+    torch::Tensor posesFromTransforms(const Transforms &t);
+    // std::tuple<torch::Tensor, torch::Tensor> 
 }
 
 #endif

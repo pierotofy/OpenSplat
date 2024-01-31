@@ -50,11 +50,28 @@ namespace ns{
         j.at("camera_model").get_to(t.cameraModel);
         j.at("frames").get_to(t.frames);
         if (j.contains("ply_file_path")) j.at("ply_file_path").get_to(t.plyFilePath);
+
+        std::sort(t.frames.begin(), t.frames.end(), 
+            [](Frame const &a, Frame const &b) {
+                return a.filePath < b.filePath; 
+            });
     }    
     
     Transforms readTransforms(const std::string &filename){
         std::ifstream f(filename);
         json data = json::parse(f);
         return data.template get<Transforms>();
+    }
+
+    torch::Tensor posesFromTransforms(const Transforms &t){
+        torch::Tensor poses = torch::zeros({static_cast<long int>(t.frames.size()), 4, 4}, torch::kFloat32);
+        for (size_t c = 0; c < t.frames.size(); c++){
+            for (size_t i = 0; i < 4; i++){
+                for (size_t j = 0; j < 4; j++){
+                    poses[c][i][j] = t.frames[c].transformMatrix[i][j];
+                }
+            }
+        }
+        return poses;
     }
 }
