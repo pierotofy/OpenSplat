@@ -1,5 +1,9 @@
-#include "nerfstudio.hpp"
+#include <filesystem>
 #include <json.hpp>
+#include "nerfstudio.hpp"
+#include "point_io.hpp"
+
+namespace fs = std::filesystem;
 
 using json = nlohmann::json;
 using namespace torch::indexing;
@@ -111,5 +115,65 @@ namespace ns{
         skew[2][1] = v[0];
     
         return torch::eye(3) + skew + torch::matmul(skew, skew * ((1 - c) / (s.pow(2) + EPS)));
+    }
+
+
+    InputData inputDataFromNerfStudio(const std::string &projectRoot){
+        InputData ret;
+        fs::path nsRoot(projectRoot);
+
+        Transforms t = readTransforms((nsRoot / "transforms.json").string());
+        if (t.plyFilePath.empty()) throw std::runtime_error("ply_file_path is empty");
+        PointSet *pSet = readPointSet((nsRoot / t.plyFilePath).string());
+
+        torch::Tensor unorientedPoses = posesFromTransforms(t);
+    
+        auto r = autoOrientAndCenterPoses(unorientedPoses);
+        torch::Tensor poses = std::get<0>(r);
+        ret.transformMatrix = std::get<1>(r);
+
+        ret.scaleFactor = 1.0f / torch::max(torch::abs(poses.index({Slice(), Slice(None, 3), 3}))).item<float>();
+        poses.index({Slice(), Slice(None, 3), 3}) *= ret.scaleFactor;
+
+        // poses = poses.index({torch::tensor({ 0 , 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 ,10, 11, 13})});
+        // TODO: end remove
+
+        // aabbScale = [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]]
+
+        for (size_t i = 0; i < t.frames.size(); i++){
+            // TODO: remove this (emulates the eval/split behavior which we don't need)
+            if (i == 12) continue;
+
+            Frame f = t.frames[i];
+
+            // TODO: more params
+            ret.cameras.emplace_back(Camera(f.width, f.height, 
+                                static_cast<float>(f.fx), static_cast<float>(f.fy), 
+                                static_cast<float>(f.cx), static_cast<float>(f.cy), 
+                                poses[i]));
+        }
+
+        std::cout << ret.transformMatrix << ret.scaleFactor;
+
+        exit(1);
+
+        RELEASE_POINTSET(pSet);
+
+        return ret;
+    }
+
+    void Camera::scaleOutputResolution(float scaleFactor){
+        fx = fx * scaleFactor;
+        fy = fy * scaleFactor;
+        cx = cx * scaleFactor;
+        cy = cy * scaleFactor;
+        height = static_cast<int>(static_cast<float>(height) * scaleFactor);
+        width = static_cast<int>(static_cast<float>(width) * scaleFactor);
+    }
+
+    void rescaleOutputResolution(std::vector<Camera> &cameras, float scaleFactor){
+        for (Camera &cam : cameras){
+            cam.scaleOutputResolution(scaleFactor);
+        }
     }
 }
