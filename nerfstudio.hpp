@@ -52,10 +52,11 @@ namespace ns{
         // double p2;
         // double k3;
         torch::Tensor camToWorld;
+        std::string filePath;
         CameraType cameraType = CameraType::Perspective;
 
-        Camera(int width, int height, float fx, float fy, float cx, float cy, const torch::Tensor &camToWorld) : 
-            width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), camToWorld(camToWorld){}
+        Camera(int width, int height, float fx, float fy, float cx, float cy, const torch::Tensor &camToWorld, const std::string &filePath) : 
+            width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), camToWorld(camToWorld), filePath(filePath) {}
         
         void scaleOutputResolution(float scaleFactor);
         

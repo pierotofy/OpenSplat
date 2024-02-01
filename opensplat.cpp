@@ -12,5 +12,5 @@ int main(int argc, char *argv[]){
 
     ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
     ns::rescaleOutputResolution(inputData.cameras, 1.0f / downScaleFactor);
-
+    
 }

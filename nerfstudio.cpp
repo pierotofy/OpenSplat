@@ -135,9 +135,6 @@ namespace ns{
         ret.scaleFactor = 1.0f / torch::max(torch::abs(poses.index({Slice(), Slice(None, 3), 3}))).item<float>();
         poses.index({Slice(), Slice(None, 3), 3}) *= ret.scaleFactor;
 
-        // poses = poses.index({torch::tensor({ 0 , 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 ,10, 11, 13})});
-        // TODO: end remove
-
         // aabbScale = [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]]
 
         for (size_t i = 0; i < t.frames.size(); i++){
@@ -150,12 +147,15 @@ namespace ns{
             ret.cameras.emplace_back(Camera(f.width, f.height, 
                                 static_cast<float>(f.fx), static_cast<float>(f.fy), 
                                 static_cast<float>(f.cx), static_cast<float>(f.cy), 
-                                poses[i]));
+                                poses[i], f.filePath));
         }
 
-        std::cout << ret.transformMatrix << ret.scaleFactor;
+        torch::Tensor points = pSet->pointsTensor().clone();
 
-        exit(1);
+        ret.points.xyz = torch::matmul(torch::cat({points, torch::ones_like(points.index({"...", Slice(None, 1)}))}, -1), 
+                      ret.transformMatrix.transpose(0, 1));
+        ret.points.xyz *= ret.scaleFactor;
+        ret.points.rgb = pSet->colorsTensor().clone();
 
         RELEASE_POINTSET(pSet);
 
