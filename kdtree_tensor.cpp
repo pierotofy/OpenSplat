@@ -21,3 +21,7 @@ torch::Tensor PointsTensor::scales(){
 
     return scales;
 }
+
+PointsTensor::~PointsTensor(){
+    freeIndex<KdTreeTensor>();
+}

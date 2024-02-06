@@ -8,8 +8,7 @@
 #include "vendor/gsplat/config.h"
 #include "project_gaussians.hpp"
 #include "rasterize_gaussians.hpp"
-
-#define PI 3.14159265358979323846
+#include "constants.hpp"
 
 using namespace torch::indexing;
 

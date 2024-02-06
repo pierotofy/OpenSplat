@@ -40,10 +40,9 @@ struct PointsTensor {
         }
     }
 
-    PointsTensor(torch::Tensor tensor) : tensor(tensor), accessor(tensor.accessor<float, 2>()){
+    PointsTensor(const torch::Tensor &tensor) : tensor(tensor), accessor(tensor.accessor<float, 2>()){
     }
-    ~PointsTensor() {
-    }
+    ~PointsTensor();
 
     torch::Tensor scales();
 };
