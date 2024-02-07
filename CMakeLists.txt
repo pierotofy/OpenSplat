@@ -12,6 +12,7 @@ set(CMAKE_CUDA_ARCHITECTURES 70 75)  # Ti 2080 uses 75. V100 uses 70. RTX 4090 u
 set(CMAKE_CXX_STANDARD 17)
 set(CUDA_STANDARD 17)
 set(PYTHON_EXECUTABLE /usr/bin/python3)
+set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE "OPENCV_DIR" "Path to the OPENCV installation directory")
 
 if (NOT WIN32 AND NOT APPLE)
     set(STDPPFS_LIBRARY stdc++fs)
@@ -20,7 +21,8 @@ endif()
 find_package(CUDA REQUIRED)
 set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 find_package(Torch REQUIRED)
-add_subdirectory(vendor/mve)
+find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
+set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui)
 
 add_library(gsplat vendor/gsplat/forward.cu vendor/gsplat/backward.cu vendor/gsplat/bindings.cu vendor/gsplat/helpers.cuh)
 target_link_libraries(gsplat PUBLIC cuda)
@@ -34,12 +36,12 @@ set_target_properties(gsplat PROPERTIES CUDA_ARCHITECTURES "70;75")
 
 # TODO: move project_gaussians.cpp, rasterize.cpp to another target?
 add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp)
-target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm)
-target_link_libraries(simple_trainer PUBLIC cuda gsplat mve ${TORCH_LIBRARIES})
+target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm)
+target_link_libraries(simple_trainer PUBLIC cuda gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
 add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp)
-target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/mve ${PROJECT_SOURCE_DIR}/vendor/glm ${PROJECT_SOURCE_DIR}/vendor/json)
-target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} cuda gsplat mve ${TORCH_LIBRARIES})
+target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm ${PROJECT_SOURCE_DIR}/vendor/json)
+target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} cuda gsplat ${TORCH_LIBRARIES})
 
 
 # The following code block is suggested to be used on Windows.

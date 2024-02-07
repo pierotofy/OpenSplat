@@ -3,8 +3,10 @@
 
 #include <torch/torch.h>
 #include <torch/cuda.h>
-#include <mve/image_io.h>
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include "vendor/gsplat/config.h"
 #include "project_gaussians.hpp"
 #include "rasterize_gaussians.hpp"
@@ -13,20 +15,23 @@
 using namespace torch::indexing;
 
 
-mve::ByteImage::Ptr tensorToImage(const torch::Tensor &t){
-    int w = t.sizes()[1];
+cv::Mat tensorToImage(const torch::Tensor &t){
     int h = t.sizes()[0];
+    int w = t.sizes()[1];
     int c = t.sizes()[2];
 
-    mve::ByteImage::Ptr image = mve::ByteImage::create(w, h, c);
+    int type = CV_8UC3;
+    if (c != 3) throw std::runtime_error("Only images with 3 channels are supported");
+
+    cv::Mat image(h, w, type);
     uint8_t *dataPtr = static_cast<uint8_t *>((t * 255.0).toType(torch::kU8).data_ptr());
-    std::copy(dataPtr, dataPtr + (w * h * c), image->get_data().data());
+    std::copy(dataPtr, dataPtr + (w * h * c), image.data);
 
     return image;
 }
 
-torch::Tensor imageToTensor(const mve::ByteImage::Ptr &image){
-    torch::Tensor img = torch::from_blob(image->get_data().data(), { image->height(), image->width(), image->channels() }, torch::kU8);
+torch::Tensor imageToTensor(const cv::Mat &image){
+    torch::Tensor img = torch::from_blob(image.data, { image.rows, image.cols, image.dims }, torch::kU8);
     return (img.toType(torch::kFloat32) / 255.0f);
 }
 
@@ -54,8 +59,9 @@ int main(int argc, char **argv){
     gtImage.index_put_({Slice(None, height / 2), Slice(None, width / 2), Slice()}, torch::tensor({1.0, 0.0, 0.0}));
     gtImage.index_put_({Slice(height / 2, None), Slice(width / 2, None), Slice()}, torch::tensor({0.0, 0.0, 1.0}));
 
-    // mve::ByteImage::Ptr image = tensorToImage(gtImage);
-    // mve::image::save_file(image, "test.png");
+    // cv::Mat image = tensorToImage(gtImage);
+    // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+    // cv::imwrite("test.png", image);
 
     gtImage = gtImage.to(device);
     double fovX = PI / 2.0; // horizontal field of view (90 deg)
@@ -144,6 +150,8 @@ int main(int argc, char **argv){
 
         std::cout << "Iteration " << std::to_string(i + 1) << "/" << std::to_string(iterations) << " Loss: " << loss.item<float>() << std::endl; 
 
-        // mve::image::save_file(tensorToImage(outImg.detach().cpu()), "render/" + std::to_string(i + 1) + ".png");
+        // cv::Mat image = tensorToImage(outImg.detach().cpu());
+        // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+        // cv::imwrite("render/" + std::to_string(i + 1) + ".png", image);
     }
 }
