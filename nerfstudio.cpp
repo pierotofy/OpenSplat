@@ -189,21 +189,27 @@ void Camera::loadImage(float downscaleFactor){
         float f = 1.0f / downscaleFactor;
         cv::resize(cImg, cImg, cv::Size(), f, f);
     }
-    image = torch::from_blob(cImg.data, { cImg.rows, cImg.cols, cImg.dims }, torch::kU8);
-    image = image.toType(torch::kFloat32) / 255.0f;
 
     K = getIntrinsicsMatrix();
+    cv::Rect roi;
 
     if (hasDistortionParameters()){
         // Undistort
+        std::vector<float> distCoeffs = undistortionParameters();
         cv::Mat cK = floatNxNtensorToMat(K);
-        cv::Rect roi;
-        cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, undistortionParameters(), cv::Size(image.size(1), image.size(0)), 0, cv::Size(), &roi);
-
+        cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
+        cv::Mat undistorted = cv::Mat::zeros(cImg.rows, cImg.cols, cImg.type());
+        cv::undistort(cImg, undistorted, cK, distCoeffs, newK);
+        
+        image = imageToTensor(undistorted);
         K = floatNxNMatToTensor(newK);
-        std::cout << K; 
-
+    }else{
+        roi = cv::Rect(0, 0, cImg.cols, cImg.rows);
+        image = imageToTensor(cImg);
     }
+
+    // Crop to ROI
+    image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
 }
 
 bool Camera::hasDistortionParameters(){

@@ -11,29 +11,12 @@
 #include "project_gaussians.hpp"
 #include "rasterize_gaussians.hpp"
 #include "constants.hpp"
+#include "cv_utils.hpp"
 
 using namespace torch::indexing;
 
 
-cv::Mat tensorToImage(const torch::Tensor &t){
-    int h = t.sizes()[0];
-    int w = t.sizes()[1];
-    int c = t.sizes()[2];
 
-    int type = CV_8UC3;
-    if (c != 3) throw std::runtime_error("Only images with 3 channels are supported");
-
-    cv::Mat image(h, w, type);
-    uint8_t *dataPtr = static_cast<uint8_t *>((t * 255.0).toType(torch::kU8).data_ptr());
-    std::copy(dataPtr, dataPtr + (w * h * c), image.data);
-
-    return image;
-}
-
-torch::Tensor imageToTensor(const cv::Mat &image){
-    torch::Tensor img = torch::from_blob(image.data, { image.rows, image.cols, image.dims }, torch::kU8);
-    return (img.toType(torch::kFloat32) / 255.0f);
-}
 
 
 
