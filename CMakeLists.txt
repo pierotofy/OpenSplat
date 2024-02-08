@@ -22,7 +22,7 @@ find_package(CUDA REQUIRED)
 set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 find_package(Torch REQUIRED)
 find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
-set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui)
+set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui opencv_calib3d)
 
 add_library(gsplat vendor/gsplat/forward.cu vendor/gsplat/backward.cu vendor/gsplat/bindings.cu vendor/gsplat/helpers.cuh)
 target_link_libraries(gsplat PUBLIC cuda)
@@ -39,9 +39,9 @@ add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize
 target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm)
 target_link_libraries(simple_trainer PUBLIC cuda gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
-add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp)
+add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp)
 target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm ${PROJECT_SOURCE_DIR}/vendor/json)
-target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} cuda gsplat ${TORCH_LIBRARIES})
+target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} cuda gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
 
 # The following code block is suggested to be used on Windows.

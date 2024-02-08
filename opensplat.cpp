@@ -24,4 +24,6 @@ int main(int argc, char *argv[]){
     ns::Model m(inputData.points, device);
     m.to(device);
 
+    std::cout << inputData.cameras[0].getIntrinsicsMatrix();
+    inputData.cameras[0].loadImage(downScaleFactor);  
 }

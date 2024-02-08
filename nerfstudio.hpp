@@ -6,6 +6,7 @@
 #include <fstream>
 #include <json_fwd.hpp>
 #include <torch/torch.h>
+#include <opencv2/calib3d.hpp>
 
 using json = nlohmann::json;
 
@@ -46,20 +47,31 @@ namespace ns{
         float fy;
         float cx;
         float cy;
-        // double k1;
-        // double k2;
-        // double p1;
-        // double p2;
-        // double k3;
+        float k1;
+        float k2;
+        float k3;
+        float p1;
+        float p2;
         torch::Tensor camToWorld;
         std::string filePath;
         CameraType cameraType = CameraType::Perspective;
 
-        Camera(int width, int height, float fx, float fy, float cx, float cy, const torch::Tensor &camToWorld, const std::string &filePath) : 
-            width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), camToWorld(camToWorld), filePath(filePath) {}
+        Camera(int width, int height, float fx, float fy, float cx, float cy, 
+            float k1, float k2, float k3, float p1, float p2,
+            const torch::Tensor &camToWorld, const std::string &filePath) : 
+            width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), 
+            k1(k1), k2(k2), k3(k3), p1(p1), p2(p2),
+            camToWorld(camToWorld), filePath(filePath) {}
         
         void scaleOutputResolution(float scaleFactor);
         
+        torch::Tensor getIntrinsicsMatrix();
+        bool hasDistortionParameters();
+        std::vector<float> undistortionParameters();
+
+        void loadImage(float downscaleFactor);
+        torch::Tensor K;
+        torch::Tensor image;
     };
 
     Transforms readTransforms(const std::string &filename);
