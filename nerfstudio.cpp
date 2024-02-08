@@ -166,15 +166,6 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
     return ret;
 }
 
-void Camera::scaleOutputResolution(float scaleFactor){
-    fx = fx * scaleFactor;
-    fy = fy * scaleFactor;
-    cx = cx * scaleFactor;
-    cy = cy * scaleFactor;
-    height = static_cast<int>(static_cast<float>(height) * scaleFactor);
-    width = static_cast<int>(static_cast<float>(width) * scaleFactor);
-}
-
 torch::Tensor Camera::getIntrinsicsMatrix(){
     return torch::tensor({{fx, 0.0f, cx},
                           {0.0f, fy, cy},
@@ -182,7 +173,16 @@ torch::Tensor Camera::getIntrinsicsMatrix(){
 }
 
 void Camera::loadImage(float downscaleFactor){
-    // Populates image and K
+    // Populates image and K, then updates the camera parameters
+    // Caution: this function has destructive behaviors
+    // and should be called only once
+    if (image.numel()) std::runtime_error("loadImage already called");
+
+    float scaleFactor = 1.0f / downscaleFactor;
+    fx *= scaleFactor;
+    fy *= scaleFactor;
+    cx *= scaleFactor;
+    cy *= scaleFactor;
     
     cv::Mat cImg = imreadRGB(filePath);
     if (downscaleFactor > 1.0f){
@@ -210,6 +210,14 @@ void Camera::loadImage(float downscaleFactor){
 
     // Crop to ROI
     image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
+
+    // Update parameters
+    height = image.size(0);
+    width = image.size(1);
+    fx = K[0][0].item<float>();
+    fy = K[1][1].item<float>();
+    cx = K[0][2].item<float>();
+    cy = K[1][2].item<float>();
 }
 
 bool Camera::hasDistortionParameters(){
@@ -219,12 +227,6 @@ bool Camera::hasDistortionParameters(){
 std::vector<float> Camera::undistortionParameters(){
     std::vector<float> p = { k1, k2, p1, p2, k3 };
     return p;
-}
-
-void rescaleOutputResolution(std::vector<Camera> &cameras, float scaleFactor){
-    for (Camera &cam : cameras){
-        cam.scaleOutputResolution(scaleFactor);
-    }
 }
 
 }

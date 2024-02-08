@@ -63,8 +63,6 @@ namespace ns{
             k1(k1), k2(k2), k3(k3), p1(p1), p2(p2),
             camToWorld(camToWorld), filePath(filePath) {}
         
-        void scaleOutputResolution(float scaleFactor);
-        
         torch::Tensor getIntrinsicsMatrix();
         bool hasDistortionParameters();
         std::vector<float> undistortionParameters();
@@ -92,7 +90,6 @@ namespace ns{
         Points points;
     };
     InputData inputDataFromNerfStudio(const std::string &projectRoot);
-    void rescaleOutputResolution(std::vector<Camera> &cameras, float scaleFactor);
 }   
 
 
