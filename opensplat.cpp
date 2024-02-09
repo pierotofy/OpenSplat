@@ -2,6 +2,7 @@
 #include <json.hpp>
 #include "opensplat.hpp"
 #include "point_io.hpp"
+#include "utils.hpp"
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
@@ -23,8 +24,12 @@ int main(int argc, char *argv[]){
     ns::Model m(inputData.points, device);
     m.to(device);
 
-    std::cout << inputData.cameras[0].getIntrinsicsMatrix();
-    inputData.cameras[0].loadImage(downScaleFactor);  
-    std::cout << inputData.cameras[0].getIntrinsicsMatrix();
+    std::vector<int> items = {1,2,3,4,5};
+    InfiniteRandomIterator<int> iter(items);
+
+    for (size_t i = 0; i < 100; i++){
+        std::cout << iter.next() << std::endl;
+    }
+    // inputData.cameras[0].loadImage(downScaleFactor);  
     
 }
