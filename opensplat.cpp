@@ -13,6 +13,8 @@ int main(int argc, char *argv[]){
     const int numIters = 1000;
     const int numDownscales = 3;
     const int resolutionSchedule = 250;
+    const int shDegree = 3;
+    const int shDegreeInterval = 1000;
 
     torch::Device device = torch::kCPU;
 
@@ -25,7 +27,9 @@ int main(int argc, char *argv[]){
 
     ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
     
-    ns::Model model(inputData.points, numDownscales, resolutionSchedule, device);
+    ns::Model model(inputData.points, 
+                    numDownscales, resolutionSchedule, shDegree, shDegreeInterval,
+                    device);
     model.to(device);
 
     // TODO: uncomment

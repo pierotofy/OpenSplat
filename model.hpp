@@ -15,10 +15,12 @@ torch::Tensor randomQuatTensor(long long n);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
 
 struct Model : torch::nn::Module {
-  Model(const Points &points, int numDownscales, int resolutionSchedule, const torch::Device &device) :
-    numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), device(device) {
+  Model(const Points &points, 
+        int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval,
+        const torch::Device &device) :
+    numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval),
+    device(device) {
     long long numPoints = points.xyz.size(0); 
-    const int shDegree = 3;
     torch::manual_seed(42);
 
     means = register_parameter("means", points.xyz, true);
@@ -35,11 +37,12 @@ struct Model : torch::nn::Module {
     featuresRest = register_parameter("featuresRest", shs.index({Slice(), Slice(1, None), Slice()}), true);
     opacities = register_parameter("opacities", torch::logit(0.1f * torch::ones({numPoints, 1})), true);
     
-    backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}); // Black
+    backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
 
   }
 
   variable_list forward(Camera& cam, int step);
+  int getDownscaleFactor(int step);
 
   torch::Tensor means;
   torch::Tensor scales;
@@ -49,12 +52,14 @@ struct Model : torch::nn::Module {
   torch::Tensor opacities;
 
   torch::Tensor backgroundColor;
+  torch::Device device;
 
   int numDownscales;
   int resolutionSchedule;
-  torch::Device device;
+  int shDegree;
+  int shDegreeInterval;
 
-  int getDownscaleFactor(int step);
+
 };
 
 

@@ -45,7 +45,6 @@ variable_list Model::forward(Camera& cam, int step){
     R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f}, R.device())));
 
     // worldToCam
-
     torch::Tensor Rinv = R.transpose(0, 1);
     torch::Tensor Tinv = torch::matmul(-Rinv, T);
 
@@ -77,8 +76,25 @@ variable_list Model::forward(Camera& cam, int step){
                     cam.height,
                     cam.width,
                     tileBounds);
-    std::cout << p[0] << std::endl;
+    torch::Tensor xys = p[0];
+    torch::Tensor radii = p[2];
 
+    if (radii.sum().item<float>() == 0.0f){
+        // TODO: add empty depth, other params?
+        return { backgroundColor.repeat({cam.height, cam.width, 1}) };
+    }
+
+    // TODO: is this needed?
+    xys.retain_grad();
+
+    torch::Tensor viewDirs = means.detach() - T.transpose(0, 1).to(device);
+    viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
+    int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
+    torch::Tensor rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
+    std::cout << rgbs << "DONE!" << std::endl;
+    exit(1);
+    // rgbs = torch.clamp(rgbs + 0.5, min=0.0)  # type: ignore
+        
     return { torch::tensor({2,2}) };
 }
 
