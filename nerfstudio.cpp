@@ -185,9 +185,10 @@ void Camera::loadImage(float downscaleFactor){
     cy *= scaleFactor;
     
     cv::Mat cImg = imreadRGB(filePath);
+
     if (downscaleFactor > 1.0f){
         float f = 1.0f / downscaleFactor;
-        cv::resize(cImg, cImg, cv::Size(), f, f);
+        cv::resize(cImg, cImg, cv::Size(), f, f, cv::INTER_AREA);
     }
 
     K = getIntrinsicsMatrix();
@@ -198,6 +199,7 @@ void Camera::loadImage(float downscaleFactor){
         std::vector<float> distCoeffs = undistortionParameters();
         cv::Mat cK = floatNxNtensorToMat(K);
         cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
+
         cv::Mat undistorted = cv::Mat::zeros(cImg.rows, cImg.cols, cImg.type());
         cv::undistort(cImg, undistorted, cK, distCoeffs, newK);
         
@@ -210,6 +212,12 @@ void Camera::loadImage(float downscaleFactor){
 
     // Crop to ROI
     image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
+
+    // TODO: REMOVE
+    if (filePath == "banana/images/frame_00008.JPG"){
+        std::cout << "Override read of " << filePath << std::endl;
+        image = imageToTensor(imreadRGB("banana/frame_00008_ns.PNG"));
+    }
 
     // Update parameters
     height = image.size(0);
@@ -225,8 +233,17 @@ bool Camera::hasDistortionParameters(){
 }
 
 std::vector<float> Camera::undistortionParameters(){
-    std::vector<float> p = { k1, k2, p1, p2, k3 };
+    std::vector<float> p = { k1, k2, p1, p2, k3, 0.0f, 0.0f, 0.0f };
     return p;
+}
+
+void Camera::scaleOutputResolution(float scaleFactor){
+    fx = fx * scaleFactor;
+    fy = fy * scaleFactor;
+    cx = cx * scaleFactor;
+    cy = cy * scaleFactor;
+    height = static_cast<int>(static_cast<float>(height) * scaleFactor);
+    width = static_cast<int>(static_cast<float>(width) * scaleFactor);
 }
 
 }

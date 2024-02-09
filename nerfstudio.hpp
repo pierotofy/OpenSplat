@@ -66,6 +66,7 @@ namespace ns{
         torch::Tensor getIntrinsicsMatrix();
         bool hasDistortionParameters();
         std::vector<float> undistortionParameters();
+        void scaleOutputResolution(float scaleFactor);
 
         void loadImage(float downscaleFactor);
         torch::Tensor K;

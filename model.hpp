@@ -7,13 +7,15 @@
 #include "spherical_harmonics.hpp"
 
 using namespace torch::indexing;
+using namespace torch::autograd;
 
 namespace ns{
 
 torch::Tensor randomQuatTensor(long long n);
 
 struct Model : torch::nn::Module {
-  Model(const Points &points, const torch::Device &device) {
+  Model(const Points &points, int numDownscales, int resolutionSchedule, const torch::Device &device) :
+    numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), device(device) {
     long long numPoints = points.xyz.size(0); 
     const int shDegree = 3;
     torch::manual_seed(42);
@@ -36,6 +38,8 @@ struct Model : torch::nn::Module {
 
   }
 
+  variable_list forward(Camera& cam, int step);
+
   torch::Tensor means;
   torch::Tensor scales;
   torch::Tensor quats;
@@ -44,6 +48,12 @@ struct Model : torch::nn::Module {
   torch::Tensor opacities;
 
   torch::Tensor backgroundColor;
+
+  int numDownscales;
+  int resolutionSchedule;
+  torch::Device device;
+
+  int getDownscaleFactor(int step);
 };
 
 
