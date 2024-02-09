@@ -12,6 +12,7 @@ using namespace torch::autograd;
 namespace ns{
 
 torch::Tensor randomQuatTensor(long long n);
+torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
 
 struct Model : torch::nn::Module {
   Model(const Points &points, int numDownscales, int resolutionSchedule, const torch::Device &device) :
