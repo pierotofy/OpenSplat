@@ -3,6 +3,7 @@
 #include "opensplat.hpp"
 #include "point_io.hpp"
 #include "utils.hpp"
+#include "cv_utils.hpp"
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
@@ -46,7 +47,12 @@ int main(int argc, char *argv[]){
         // TODO: remove
         cam.loadImage(downScaleFactor);
 
-        std::cout << model.forward(cam, step);
+        torch::Tensor rgb = model.forward(cam, step);
+        torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
+        std::cout << gt << std::endl;
+
+        cv::Mat image = tensorToImage(gt);
+        imwriteRGB("my_gt.png", image);
 
         exit(1);
     }

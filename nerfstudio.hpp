@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <unordered_map>
 #include <json_fwd.hpp>
 #include <torch/torch.h>
 #include <opencv2/calib3d.hpp>
@@ -67,10 +68,13 @@ namespace ns{
         bool hasDistortionParameters();
         std::vector<float> undistortionParameters();
         void scaleOutputResolution(float scaleFactor);
+        torch::Tensor getImage(int downscaleFactor);
 
         void loadImage(float downscaleFactor);
         torch::Tensor K;
         torch::Tensor image;
+
+        std::unordered_map<int, torch::Tensor> imagePyramids;
     };
 
     Transforms readTransforms(const std::string &filename);

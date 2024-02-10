@@ -8,7 +8,6 @@ using namespace torch::autograd;
 int numShBases(int degree);
 int degFromSh(int numBases);
 torch::Tensor rgb2sh(const torch::Tensor &rgb);
-torch::Tensor sphericalHarmonics();
 
 class SphericalHarmonics : public Function<SphericalHarmonics>{
 public:

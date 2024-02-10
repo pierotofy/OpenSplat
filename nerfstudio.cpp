@@ -228,6 +228,22 @@ void Camera::loadImage(float downscaleFactor){
     cy = K[1][2].item<float>();
 }
 
+torch::Tensor Camera::getImage(int downscaleFactor){
+    if (downscaleFactor <= 1) return image;
+    else{
+        if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
+            return imagePyramids[downscaleFactor];
+        }
+
+        // Rescale, store and return
+        cv::Mat cImg = tensorToImage(image);
+        cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
+        torch::Tensor t = imageToTensor(cImg);
+        imagePyramids[downscaleFactor] = t;
+        return t;
+    }
+}
+
 bool Camera::hasDistortionParameters(){
     return k1 != 0.0f || k2 != 0.0f || k3 != 0.0f || p1 != 0.0f || p2 != 0.0f;
 }

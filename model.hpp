@@ -37,11 +37,12 @@ struct Model : torch::nn::Module {
     featuresRest = register_parameter("featuresRest", shs.index({Slice(), Slice(1, None), Slice()}), true);
     opacities = register_parameter("opacities", torch::logit(0.1f * torch::ones({numPoints, 1})), true);
     
-    backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
+    // backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
+    backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device); // Nerf Studio default
 
   }
 
-  variable_list forward(Camera& cam, int step);
+  torch::Tensor forward(Camera& cam, int step);
   int getDownscaleFactor(int step);
 
   torch::Tensor means;

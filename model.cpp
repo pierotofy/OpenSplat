@@ -2,6 +2,7 @@
 #include "constants.hpp"
 #include "tile_bounds.hpp"
 #include "project_gaussians.hpp"
+#include "rasterize_gaussians.hpp"
 #include "vendor/gsplat/config.h"
 
 namespace ns{
@@ -32,7 +33,7 @@ torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, 
     }, device);
 }
 
-variable_list Model::forward(Camera& cam, int step){
+torch::Tensor Model::forward(Camera& cam, int step){
 
     float scaleFactor = 1.0f / static_cast<float>(getDownscaleFactor(step));
     cam.scaleOutputResolution(scaleFactor);
@@ -77,11 +78,16 @@ variable_list Model::forward(Camera& cam, int step){
                     cam.width,
                     tileBounds);
     torch::Tensor xys = p[0];
+    torch::Tensor depths = p[1];
     torch::Tensor radii = p[2];
+    torch::Tensor conics = p[3];
+    torch::Tensor numTilesHit = p[4];
+    
 
     if (radii.sum().item<float>() == 0.0f){
-        // TODO: add empty depth, other params?
-        return { backgroundColor.repeat({cam.height, cam.width, 1}) };
+        // Rescale resolution back
+        cam.scaleOutputResolution(1.0f / scaleFactor);
+        return backgroundColor.repeat({cam.height, cam.width, 1});
     }
 
     // TODO: is this needed?
@@ -91,11 +97,27 @@ variable_list Model::forward(Camera& cam, int step){
     viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
     torch::Tensor rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
-    std::cout << rgbs << "DONE!" << std::endl;
-    exit(1);
-    // rgbs = torch.clamp(rgbs + 0.5, min=0.0)  # type: ignore
-        
-    return { torch::tensor({2,2}) };
+    rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f); 
+
+    
+    torch::Tensor rgb = RasterizeGaussians::apply(
+            xys,
+            depths,
+            radii,
+            conics,
+            numTilesHit,
+            rgbs, // TODO: why not sigmod?
+            torch::sigmoid(opacities),
+            cam.height,
+            cam.width,
+            backgroundColor);
+    
+    rgb = torch::clamp_max(rgb, 1.0f);
+
+    // Rescale resolution back
+    cam.scaleOutputResolution(1.0f / scaleFactor);
+    
+    return rgb;
 }
 
 int Model::getDownscaleFactor(int step){
