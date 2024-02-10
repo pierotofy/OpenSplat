@@ -13,6 +13,7 @@ namespace ns{
 
 torch::Tensor randomQuatTensor(long long n);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
+torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 
 struct Model : torch::nn::Module {
   Model(const Points &points, 

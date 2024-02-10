@@ -33,6 +33,11 @@ torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, 
     }, device);
 }
 
+torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt) {
+    torch::Tensor mse = (rendered - gt).pow(2).mean();
+    return (10.f * torch::log10(1.0 / mse));
+}
+
 torch::Tensor Model::forward(Camera& cam, int step){
 
     float scaleFactor = 1.0f / static_cast<float>(getDownscaleFactor(step));

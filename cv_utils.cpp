@@ -39,3 +39,4 @@ torch::Tensor imageToTensor(const cv::Mat &image){
     torch::Tensor img = torch::from_blob(image.data, { image.rows, image.cols, image.dims + 1 }, torch::kU8);
     return (img.toType(torch::kFloat32) / 255.0f);
 }
+

@@ -4,6 +4,8 @@
 #include "point_io.hpp"
 #include "cv_utils.hpp"
 
+#include <torch/script.h> // TODO REMOVE
+
 namespace fs = std::filesystem;
 
 using json = nlohmann::json;
@@ -231,6 +233,11 @@ void Camera::loadImage(float downscaleFactor){
 torch::Tensor Camera::getImage(int downscaleFactor){
     if (downscaleFactor <= 1) return image;
     else{
+
+        // TODO: remove
+        torch::jit::script::Module container = torch::jit::load("banana/gt.pt");
+        return container.attr("val").toTensor();
+
         if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
             return imagePyramids[downscaleFactor];
         }

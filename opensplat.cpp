@@ -49,10 +49,10 @@ int main(int argc, char *argv[]){
 
         torch::Tensor rgb = model.forward(cam, step);
         torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
-        std::cout << gt << std::endl;
+        gt = gt.to(device);
 
-        cv::Mat image = tensorToImage(gt);
-        imwriteRGB("my_gt.png", image);
+        torch::Tensor loss = ns::psnr(rgb, gt);
+        std::cout << loss;
 
         exit(1);
     }
