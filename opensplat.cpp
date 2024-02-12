@@ -11,12 +11,16 @@ using namespace torch::indexing;
 int main(int argc, char *argv[]){
     std::string projectRoot = "banana";
     const float downScaleFactor = 2.0f;
-    const int numIters = 1000;
+    const int numIters = 30000;
     const int numDownscales = 3;
     const int resolutionSchedule = 250;
     const int shDegree = 3;
     const int shDegreeInterval = 1000;
     const float ssimLambda = 0.2f;
+    const int refineEvery = 100;
+    const int warmupLength = 500;
+    const int resetAlphaEvery = 30;
+    const int stopSplitAt = 15000;
 
     torch::Device device = torch::kCPU;
 
@@ -30,7 +34,9 @@ int main(int argc, char *argv[]){
     ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
     
     ns::Model model(inputData.points, 
-                    numDownscales, resolutionSchedule, shDegree, shDegreeInterval,
+                    inputData.cameras.size(),
+                    numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
+                    refineEvery, warmupLength, resetAlphaEvery, stopSplitAt,
                     device);
     model.to(device);
 
@@ -60,10 +66,8 @@ int main(int argc, char *argv[]){
         mainLoss.backward();
 
         model.optimizersStep();
-        std::cout << model.means.grad();
-        exit(1);
         //model.optimizersScheduleStep(); // TODO
-
+        model.afterTrain(step);
     }
     // inputData.cameras[0].loadImage(downScaleFactor);  
     

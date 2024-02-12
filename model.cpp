@@ -59,6 +59,9 @@ torch::Tensor Model::forward(Camera& cam, int step){
     torch::Tensor Rinv = R.transpose(0, 1);
     torch::Tensor Tinv = torch::matmul(-Rinv, T);
 
+    lastHeight = cam.height;
+    lastWidth = cam.width;
+
     torch::Tensor viewMat = torch::eye(4, device);
     viewMat.index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
     viewMat.index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
@@ -87,9 +90,9 @@ torch::Tensor Model::forward(Camera& cam, int step){
                     cam.height,
                     cam.width,
                     tileBounds);
-    torch::Tensor xys = p[0];
+    xys = p[0];
     torch::Tensor depths = p[1];
-    torch::Tensor radii = p[2];
+    radii = p[2];
     torch::Tensor conics = p[3];
     torch::Tensor numTilesHit = p[4];
     
@@ -150,6 +153,44 @@ void Model::optimizersStep(){
 
 int Model::getDownscaleFactor(int step){
     return std::pow(2, (std::max<int>)(numDownscales - step / resolutionSchedule, 0));
+}
+
+void Model::afterTrain(int step){
+    torch::NoGradGuard noGrad;
+
+    if (step < stopSplitAt){
+        torch::Tensor visibleMask = (radii > 0).flatten();
+        
+        torch::Tensor grads = torch::linalg::vector_norm(xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
+        if (!xysGradNorm.numel()){
+            xysGradNorm = grads;
+            visCounts = torch::ones_like(xysGradNorm);
+        }else{
+            visCounts.index_put_({visibleMask}, visCounts.index({visibleMask}) + 1);
+            xysGradNorm.index_put_({visibleMask}, grads.index({visibleMask}) + xysGradNorm.index({visibleMask}));
+        }
+
+        if (!max2DSize.numel()){
+            max2DSize = torch::zeros_like(radii, torch::kFloat32);
+        }
+
+        torch::Tensor newRadii = radii.detach().index({visibleMask});
+        max2DSize.index_put_({visibleMask}, torch::maximum(
+                max2DSize.index({visibleMask}), newRadii / static_cast<float>( (std::max)(lastHeight, lastWidth) )
+            ));
+        
+        std::cout << max2DSize << std::endl;
+        exit(1);
+    }
+
+    if (step % refineEvery == 0 && step > warmupLength){
+        
+
+        int resetInterval = resetAlphaEvery * refineEvery;
+        bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
+        if (doDensification){
+        }
+    }
 }
 
 

@@ -18,10 +18,13 @@ torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 
 struct Model : torch::nn::Module {
-  Model(const Points &points, 
-        int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval,
+  Model(const Points &points, int numCameras,
+        int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
+        int refineEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt,
         const torch::Device &device) :
-    numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval),
+    numCameras(numCameras),
+    numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
+    refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(stopSplitAt),
     device(device), ssim(11, 3) {
     long long numPoints = points.xyz.size(0); 
     torch::manual_seed(42);
@@ -80,19 +83,29 @@ struct Model : torch::nn::Module {
   torch::optim::Adam *featuresRestOpt;
   torch::optim::Adam *opacitiesOpt;
 
+  torch::Tensor radii; // set in forward()
+  torch::Tensor xys; // set in forward()
+  int lastHeight; // set in forward()
+  int lastWidth; // set in forward()
+
+  torch::Tensor xysGradNorm; // set in afterTrain()
+  torch::Tensor visCounts; // set in afterTrain()  
+  torch::Tensor max2DSize; // set in afterTrain()
+
+
   torch::Tensor backgroundColor;
   torch::Device device;
   SSIM ssim;
 
+  int numCameras;
   int numDownscales;
   int resolutionSchedule;
   int shDegree;
   int shDegreeInterval;
-
-  
-
-
-
+  int refineEvery;
+  int warmupLength;
+  int resetAlphaEvery;
+  int stopSplitAt;
 };
 
 
