@@ -5,6 +5,7 @@
 #include "nerfstudio.hpp"
 #include "kdtree_tensor.hpp"
 #include "spherical_harmonics.hpp"
+#include "ssim.hpp"
 
 using namespace torch::indexing;
 using namespace torch::autograd;
@@ -14,13 +15,14 @@ namespace ns{
 torch::Tensor randomQuatTensor(long long n);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
 torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
+torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 
 struct Model : torch::nn::Module {
   Model(const Points &points, 
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval,
         const torch::Device &device) :
     numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval),
-    device(device) {
+    device(device), ssim(11, 3) {
     long long numPoints = points.xyz.size(0); 
     torch::manual_seed(42);
 
@@ -41,10 +43,28 @@ struct Model : torch::nn::Module {
     // backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
     backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device); // Nerf Studio default
 
+    meansOpt = new torch::optim::Adam({means}, torch::optim::AdamOptions(0.00016));
+    scalesOpt = new torch::optim::Adam({scales}, torch::optim::AdamOptions(0.005));
+    quatsOpt = new torch::optim::Adam({quats}, torch::optim::AdamOptions(0.001));
+    featuresDcOpt = new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025));
+    featuresRestOpt = new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125));
+    opacitiesOpt = new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05));
+  }
+
+  ~Model(){
+    delete meansOpt;
+    delete scalesOpt;
+    delete quatsOpt;
+    delete featuresDcOpt;
+    delete featuresRestOpt;
+    delete opacitiesOpt;
   }
 
   torch::Tensor forward(Camera& cam, int step);
+  void optimizersZeroGrad();
+  void optimizersStep();
   int getDownscaleFactor(int step);
+  void afterTrain(int step);
 
   torch::Tensor means;
   torch::Tensor scales;
@@ -53,13 +73,24 @@ struct Model : torch::nn::Module {
   torch::Tensor featuresRest;
   torch::Tensor opacities;
 
+  torch::optim::Adam *meansOpt;
+  torch::optim::Adam *scalesOpt;
+  torch::optim::Adam *quatsOpt;
+  torch::optim::Adam *featuresDcOpt;
+  torch::optim::Adam *featuresRestOpt;
+  torch::optim::Adam *opacitiesOpt;
+
   torch::Tensor backgroundColor;
   torch::Device device;
+  SSIM ssim;
 
   int numDownscales;
   int resolutionSchedule;
   int shDegree;
   int shDegreeInterval;
+
+  
+
 
 
 };

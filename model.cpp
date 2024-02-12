@@ -33,10 +33,15 @@ torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, 
     }, device);
 }
 
-torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt) {
+torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt){
     torch::Tensor mse = (rendered - gt).pow(2).mean();
     return (10.f * torch::log10(1.0 / mse));
 }
+
+torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
+    return torch::abs(gt - rendered).mean();
+}
+
 
 torch::Tensor Model::forward(Camera& cam, int step){
 
@@ -123,6 +128,24 @@ torch::Tensor Model::forward(Camera& cam, int step){
     cam.scaleOutputResolution(1.0f / scaleFactor);
     
     return rgb;
+}
+
+void Model::optimizersZeroGrad(){
+  meansOpt->zero_grad();
+  scalesOpt->zero_grad();
+  quatsOpt->zero_grad();
+  featuresDcOpt->zero_grad();
+  featuresRestOpt->zero_grad();
+  opacitiesOpt->zero_grad();
+}
+
+void Model::optimizersStep(){
+  meansOpt->step();
+  scalesOpt->step();
+  quatsOpt->step();
+  featuresDcOpt->step();
+  featuresRestOpt->step();
+  opacitiesOpt->step();
 }
 
 int Model::getDownscaleFactor(int step){

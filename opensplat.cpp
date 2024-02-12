@@ -16,6 +16,7 @@ int main(int argc, char *argv[]){
     const int resolutionSchedule = 250;
     const int shDegree = 3;
     const int shDegreeInterval = 1000;
+    const float ssimLambda = 0.2f;
 
     torch::Device device = torch::kCPU;
 
@@ -47,14 +48,22 @@ int main(int argc, char *argv[]){
         // TODO: remove
         cam.loadImage(downScaleFactor);
 
+        model.optimizersZeroGrad();
+
         torch::Tensor rgb = model.forward(cam, step);
         torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
         gt = gt.to(device);
 
-        torch::Tensor loss = ns::psnr(rgb, gt);
-        std::cout << loss;
+        torch::Tensor ssimLoss = 1.0f - model.ssim.eval(rgb, gt);
+        torch::Tensor l1Loss = ns::l1(rgb, gt);
+        torch::Tensor mainLoss = (1.0f - ssimLambda) * l1Loss + ssimLambda * ssimLoss;
+        mainLoss.backward();
 
+        model.optimizersStep();
+        std::cout << model.means.grad();
         exit(1);
+        //model.optimizersScheduleStep(); // TODO
+
     }
     // inputData.cameras[0].loadImage(downScaleFactor);  
     
