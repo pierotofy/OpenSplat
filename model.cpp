@@ -19,6 +19,32 @@ torch::Tensor randomQuatTensor(long long n){
     }, -1);
 }
 
+torch::Tensor quatToRotMat(const torch::Tensor &quat){
+    auto u = torch::unbind(torch::nn::functional::normalize(quat, torch::nn::functional::NormalizeFuncOptions().dim(-1)), -1);
+    torch::Tensor w = u[0];
+    torch::Tensor x = u[1];
+    torch::Tensor y = u[2];
+    torch::Tensor z = u[3];
+    return torch::stack({
+        torch::stack({
+            1.0 - 2.0 * (y.pow(2) + z.pow(2)),
+            2.0 * (x * y - w * z),
+            2.0 * (x * z + w * y)
+        }, -1),
+        torch::stack({
+            2.0 * (x * y + w * z),
+            1.0 - 2.0 * (x.pow(2) + z.pow(2)),
+            2.0 * (y * z - w * x)
+        }, -1),
+        torch::stack({
+            2.0 * (x * z - w * y),
+            2.0 * (y * z + w * x),
+            1.0 - 2.0 * (x.pow(2) + y.pow(2))
+        }, -1)
+    }, -2);
+    
+}
+
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device){
     // OpenGL perspective projection matrix
     float t = zNear * std::tan(0.5f * fovY);
@@ -198,7 +224,9 @@ void Model::afterTrain(int step){
             int nSplits = splits.sum().item<int>();
             torch::Tensor centeredSamples = torch::randn({nSplitSamples * nSplits, 3}, device);  // Nx3 of axis-aligned scales
             torch::Tensor scaledSamples = torch::exp(scales.index({splits}).repeat({nSplitSamples, 1})) * centeredSamples;
+            torch::Tensor quats = this->quats.index({splits}) / torch::linalg::vector_norm(this->quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
 
+        
         }
     }
 }

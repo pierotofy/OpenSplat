@@ -26,10 +26,10 @@ int main(int argc, char *argv[]){
     const int stopScreenSizeAt = 4000;
     const float splitScreenSize = 0.05f;
 
-    torch::Tensor t = torch::tensor({1, 0, 0});
+    torch::Tensor t = torch::tensor({-0.3390 , 0.3072, -0.6142 , 0.6430});
     // torch::Tensor b = torch::tensor({0, 0, 1});
     // t |= b;
-    std::cout << t.repeat({3, 1}) << std::endl;
+    std::cout << ns::quatToRotMat(t) << std::endl;
     exit(1);
 
     torch::Device device = torch::kCPU;
