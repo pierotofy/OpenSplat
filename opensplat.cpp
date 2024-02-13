@@ -21,6 +21,16 @@ int main(int argc, char *argv[]){
     const int warmupLength = 500;
     const int resetAlphaEvery = 30;
     const int stopSplitAt = 15000;
+    const float densifyGradThresh = 0.0002f;
+    const float densifySizeThresh = 0.01f;
+    const int stopScreenSizeAt = 4000;
+    const float splitScreenSize = 0.05f;
+
+    torch::Tensor t = torch::tensor({1, 0, 0});
+    // torch::Tensor b = torch::tensor({0, 0, 1});
+    // t |= b;
+    std::cout << t.repeat({3, 1}) << std::endl;
+    exit(1);
 
     torch::Device device = torch::kCPU;
 
@@ -36,7 +46,7 @@ int main(int argc, char *argv[]){
     ns::Model model(inputData.points, 
                     inputData.cameras.size(),
                     numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-                    refineEvery, warmupLength, resetAlphaEvery, stopSplitAt,
+                    refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
                     device);
     model.to(device);
 

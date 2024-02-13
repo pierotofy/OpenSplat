@@ -178,9 +178,6 @@ void Model::afterTrain(int step){
         max2DSize.index_put_({visibleMask}, torch::maximum(
                 max2DSize.index({visibleMask}), newRadii / static_cast<float>( (std::max)(lastHeight, lastWidth) )
             ));
-        
-        std::cout << max2DSize << std::endl;
-        exit(1);
     }
 
     if (step % refineEvery == 0 && step > warmupLength){
@@ -189,6 +186,19 @@ void Model::afterTrain(int step){
         int resetInterval = resetAlphaEvery * refineEvery;
         bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
         if (doDensification){
+            torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( (std::max)(lastWidth, lastHeight) );
+            torch::Tensor highGrads = (avgGradNorm > densifyGradThresh).squeeze();
+            torch::Tensor splits = (std::get<0>(scales.exp().max(-1)) > densifySizeThresh).squeeze();
+            if (step < stopScreenSizeAt){
+                splits |= (max2DSize > splitScreenSize).squeeze();
+            }
+
+            splits &= highGrads;
+            const int nSplitSamples = 2;
+            int nSplits = splits.sum().item<int>();
+            torch::Tensor centeredSamples = torch::randn({nSplitSamples * nSplits, 3}, device);  // Nx3 of axis-aligned scales
+            torch::Tensor scaledSamples = torch::exp(scales.index({splits}).repeat({nSplitSamples, 1})) * centeredSamples;
+
         }
     }
 }

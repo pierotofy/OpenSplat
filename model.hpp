@@ -20,11 +20,11 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 struct Model : torch::nn::Module {
   Model(const Points &points, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
-        int refineEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt,
+        int refineEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
         const torch::Device &device) :
     numCameras(numCameras),
     numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
-    refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(stopSplitAt),
+    refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(stopSplitAt), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
     device(device), ssim(11, 3) {
     long long numPoints = points.xyz.size(0); 
     torch::manual_seed(42);
@@ -106,6 +106,10 @@ struct Model : torch::nn::Module {
   int warmupLength;
   int resetAlphaEvery;
   int stopSplitAt;
+  float densifyGradThresh;
+  float densifySizeThresh;
+  int stopScreenSizeAt;
+  float splitScreenSize;
 };
 
 
