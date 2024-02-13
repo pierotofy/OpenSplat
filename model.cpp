@@ -214,6 +214,8 @@ void Model::afterTrain(int step){
         if (doDensification){
             torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( (std::max)(lastWidth, lastHeight) );
             torch::Tensor highGrads = (avgGradNorm > densifyGradThresh).squeeze();
+
+            // Split gaussians that are too large
             torch::Tensor splits = (std::get<0>(scales.exp().max(-1)) > densifySizeThresh).squeeze();
             if (step < stopScreenSizeAt){
                 splits |= (max2DSize > splitScreenSize).squeeze();
@@ -222,10 +224,51 @@ void Model::afterTrain(int step){
             splits &= highGrads;
             const int nSplitSamples = 2;
             int nSplits = splits.sum().item<int>();
+
             torch::Tensor centeredSamples = torch::randn({nSplitSamples * nSplits, 3}, device);  // Nx3 of axis-aligned scales
             torch::Tensor scaledSamples = torch::exp(scales.index({splits}).repeat({nSplitSamples, 1})) * centeredSamples;
-            torch::Tensor quats = this->quats.index({splits}) / torch::linalg::vector_norm(this->quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
+            torch::Tensor qs = quats.index({splits}) / torch::linalg::vector_norm(quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
+            torch::Tensor rots = quatToRotMat(qs.repeat({nSplitSamples, 1}));
+            torch::Tensor rotatedSamples = torch::bmm(rots, scaledSamples.index({"...", None})).squeeze();
+            torch::Tensor splitMeans = rotatedSamples + means.index({splits}).repeat({nSplitSamples, 1});
+            
+            torch::Tensor splitFeaturesDc = featuresDc.index({splits}).repeat({nSplitSamples, 1});
+            torch::Tensor splitFeaturesRest = featuresRest.index({splits}).repeat({nSplitSamples, 1, 1});
+            
+            torch::Tensor splitOpacities = opacities.index({splits}).repeat({nSplitSamples, 1});
+        
+            const float sizeFac = 1.6f;
+            torch::Tensor splitScales = torch::log(torch::exp(scales.index({splits})) / sizeFac).repeat({nSplitSamples, 1});
+            scales.index({splits}) = torch::log(torch::exp(scales.index({splits})) / sizeFac);
+            torch::Tensor splitQuats = quats.index({splits}).repeat({nSplitSamples, 1});
 
+            // Duplicate gaussians that are too small
+            torch::Tensor dups = (std::get<0>(scales.exp().max(-1)) <= densifySizeThresh).squeeze();
+            dups &= highGrads;
+            int nDups = dups.sum().item<int>();
+            torch::Tensor dupMeans = means.index({dups});
+            torch::Tensor dupFeaturesDc = featuresDc.index({dups});
+            torch::Tensor dupFeaturesRest = featuresRest.index({dups});
+            torch::Tensor dupOpacities = opacities.index({dups});
+            torch::Tensor dupScales = scales.index({dups});
+            torch::Tensor dupQuats = quats.index({dups});
+            
+            means = register_parameter("means", torch::cat({means.detach(), splitMeans, dupMeans}, 0), true);
+            featuresDc = register_parameter("featuresDc", torch::cat({featuresDc.detach(), splitFeaturesDc, dupFeaturesDc}, 0), true);
+            featuresRest = register_parameter("featuresRest", torch::cat({featuresRest.detach(), splitFeaturesRest, dupFeaturesRest}, 0), true);
+            opacities = register_parameter("opacities", torch::cat({opacities.detach(), splitOpacities, dupOpacities}, 0), true);
+            scales = register_parameter("scales", torch::cat({scales.detach(), splitScales, dupScales}, 0), true);
+            quats = register_parameter("quats", torch::cat({quats.detach(), splitQuats, dupQuats}, 0), true);
+            
+            max2DSize = torch::cat({
+                max2DSize,
+                torch::zeros_like(splitScales.index({Slice(), 0})),
+                torch::zeros_like(dupScales.index({Slice(), 0}))
+            }, 0);
+
+            torch::Tensor splitIdcs = torch::where(splits);
+
+            torch::Tensor dupIdcs = torch::where(dups);
         
         }
     }
