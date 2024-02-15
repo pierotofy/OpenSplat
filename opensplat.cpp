@@ -26,10 +26,10 @@ int main(int argc, char *argv[]){
     const int stopScreenSizeAt = 4000;
     const float splitScreenSize = 0.05f;
 
-    torch::Tensor t = torch::tensor({1, 0, 1, 1});
-    // torch::Tensor b = torch::tensor({0, 0, 1});
-    // t |= b;
-    std::cout << torch::where(t) << std::endl;
+    float t = torch::logit(torch::tensor(0.6f)).item<float>();
+    // torch::Tensor b = torch::tensor({0, 0, 1, 1});
+
+    std::cout << t << std::endl;
     exit(1);
 
     torch::Device device = torch::kCPU;

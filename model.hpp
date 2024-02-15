@@ -70,6 +70,8 @@ struct Model : torch::nn::Module {
   int getDownscaleFactor(int step);
   void afterTrain(int step);
 
+  void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSplitSamples);
+  void removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
   torch::Tensor means;
   torch::Tensor scales;
   torch::Tensor quats;
