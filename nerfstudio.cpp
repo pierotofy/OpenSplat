@@ -143,7 +143,7 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
 
     for (size_t i = 0; i < t.frames.size(); i++){
         // TODO: remove this (emulates the eval/split behavior which we don't need)
-        if (i == 12) continue;
+        // if (i == 12) continue;
 
         Frame f = t.frames[i];
 
@@ -179,6 +179,7 @@ void Camera::loadImage(float downscaleFactor){
     // Caution: this function has destructive behaviors
     // and should be called only once
     if (image.numel()) std::runtime_error("loadImage already called");
+    std::cout << "Loading " << filePath << std::endl;
 
     float scaleFactor = 1.0f / downscaleFactor;
     fx *= scaleFactor;
@@ -216,10 +217,10 @@ void Camera::loadImage(float downscaleFactor){
     image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
 
     // TODO: REMOVE
-    if (filePath == "banana/images/frame_00008.JPG"){
-        std::cout << "Override read of " << filePath << std::endl;
-        image = imageToTensor(imreadRGB("banana/frame_00008_ns.PNG"));
-    }
+    // if (filePath == "banana/images/frame_00008.JPG"){
+    //     std::cout << "Override read of " << filePath << std::endl;
+    //     image = imageToTensor(imreadRGB("banana/frame_00008_ns.PNG"));
+    // }
 
     // Update parameters
     height = image.size(0);
@@ -235,8 +236,8 @@ torch::Tensor Camera::getImage(int downscaleFactor){
     else{
 
         // TODO: remove
-        torch::jit::script::Module container = torch::jit::load("banana/gt.pt");
-        return container.attr("val").toTensor();
+        // torch::jit::script::Module container = torch::jit::load("banana/gt.pt");
+        // return container.attr("val").toTensor();
 
         if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
             return imagePyramids[downscaleFactor];

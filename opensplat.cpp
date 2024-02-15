@@ -18,19 +18,15 @@ int main(int argc, char *argv[]){
     const int shDegreeInterval = 1000;
     const float ssimLambda = 0.2f;
     const int refineEvery = 100;
-    const int warmupLength = 500;
+    // const int warmupLength = 500;
+    const int warmupLength = 100;
+
     const int resetAlphaEvery = 30;
     const int stopSplitAt = 15000;
     const float densifyGradThresh = 0.0002f;
     const float densifySizeThresh = 0.01f;
     const int stopScreenSizeAt = 4000;
     const float splitScreenSize = 0.05f;
-
-    float t = torch::logit(torch::tensor(0.6f)).item<float>();
-    // torch::Tensor b = torch::tensor({0, 0, 1, 1});
-
-    std::cout << t << std::endl;
-    exit(1);
 
     torch::Device device = torch::kCPU;
 
@@ -51,18 +47,20 @@ int main(int argc, char *argv[]){
     model.to(device);
 
     // TODO: uncomment
-    // for (ns::Camera &cam : inputData.cameras){
-    //     cam.loadImage(downScaleFactor);
-    // }
+    for (ns::Camera &cam : inputData.cameras){
+        cam.loadImage(downScaleFactor);
+    }
 
     InfiniteRandomIterator<ns::Camera> cams(inputData.cameras);
 
     for (size_t step = 0; step < numIters; step++){
-        // ns::Camera cam = cams.next();
-        ns::Camera cam = inputData.cameras[6];
+        ns::Camera cam = cams.next();
+
+        // TODO: remove
+        // ns::Camera cam = inputData.cameras[6];
         
         // TODO: remove
-        cam.loadImage(downScaleFactor);
+        // cam.loadImage(downScaleFactor);
 
         model.optimizersZeroGrad();
 
@@ -78,6 +76,8 @@ int main(int argc, char *argv[]){
         model.optimizersStep();
         //model.optimizersScheduleStep(); // TODO
         model.afterTrain(step);
+
+        std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
     }
     // inputData.cameras[0].loadImage(downScaleFactor);  
     
