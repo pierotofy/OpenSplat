@@ -48,6 +48,20 @@ There's several parameters you can tune. To view the full list:
 ./opensplat --help
 ```
 
+## Project Goals
+
+We recently released OpenSplat, so there's lots of work to do.
+
+ * Support for running on AMD cards
+ * Support for running on CPU-only
+ * Improve speed / reduce memory usage
+ * Distributed computation using multiple machines
+ * Real-time training viewer output
+ * Compressed scene outputs
+ * Your ideas?
+
+ https://github.com/pierotofy/OpenSplat/issues?q=is%3Aopen+is%3Aissue+label%3Aenhancement
+
 ## Contributing
 
 We welcome contributions! Pull requests are welcome.
