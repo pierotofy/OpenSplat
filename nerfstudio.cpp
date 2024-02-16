@@ -125,8 +125,10 @@ torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b){
 InputData inputDataFromNerfStudio(const std::string &projectRoot){
     InputData ret;
     fs::path nsRoot(projectRoot);
+    fs::path transformsPath = nsRoot / "transforms.json";
+    if (!fs::exists(transformsPath)) throw std::runtime_error(transformsPath.string() + " does not exist");
 
-    Transforms t = readTransforms((nsRoot / "transforms.json").string());
+    Transforms t = readTransforms(transformsPath.string());
     if (t.plyFilePath.empty()) throw std::runtime_error("ply_file_path is empty");
     PointSet *pSet = readPointSet((nsRoot / t.plyFilePath).string());
 

@@ -13,7 +13,7 @@ int main(int argc, char *argv[]){
     cxxopts::Options options("opensplat", "Open Source 3D Gaussian Splats generator");
     options.add_options()
         ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
-        // ("o,output", "Output model", cxxopts::value<std::string>()->default_value("model.bin"))
+        ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
         // ("r,resolution", "Resolution of the first scale (-1 = estimate automatically)", cxxopts::value<double>()->default_value("-1"))
         // ("s,scales", "Number of scales to compute", cxxopts::value<int>()->default_value(MKSTR(NUM_SCALES)))
         // ("t,trees", "Number of trees in the forest", cxxopts::value<int>()->default_value(MKSTR(N_TREES)))
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]){
 
     std::string projectRoot = result["input"].as<std::string>();
     const float downScaleFactor = 2.0f;
-    const int numIters = 100; //30000;
+    const int numIters = result["num-iters"].as<int>();
     const int numDownscales = 3;
     const int resolutionSchedule = 250;
     const int shDegree = 3;
@@ -71,48 +71,53 @@ int main(int argc, char *argv[]){
         std::cout << "Using CPU" << std::endl;
     }
 
-    ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
-    
-    ns::Model model(inputData.points, 
-                    inputData.cameras.size(),
-                    numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-                    refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
-                    device);
+    try{
 
-    // TODO: uncomment
-    for (ns::Camera &cam : inputData.cameras){
-        cam.loadImage(downScaleFactor);
-    }
-
-    InfiniteRandomIterator<ns::Camera> cams(inputData.cameras);
-
-    for (size_t step = 0; step < numIters; step++){
-        ns::Camera cam = cams.next();
-
-        // TODO: remove
-        // ns::Camera cam = inputData.cameras[6];
+        ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
         
-        // TODO: remove
-        // cam.loadImage(downScaleFactor);
+        ns::Model model(inputData.points, 
+                        inputData.cameras.size(),
+                        numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
+                        refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
+                        device);
 
-        model.optimizersZeroGrad();
+        // TODO: uncomment
+        for (ns::Camera &cam : inputData.cameras){
+            cam.loadImage(downScaleFactor);
+        }
 
-        torch::Tensor rgb = model.forward(cam, step);
-        torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
-        gt = gt.to(device);
+        InfiniteRandomIterator<ns::Camera> cams(inputData.cameras);
 
-        torch::Tensor ssimLoss = 1.0f - model.ssim.eval(rgb, gt);
-        torch::Tensor l1Loss = ns::l1(rgb, gt);
-        torch::Tensor mainLoss = (1.0f - ssimLambda) * l1Loss + ssimLambda * ssimLoss;
-        mainLoss.backward();
+        for (size_t step = 0; step < numIters; step++){
+            ns::Camera cam = cams.next();
 
-        model.optimizersStep();
-        //model.optimizersScheduleStep(); // TODO
-        model.afterTrain(step);
+            // TODO: remove
+            // ns::Camera cam = inputData.cameras[6];
+            
+            // TODO: remove
+            // cam.loadImage(downScaleFactor);
 
-        std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
+            model.optimizersZeroGrad();
+
+            torch::Tensor rgb = model.forward(cam, step);
+            torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
+            gt = gt.to(device);
+
+            torch::Tensor ssimLoss = 1.0f - model.ssim.eval(rgb, gt);
+            torch::Tensor l1Loss = ns::l1(rgb, gt);
+            torch::Tensor mainLoss = (1.0f - ssimLambda) * l1Loss + ssimLambda * ssimLoss;
+            mainLoss.backward();
+
+            model.optimizersStep();
+            //model.optimizersScheduleStep(); // TODO
+            model.afterTrain(step);
+
+            if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
+        }
+
+        model.savePlySplat("splat.ply");
+    }catch(const std::exception &e){
+        std::cerr << e.what() << std::endl;
+        exit(1);
     }
-
-    model.savePlySplat("splat.ply");
-    
 }
