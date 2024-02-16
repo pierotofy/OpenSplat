@@ -10,7 +10,7 @@ OpenSplat takes camera poses + sparse points and computes a scene file (.ply) th
 
 Requirements:
 
- * **CUDA**: Make sure you have the CUDA compiler (`nvcc`) in your PATH that `nvidia-smi` is working. https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html 
+ * **CUDA**: Make sure you have the CUDA compiler (`nvcc`) in your PATH and that `nvidia-smi` is working. https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html 
  * **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of CUDA if you want to leverage GPU support in libtorch.
  * **OpenCV**: `sudo apt install libopencv-dev` should do it.
  

@@ -91,7 +91,7 @@ int main(int argc, char *argv[]){
 
         InfiniteRandomIterator<ns::Camera> cams(inputData.cameras);
 
-        for (size_t step = 0; step < numIters; step++){
+        for (size_t step = 1; step <= numIters; step++){
             ns::Camera cam = cams.next();
 
             model.optimizersZeroGrad();
