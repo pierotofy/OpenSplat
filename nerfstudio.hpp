@@ -15,18 +15,18 @@ namespace ns{
     typedef std::vector<std::vector<float>> Mat4;
 
     struct Frame{
-        std::string filePath;
-        int width;
-        int height;
-        double fx;
-        double fy;
-        double cx;
-        double cy;
-        double k1;
-        double k2;
-        double p1;
-        double p2;
-        double k3;
+        std::string filePath = "";
+        int width = 0;
+        int height = 0;
+        double fx = 0;
+        double fy = 0;
+        double cx = 0;
+        double cy = 0;
+        double k1 = 0;
+        double k2 = 0;
+        double p1 = 0;
+        double p2 = 0;
+        double k3 = 0;
         Mat4 transformMatrix;
     };
     void to_json(json &j, const Frame &f);
@@ -42,19 +42,19 @@ namespace ns{
 
     enum CameraType { Perspective };
     struct Camera{
-        int width;
-        int height;
-        float fx;
-        float fy;
-        float cx;
-        float cy;
-        float k1;
-        float k2;
-        float k3;
-        float p1;
-        float p2;
+        int width = 0;
+        int height = 0;
+        float fx = 0;
+        float fy = 0;
+        float cx = 0;
+        float cy = 0;
+        float k1 = 0;
+        float k2 = 0;
+        float k3 = 0;
+        float p1 = 0;
+        float p2 = 0;
         torch::Tensor camToWorld;
-        std::string filePath;
+        std::string filePath = "";
         CameraType cameraType = CameraType::Perspective;
 
         Camera(int width, int height, float fx, float fy, float cx, float cy, 

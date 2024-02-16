@@ -1,6 +1,6 @@
 # OpenSplat
 
-A free and open source implementation of 3D gaussian splatting, written in C++. It's based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) but focused on being portable, lean and fast.
+A free and open source implementation of 3D gaussian splatting, written in C++. It's based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) but focused on being portable, lean and fast. 
 
 
 
@@ -70,4 +70,4 @@ We welcome contributions! Pull requests are welcome.
 
 The code in this repository, unless otherwise noted, is licensed under the AGPLv3.
 
-The code from [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) is originally licensed under the Apache 2.0 license and is (C) 2023 The Nerfstudio Team.
+The code from [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) is originally licensed under the Apache 2.0 license and is © 2023 The Nerfstudio Team.

@@ -13,22 +13,28 @@ int main(int argc, char *argv[]){
     cxxopts::Options options("opensplat", "Open Source 3D Gaussian Splats generator");
     options.add_options()
         ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
+        ("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value("splat.ply"))
+        
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
-        // ("r,resolution", "Resolution of the first scale (-1 = estimate automatically)", cxxopts::value<double>()->default_value("-1"))
-        // ("s,scales", "Number of scales to compute", cxxopts::value<int>()->default_value(MKSTR(NUM_SCALES)))
-        // ("t,trees", "Number of trees in the forest", cxxopts::value<int>()->default_value(MKSTR(N_TREES)))
-        // ("d,depth", "Maximum depth of trees", cxxopts::value<int>()->default_value(MKSTR(MAX_DEPTH)))
-        // ("m,max-samples", "Approximate maximum number of samples for each input point cloud", cxxopts::value<int>()->default_value("100000"))
-        // ("radius", "Radius size to use for neighbor search (meters)", cxxopts::value<double>()->default_value(MKSTR(RADIUS)))
-        // ("e,eval", "Labeled point cloud to use for model accuracy evaluation", cxxopts::value<std::string>()->default_value(""))
-        // ("eval-result", "Path where to store evaluation results (PLY)", cxxopts::value<std::string>()->default_value(""))
-        // ("stats", "Path where to store evaluation statistics (JSON)", cxxopts::value<std::string>()->default_value(""))
-        // ("c,classifier", "Which classifier type to use (rf = Random Forest, gbt = Gradient Boosted Trees)", cxxopts::value<std::string>()->default_value("rf"))
-        // ("classes", "Train only these classification classes (comma separated IDs)", cxxopts::value<std::vector<int>>())
+        ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("2"))
+        ("num-downscales", "Number of images downscales to use. After being scaled by [downscale-factor], images are initially scaled by a further (2^[num-downscales]) and the scale is increased every [resolution-schedule]", cxxopts::value<int>()->default_value("3"))
+        ("resolution-schedule", "Double the image resolution every these many steps", cxxopts::value<int>()->default_value("250"))
+        ("sh-degree", "Maximum spherical harmonics degree (must be > 0)", cxxopts::value<int>()->default_value("3"))
+        ("sh-degree-interval", "Increase the number of spherical harmonics degree after these many steps (will not exceed [sh-degree])", cxxopts::value<int>()->default_value("1000"))
+        ("ssim-weight", "Weight to apply to the structural similarity loss. Set to zero to use least absolute deviation (L1) loss only", cxxopts::value<float>()->default_value("0.2"))
+        ("refine-every", "Split/duplicate/prune gaussians every these many steps", cxxopts::value<int>()->default_value("100"))
+        ("warmup-length", "Split/duplicate/prune gaussians only after these many steps", cxxopts::value<int>()->default_value("500"))
+        ("reset-alpha-every", "Reset the opacity values of gaussians after these many refinements (not steps)", cxxopts::value<int>()->default_value("30"))
+        ("stop-split-at", "Stop splitting/duplicating gaussians after these many steps", cxxopts::value<int>()->default_value("15000"))
+        ("densify-grad-thresh", "Threshold of the positional gradient norm (magnitude of the loss function) which when exceeded leads to a gaussian split/duplication", cxxopts::value<float>()->default_value("0.0002"))
+        ("densify-size-thresh", "Gaussians' scales below this threshold are duplicated, otherwise split", cxxopts::value<float>()->default_value("0.01"))
+        ("stop-screen-size-at", "Stop splitting gaussians that are larger than [split-screen-size] after these many steps", cxxopts::value<int>()->default_value("4000"))
+        ("split-screen-size", "Split gaussians that are larger than this percentage of screen space", cxxopts::value<float>()->default_value("0.05"))
+
         ("h,help", "Print usage")
         ;
     options.parse_positional({ "input" });
-    options.positional_help("[labeled point cloud(s)]");
+    options.positional_help("[nerfstudio project path]");
     cxxopts::ParseResult result;
     try {
         result = options.parse(argc, argv);
@@ -45,22 +51,21 @@ int main(int argc, char *argv[]){
     }
 
     std::string projectRoot = result["input"].as<std::string>();
-    const float downScaleFactor = 2.0f;
+    const float downScaleFactor = result["downscale-factor"].as<float>();
     const int numIters = result["num-iters"].as<int>();
-    const int numDownscales = 3;
-    const int resolutionSchedule = 250;
-    const int shDegree = 3;
-    const int shDegreeInterval = 1000;
-    const float ssimLambda = 0.2f;
-    const int refineEvery = 100;
-    const int warmupLength = 500;
-
-    const int resetAlphaEvery = 30;
-    const int stopSplitAt = 15000;
-    const float densifyGradThresh = 0.0002f;
-    const float densifySizeThresh = 0.01f;
-    const int stopScreenSizeAt = 4000;
-    const float splitScreenSize = 0.05f;
+    const int numDownscales = result["num-downscales"].as<int>();
+    const int resolutionSchedule = result["resolution-schedule"].as<int>();
+    const int shDegree = result["sh-degree"].as<int>();
+    const int shDegreeInterval = result["sh-degree-interval"].as<int>();
+    const float ssimWeight = result["ssim-weight"].as<float>();
+    const int refineEvery = result["refine-every"].as<int>();
+    const int warmupLength = result["warmup-length"].as<int>();
+    const int resetAlphaEvery = result["reset-alpha-every"].as<int>();
+    const int stopSplitAt = result["stop-split-at"].as<int>();
+    const float densifyGradThresh = result["densify-grad-thresh"].as<float>();
+    const float densifySizeThresh = result["densify-size-thresh"].as<float>();
+    const int stopScreenSizeAt = result["stop-screen-size-at"].as<int>();
+    const float splitScreenSize = result["split-screen-size"].as<float>();
 
     torch::Device device = torch::kCPU;
 
@@ -72,7 +77,6 @@ int main(int argc, char *argv[]){
     }
 
     try{
-
         ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
         
         ns::Model model(inputData.points, 
@@ -81,7 +85,6 @@ int main(int argc, char *argv[]){
                         refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
                         device);
 
-        // TODO: uncomment
         for (ns::Camera &cam : inputData.cameras){
             cam.loadImage(downScaleFactor);
         }
@@ -91,12 +94,6 @@ int main(int argc, char *argv[]){
         for (size_t step = 0; step < numIters; step++){
             ns::Camera cam = cams.next();
 
-            // TODO: remove
-            // ns::Camera cam = inputData.cameras[6];
-            
-            // TODO: remove
-            // cam.loadImage(downScaleFactor);
-
             model.optimizersZeroGrad();
 
             torch::Tensor rgb = model.forward(cam, step);
@@ -105,7 +102,7 @@ int main(int argc, char *argv[]){
 
             torch::Tensor ssimLoss = 1.0f - model.ssim.eval(rgb, gt);
             torch::Tensor l1Loss = ns::l1(rgb, gt);
-            torch::Tensor mainLoss = (1.0f - ssimLambda) * l1Loss + ssimLambda * ssimLoss;
+            torch::Tensor mainLoss = (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;
             mainLoss.backward();
 
             model.optimizersStep();
@@ -115,7 +112,7 @@ int main(int argc, char *argv[]){
             if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
         }
 
-        model.savePlySplat("splat.ply");
+        model.savePlySplat(result["output"].as<std::string>());
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;
         exit(1);
