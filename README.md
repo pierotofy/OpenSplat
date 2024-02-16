@@ -4,8 +4,6 @@ A free and open source implementation of 3D gaussian splatting, written in C++. 
 
 ## Build
 
-OpenSplat has been tested on Ubuntu 20.04, but should work on most platforms. With some or minimal changes, it should build on Windows and MacOS (help us by opening a PR?).
-
 Requirements:
 
  * **CUDA**: Make sure you have the CUDA compiler (`nvcc`) in your PATH that `nvidia-smi` is working. https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html 
@@ -18,24 +16,29 @@ Requirements:
  git clone https://github.com/pierotofy/OpenSplat OpenSplat
  cd OpenSplat
  mkdir build && cd build
- cmake .. && make -j$(nproc)
+ cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
  ```
+
+ The software has been tested on Ubuntu 20.04, but with some or minimal changes, it should build on Windows and MacOS (help us by opening a PR?).
 
 ## Run
 
-Download the trains dataset from from [here](TODO:URL).
+To get started, download the trains dataset: TODO:URL
 
-You can run opensplat on most existing [nerfstudio](https://docs.nerf.studio/) projects so long as they have sparse points included. You can generate these from COLMAP by using nerfstudio's `ns-process-data` command: https://docs.nerf.studio/quickstart/custom_dataset.html
+Then:
 
 ```bash
 ./opensplat /path/to/trains
 ```
 
+To run on your own data, choose the path to an existing [nerfstudio](https://docs.nerf.studio/) project. The project must have sparse points included (random initialization is not supported, see https://github.com/pierotofy/OpenSplat/issues/7). You can generate nerfstudio projects from [COLMAP](https://github.com/colmap/colmap/) by using nerfstudio's `ns-process-data` command: https://docs.nerf.studio/quickstart/custom_dataset.html
+
+
 The output `splat.ply` can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer
 
 We have plans to add support for reading COLMAP projects directly in the near future. See https://github.com/pierotofy/OpenSplat/issues/1
 
-To view the list of parameters you can tune, run:
+There's several parameters you can tune. To view the full list:
 
 ```bash
 ./opensplat --help
