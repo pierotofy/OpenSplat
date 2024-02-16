@@ -1,6 +1,7 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include <iostream>
 #include <torch/torch.h>
 #include "nerfstudio.hpp"
 #include "kdtree_tensor.hpp"
@@ -18,7 +19,7 @@ torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, 
 torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 
-struct Model : torch::nn::Module {
+struct Model{
   Model(const Points &points, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
         int refineEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
@@ -30,9 +31,9 @@ struct Model : torch::nn::Module {
     long long numPoints = points.xyz.size(0); 
     torch::manual_seed(42);
 
-    means = register_parameter("means", points.xyz, true);
-    scales = register_parameter("scales", PointsTensor(means).scales().repeat({1, 3}).log(), true);
-    quats = register_parameter("quats", randomQuatTensor(numPoints), true);
+    means = points.xyz.to(device).requires_grad_();
+    scales = PointsTensor(points.xyz).scales().repeat({1, 3}).log().to(device).requires_grad_();
+    quats = randomQuatTensor(numPoints).to(device).requires_grad_();
 
     int dimSh = numShBases(shDegree);
     torch::Tensor shs = torch::zeros({numPoints, dimSh, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
@@ -40,9 +41,9 @@ struct Model : torch::nn::Module {
     shs.index({Slice(), 0, Slice(None, 3)}) = rgb2sh(points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32);
     shs.index({Slice(), Slice(1, None), Slice(3, None)}) = 0.0f;
 
-    featuresDc = register_parameter("featuresDc", shs.index({Slice(), 0, Slice()}), true);
-    featuresRest = register_parameter("featuresRest", shs.index({Slice(), Slice(1, None), Slice()}), true);
-    opacities = register_parameter("opacities", torch::logit(0.1f * torch::ones({numPoints, 1})), true);
+    featuresDc = shs.index({Slice(), 0, Slice()}).to(device).requires_grad_();
+    featuresRest = shs.index({Slice(), Slice(1, None), Slice()}).to(device).requires_grad_();
+    opacities = torch::logit(0.1f * torch::ones({numPoints, 1})).to(device).requires_grad_();
     
     // backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
     backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device); // Nerf Studio default
@@ -70,7 +71,7 @@ struct Model : torch::nn::Module {
   int getDownscaleFactor(int step);
   void afterTrain(int step);
 
-  void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSplitSamples);
+  void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
   void removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
   torch::Tensor means;
   torch::Tensor scales;

@@ -44,7 +44,6 @@ int main(int argc, char *argv[]){
                     numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
                     refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
                     device);
-    model.to(device);
 
     // TODO: uncomment
     for (ns::Camera &cam : inputData.cameras){

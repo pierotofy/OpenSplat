@@ -181,22 +181,31 @@ int Model::getDownscaleFactor(int step){
     return std::pow(2, (std::max<int>)(numDownscales - step / resolutionSchedule, 0));
 }
 
-void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSplitSamples){
+void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples){
     torch::Tensor param = optimizer->param_groups()[0].params()[0];
     auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
     auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
+    
+    std::vector<long int> repeats;
+    repeats.push_back(nSamples);
+    for (long int i = 0; i < paramState->exp_avg().dim() - 1; i++){
+        repeats.push_back(1);
+    }
 
     paramState->exp_avg(torch::cat({
         paramState->exp_avg(), 
-        torch::zeros_like(paramState->exp_avg().index({idcs.squeeze()}))
+        torch::zeros_like(paramState->exp_avg().index({idcs.squeeze()})).repeat(repeats)
     }, 0));
+    
     paramState->exp_avg_sq(torch::cat({
         paramState->exp_avg_sq(), 
-        torch::zeros_like(paramState->exp_avg_sq().index({idcs.squeeze()}))
+        torch::zeros_like(paramState->exp_avg_sq().index({idcs.squeeze()})).repeat(repeats)
     }, 0));
 
     optimizer->state().erase(pId);
-    optimizer->state()[pId] = std::move(paramState);
+
+    auto newPId = c10::guts::to_string(newParam.unsafeGetTensorImpl());
+    optimizer->state()[newPId] = std::move(paramState);
     optimizer->param_groups()[0].params()[0] = newParam;
 }
 
@@ -204,11 +213,14 @@ void Model::removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tens
     torch::Tensor param = optimizer->param_groups()[0].params()[0];
     auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
     auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
+
     paramState->exp_avg(paramState->exp_avg().index({~deletedMask}));
     paramState->exp_avg_sq(paramState->exp_avg_sq().index({~deletedMask}));
 
+    optimizer->state().erase(pId);
+    auto newPId = c10::guts::to_string(newParam.unsafeGetTensorImpl());
     optimizer->param_groups()[0].params()[0] = newParam;
-    optimizer->state()[pId] = std::move(paramState);
+    optimizer->state()[newPId] = std::move(paramState);
 }
 
 void Model::afterTrain(int step){
@@ -283,13 +295,13 @@ void Model::afterTrain(int step){
             torch::Tensor dupOpacities = opacities.index({dups});
             torch::Tensor dupScales = scales.index({dups});
             torch::Tensor dupQuats = quats.index({dups});
-            
-            means = register_parameter("means", torch::cat({means.detach(), splitMeans, dupMeans}, 0), true);
-            featuresDc = register_parameter("featuresDc", torch::cat({featuresDc.detach(), splitFeaturesDc, dupFeaturesDc}, 0), true);
-            featuresRest = register_parameter("featuresRest", torch::cat({featuresRest.detach(), splitFeaturesRest, dupFeaturesRest}, 0), true);
-            opacities = register_parameter("opacities", torch::cat({opacities.detach(), splitOpacities, dupOpacities}, 0), true);
-            scales = register_parameter("scales", torch::cat({scales.detach(), splitScales, dupScales}, 0), true);
-            quats = register_parameter("quats", torch::cat({quats.detach(), splitQuats, dupQuats}, 0), true);
+
+            means = torch::cat({means.detach(), splitMeans, dupMeans}, 0).requires_grad_();
+            featuresDc = torch::cat({featuresDc.detach(), splitFeaturesDc, dupFeaturesDc}, 0).requires_grad_();
+            featuresRest = torch::cat({featuresRest.detach(), splitFeaturesRest, dupFeaturesRest}, 0).requires_grad_();
+            opacities = torch::cat({opacities.detach(), splitOpacities, dupOpacities}, 0).requires_grad_();
+            scales = torch::cat({scales.detach(), splitScales, dupScales}, 0).requires_grad_();
+            quats = torch::cat({quats.detach(), splitQuats, dupQuats}, 0).requires_grad_();
             
             max2DSize = torch::cat({
                 max2DSize,
@@ -298,6 +310,7 @@ void Model::afterTrain(int step){
             }, 0);
 
             torch::Tensor splitIdcs = torch::where(splits)[0];
+
             addToOptimizer(meansOpt, means, splitIdcs, nSplitSamples);
             addToOptimizer(scalesOpt, scales, splitIdcs, nSplitSamples);
             addToOptimizer(quatsOpt, quats, splitIdcs, nSplitSamples);
@@ -322,7 +335,7 @@ void Model::afterTrain(int step){
         if (doDensification || step >= stopSplitAt){
             // Cull
             int numPointsBefore = means.size(0);
-            
+
             torch::Tensor culls = (torch::sigmoid(opacities) < cullAlphaThresh).squeeze();
             int hugeCount = 0;
             if (splitsMask.numel()){
@@ -342,12 +355,12 @@ void Model::afterTrain(int step){
 
             int cullCount = torch::sum(culls).item<int>();
             if (cullCount > 0){
-                means = register_parameter("means", means.index({~culls}).detach(), true);
-                scales = register_parameter("scales", scales.index({~culls}).detach(), true);
-                quats = register_parameter("quats", quats.index({~culls}).detach(), true);
-                featuresDc = register_parameter("featuresDc", featuresDc.index({~culls}).detach(), true);
-                featuresRest = register_parameter("featuresRest", featuresRest.index({~culls}).detach(), true);
-                opacities = register_parameter("opacities", opacities.index({~culls}).detach(), true);
+                means = means.index({~culls}).detach().requires_grad_();
+                scales = scales.index({~culls}).detach().requires_grad_();
+                quats = quats.index({~culls}).detach().requires_grad_();
+                featuresDc = featuresDc.index({~culls}).detach().requires_grad_();
+                featuresRest = featuresRest.index({~culls}).detach().requires_grad_();
+                opacities = opacities.index({~culls}).detach().requires_grad_();
 
                 removeFromOptimizer(meansOpt, means, culls);
                 removeFromOptimizer(scalesOpt, scales, culls);
@@ -355,6 +368,7 @@ void Model::afterTrain(int step){
                 removeFromOptimizer(featuresDcOpt, featuresDc, culls);
                 removeFromOptimizer(featuresRestOpt, featuresRest, culls);
                 removeFromOptimizer(opacitiesOpt, opacities, culls);
+                
             }
         }
 
