@@ -2,6 +2,7 @@
 #include <filesystem>
 
 #include "point_io.hpp"
+#include "model.hpp"
 
 namespace fs = std::filesystem;
 

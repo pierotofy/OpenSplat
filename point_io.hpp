@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <torch/torch.h>
+
 #ifdef WITH_PDAL
 #include <pdal/Options.hpp>
 #include <pdal/PointTable.hpp>
@@ -109,7 +110,6 @@ PointSet *readPointSet(const std::string &filename);
 void fastPlySavePointSet(PointSet &pSet, const std::string &filename);
 void pdalSavePointSet(PointSet &pSet, const std::string &filename);
 void savePointSet(PointSet &pSet, const std::string &filename);
-
 
 bool fileExists(const std::string &path);
 

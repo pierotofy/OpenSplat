@@ -70,6 +70,7 @@ struct Model{
   void optimizersStep();
   int getDownscaleFactor(int step);
   void afterTrain(int step);
+  void savePlySplat(const std::string &filename);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
   void removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);

@@ -4,22 +4,56 @@
 #include "point_io.hpp"
 #include "utils.hpp"
 #include "cv_utils.hpp"
+#include "vendor/cxxopts.hpp"
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 
 int main(int argc, char *argv[]){
-    std::string projectRoot = "banana";
+    cxxopts::Options options("opensplat", "Open Source 3D Gaussian Splats generator");
+    options.add_options()
+        ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
+        // ("o,output", "Output model", cxxopts::value<std::string>()->default_value("model.bin"))
+        // ("r,resolution", "Resolution of the first scale (-1 = estimate automatically)", cxxopts::value<double>()->default_value("-1"))
+        // ("s,scales", "Number of scales to compute", cxxopts::value<int>()->default_value(MKSTR(NUM_SCALES)))
+        // ("t,trees", "Number of trees in the forest", cxxopts::value<int>()->default_value(MKSTR(N_TREES)))
+        // ("d,depth", "Maximum depth of trees", cxxopts::value<int>()->default_value(MKSTR(MAX_DEPTH)))
+        // ("m,max-samples", "Approximate maximum number of samples for each input point cloud", cxxopts::value<int>()->default_value("100000"))
+        // ("radius", "Radius size to use for neighbor search (meters)", cxxopts::value<double>()->default_value(MKSTR(RADIUS)))
+        // ("e,eval", "Labeled point cloud to use for model accuracy evaluation", cxxopts::value<std::string>()->default_value(""))
+        // ("eval-result", "Path where to store evaluation results (PLY)", cxxopts::value<std::string>()->default_value(""))
+        // ("stats", "Path where to store evaluation statistics (JSON)", cxxopts::value<std::string>()->default_value(""))
+        // ("c,classifier", "Which classifier type to use (rf = Random Forest, gbt = Gradient Boosted Trees)", cxxopts::value<std::string>()->default_value("rf"))
+        // ("classes", "Train only these classification classes (comma separated IDs)", cxxopts::value<std::vector<int>>())
+        ("h,help", "Print usage")
+        ;
+    options.parse_positional({ "input" });
+    options.positional_help("[labeled point cloud(s)]");
+    cxxopts::ParseResult result;
+    try {
+        result = options.parse(argc, argv);
+    }
+    catch (const std::exception &e) {
+        std::cerr << e.what() << std::endl;
+        std::cerr << options.help() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if (result.count("help") || !result.count("input")) {
+        std::cout << options.help() << std::endl;
+        return EXIT_SUCCESS;
+    }
+
+    std::string projectRoot = result["input"].as<std::string>();
     const float downScaleFactor = 2.0f;
-    const int numIters = 30000;
+    const int numIters = 100; //30000;
     const int numDownscales = 3;
     const int resolutionSchedule = 250;
     const int shDegree = 3;
     const int shDegreeInterval = 1000;
     const float ssimLambda = 0.2f;
     const int refineEvery = 100;
-    // const int warmupLength = 500;
-    const int warmupLength = 100;
+    const int warmupLength = 500;
 
     const int resetAlphaEvery = 30;
     const int stopSplitAt = 15000;
@@ -78,6 +112,7 @@ int main(int argc, char *argv[]){
 
         std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
     }
-    // inputData.cameras[0].loadImage(downScaleFactor);  
+
+    model.savePlySplat("splat.ply");
     
 }
