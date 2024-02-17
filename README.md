@@ -5,7 +5,7 @@ A free and open source implementation of 3D gaussian splatting, written in C++. 
 ![OpenSplat](https://github.com/pierotofy/OpenSplat/assets/1951843/3461e0e4-e134-4d6a-8a56-d89d00258e41)
 
 
-OpenSplat takes camera poses + sparse points and computes a scene file (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
+OpenSplat takes camera poses + sparse points and computes a [scene file](https://drive.google.com/file/d/1w-CBxyWNXF3omA8B_IeOsRmSJel3iwyr/view?usp=sharing) (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
 ## Build
 
@@ -38,7 +38,7 @@ Then run:
 Wrote splat.ply
 ```
 
-The output `splat.ply` can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer
+The output `splat.ply` can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer. You can also edit/cleanup the scene using https://playcanvas.com/supersplat/editor
 
 To run on your own data, choose the path to an existing [nerfstudio](https://docs.nerf.studio/) project. The project must have sparse points included (random initialization is not supported, see https://github.com/pierotofy/OpenSplat/issues/7). You can generate nerfstudio projects from [COLMAP](https://github.com/colmap/colmap/) by using nerfstudio's `ns-process-data` command: https://docs.nerf.studio/quickstart/custom_dataset.html
 
