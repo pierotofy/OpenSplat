@@ -30,7 +30,7 @@ To get started, download a dataset and extract it to a folder: [ [banana](https:
 Then run:
 
 ```bash
-./opensplat /path/to/banana
+./opensplat /path/to/banana -n 2000
 [...]
 Wrote splat.ply
 ```
