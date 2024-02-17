@@ -1,8 +1,12 @@
+[![GitHub stars](https://img.shields.io/github/stars/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/network)
+[![GitHub issues](https://img.shields.io/github/issues/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/issues)
+[![GitHub license](https://img.shields.io/github/license/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/blob/main/LICENSE)
+
+
 # OpenSplat
 
-A free and open source implementation of 3D gaussian splatting, written in C++. It's based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) and focuses on being portable, lean and fast. 
-
-
+A free and open source implementation of 3D gaussian splatting, written in C++. It's based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) and focuses on being portable, lean and fast.
 
 OpenSplat takes camera poses + sparse points and computes a scene file (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
@@ -27,18 +31,20 @@ Requirements:
 
 ## Run
 
-To get started, download the trains dataset: TODO:URL
+To get started, download a dataset and extract it to a folder: [[train](https://drive.google.com/file/d/1-X741ecDczTRoMc3YenJLSFC9ulWXeNc/view?usp=sharing)] | [[banana](https://drive.google.com/file/d/1mUUZFDo2swd6CE5vwPPkjN63Hyf4XyEv/view?usp=sharing)] 
 
-Then:
+Then run:
 
 ```bash
-./opensplat /path/to/trains
+./opensplat /path/to/train
+[...]
+Wrote splat.ply
 ```
+
+The output `splat.ply` can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer
 
 To run on your own data, choose the path to an existing [nerfstudio](https://docs.nerf.studio/) project. The project must have sparse points included (random initialization is not supported, see https://github.com/pierotofy/OpenSplat/issues/7). You can generate nerfstudio projects from [COLMAP](https://github.com/colmap/colmap/) by using nerfstudio's `ns-process-data` command: https://docs.nerf.studio/quickstart/custom_dataset.html
 
-
-The output `splat.ply` can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer
 
 We have plans to add support for reading COLMAP projects directly in the near future. See https://github.com/pierotofy/OpenSplat/issues/1
 
