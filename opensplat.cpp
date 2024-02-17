@@ -51,7 +51,7 @@ int main(int argc, char *argv[]){
     }
 
     std::string projectRoot = result["input"].as<std::string>();
-    const float downScaleFactor = result["downscale-factor"].as<float>();
+    const float downScaleFactor = (std::max)(result["downscale-factor"].as<float>(), 1.0f);
     const int numIters = result["num-iters"].as<int>();
     const int numDownscales = result["num-downscales"].as<int>();
     const int resolutionSchedule = result["resolution-schedule"].as<int>();
