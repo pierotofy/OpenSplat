@@ -14,6 +14,7 @@ int main(int argc, char *argv[]){
     options.add_options()
         ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
         ("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value("splat.ply"))
+        ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
         
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
         ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("2"))
@@ -50,7 +51,9 @@ int main(int argc, char *argv[]){
         return EXIT_SUCCESS;
     }
 
-    std::string projectRoot = result["input"].as<std::string>();
+    const std::string projectRoot = result["input"].as<std::string>();
+    const std::string outputScene = result["output"].as<std::string>();
+    const int saveEvery = result["save-every"].as<int>(); 
     const float downScaleFactor = (std::max)(result["downscale-factor"].as<float>(), 1.0f);
     const int numIters = result["num-iters"].as<int>();
     const int numDownscales = result["num-downscales"].as<int>();
@@ -110,9 +113,14 @@ int main(int argc, char *argv[]){
             model.afterTrain(step);
 
             if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
+
+            if (saveEvery > 0 && step % saveEvery == 0){
+                fs::path p(outputScene);
+                model.savePlySplat(p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string()).string()));
+            }
         }
 
-        model.savePlySplat(result["output"].as<std::string>());
+        model.savePlySplat(outputScene);
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;
         exit(1);
