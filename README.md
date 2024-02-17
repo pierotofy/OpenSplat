@@ -1,9 +1,3 @@
-[![GitHub stars](https://img.shields.io/github/stars/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/network)
-[![GitHub issues](https://img.shields.io/github/issues/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/issues)
-[![GitHub license](https://img.shields.io/github/license/pierotofy/OpenSplat.svg?style=flat-square)](https://github.com/pierotofy/OpenSplat/blob/main/LICENSE)
-
-
 # OpenSplat
 
 A free and open source implementation of 3D gaussian splatting, written in C++. It's based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) and focuses on being portable, lean and fast.
