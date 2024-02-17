@@ -25,7 +25,7 @@ Requirements:
 
 ## Run
 
-To get started, download a dataset and extract it to a folder: [ [train](https://drive.google.com/file/d/1-X741ecDczTRoMc3YenJLSFC9ulWXeNc/view?usp=sharing) ] | [ [banana](https://drive.google.com/file/d/1mUUZFDo2swd6CE5vwPPkjN63Hyf4XyEv/view?usp=sharing) ] 
+To get started, download a dataset and extract it to a folder: [ [train](https://drive.google.com/file/d/1-X741ecDczTRoMc3YenJLSFC9ulWXeNc/view?usp=sharing) ] [ [banana](https://drive.google.com/file/d/1mUUZFDo2swd6CE5vwPPkjN63Hyf4XyEv/view?usp=sharing) ] 
 
 Then run:
 
