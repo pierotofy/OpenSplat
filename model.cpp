@@ -255,6 +255,7 @@ void Model::afterTrain(int step){
         const float cullAlphaThresh = 0.1f;
 
         if (doDensification){
+            int numPointsBefore = means.size(0);
             torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( (std::max)(lastWidth, lastHeight) );
             torch::Tensor highGrads = (avgGradNorm > densifyGradThresh).squeeze();
 
@@ -288,7 +289,6 @@ void Model::afterTrain(int step){
             // Duplicate gaussians that are too small
             torch::Tensor dups = (std::get<0>(scales.exp().max(-1)) <= densifySizeThresh).squeeze();
             dups &= highGrads;
-            int nDups = dups.sum().item<int>();
             torch::Tensor dupMeans = means.index({dups});
             torch::Tensor dupFeaturesDc = featuresDc.index({dups});
             torch::Tensor dupFeaturesRest = featuresRest.index({dups});
@@ -330,6 +330,8 @@ void Model::afterTrain(int step){
                 splits,
                 torch::full({nSplitSamples * splits.sum().item<int>() + dups.sum().item<int>()}, false, torch::TensorOptions().dtype(torch::kBool).device(device))
             }, 0);
+
+            std::cout << "Added " << (means.size(0) - numPointsBefore) << " gaussians, new count " << means.size(0) << std::endl;
         }
 
         if (doDensification || step >= stopSplitAt){
@@ -337,7 +339,6 @@ void Model::afterTrain(int step){
             int numPointsBefore = means.size(0);
 
             torch::Tensor culls = (torch::sigmoid(opacities) < cullAlphaThresh).squeeze();
-            int hugeCount = 0;
             if (splitsMask.numel()){
                 culls |= splitsMask;
             }
@@ -350,7 +351,6 @@ void Model::afterTrain(int step){
                     huge |= max2DSize > cullScreenSize;
                 }
                 culls |= huge;
-                hugeCount = torch::sum(huge).item<int>();
             }
 
             int cullCount = torch::sum(culls).item<int>();
@@ -369,6 +369,7 @@ void Model::afterTrain(int step){
                 removeFromOptimizer(featuresRestOpt, featuresRest, culls);
                 removeFromOptimizer(opacitiesOpt, opacities, culls);
                 
+                std::cout << "Culled " << (numPointsBefore - means.size(0)) << " gaussians, remaining " << means.size(0) << std::endl;
             }
         }
 
@@ -382,6 +383,7 @@ void Model::afterTrain(int step){
             auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*opacitiesOpt->state()[pId]));
             paramState->exp_avg(torch::zeros_like(paramState->exp_avg()));
             paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));
+            std::cout << "Alpha reset" << std::endl;
         }
 
         // Clear

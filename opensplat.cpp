@@ -94,6 +94,7 @@ int main(int argc, char *argv[]){
 
         InfiniteRandomIterator<ns::Camera> cams(inputData.cameras);
 
+        int imageSize = -1;
         for (size_t step = 1; step <= numIters; step++){
             ns::Camera cam = cams.next();
 
@@ -103,16 +104,21 @@ int main(int argc, char *argv[]){
             torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
             gt = gt.to(device);
 
+            if (gt.size(0) != imageSize){
+                imageSize = gt.size(0) + 1;
+                std::cout << "Image size " << imageSize << "px" << std::endl;
+            }
+
             torch::Tensor ssimLoss = 1.0f - model.ssim.eval(rgb, gt);
             torch::Tensor l1Loss = ns::l1(rgb, gt);
             torch::Tensor mainLoss = (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;
             mainLoss.backward();
+            
+            if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
 
             model.optimizersStep();
             //model.optimizersScheduleStep(); // TODO
             model.afterTrain(step);
-
-            if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
 
             if (saveEvery > 0 && step % saveEvery == 0){
                 fs::path p(outputScene);
