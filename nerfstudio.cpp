@@ -1,10 +1,8 @@
 #include <filesystem>
-#include <json.hpp>
+#include "vendor/json/json.hpp"
 #include "nerfstudio.hpp"
 #include "point_io.hpp"
 #include "cv_utils.hpp"
-
-#include <torch/script.h> // TODO REMOVE
 
 namespace fs = std::filesystem;
 

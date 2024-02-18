@@ -1,5 +1,5 @@
 #include <filesystem>
-#include <json.hpp>
+#include "vendor/json/json.hpp"
 #include "opensplat.hpp"
 #include "point_io.hpp"
 #include "utils.hpp"

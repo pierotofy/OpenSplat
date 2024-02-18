@@ -5,9 +5,9 @@
 #include <string>
 #include <fstream>
 #include <unordered_map>
-#include <json_fwd.hpp>
 #include <torch/torch.h>
 #include <opencv2/calib3d.hpp>
+#include "vendor/json/json_fwd.hpp"
 
 using json = nlohmann::json;
 
