@@ -186,7 +186,7 @@ void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &n
     auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
     auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
     
-    std::vector<long int> repeats;
+    std::vector<int64_t> repeats;
     repeats.push_back(nSamples);
     for (long int i = 0; i < paramState->exp_avg().dim() - 1; i++){
         repeats.push_back(1);

@@ -122,7 +122,7 @@ int main(int argc, char *argv[]){
 
             if (saveEvery > 0 && step % saveEvery == 0){
                 fs::path p(outputScene);
-                model.savePlySplat(p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string()).string()));
+                model.savePlySplat((p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string()));
             }
         }
 
