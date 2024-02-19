@@ -24,7 +24,7 @@ Requirements:
  cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
  ```
 
- The software has been tested on Ubuntu 20.04, but with some or minimal changes, it should build on Windows and MacOS (help us by opening a PR?).
+ The software has been tested on Ubuntu 20.04 and Windows. With some changes it could run on macOS (help us by opening a PR?).
 
 ## Run
 

@@ -15,6 +15,8 @@ int main(int argc, char *argv[]){
         ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
         ("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value("splat.ply"))
         ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
+        ("val", "Withhold a camera shot for validating the scene loss")
+        ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
         
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
         ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("2"))
@@ -54,6 +56,9 @@ int main(int argc, char *argv[]){
     const std::string projectRoot = result["input"].as<std::string>();
     const std::string outputScene = result["output"].as<std::string>();
     const int saveEvery = result["save-every"].as<int>(); 
+    const bool validate = result.count("val") > 0;
+    const std::string valImage = result["val-image"].as<std::string>();
+
     const float downScaleFactor = (std::max)(result["downscale-factor"].as<float>(), 1.0f);
     const int numIters = result["num-iters"].as<int>();
     const int numDownscales = result["num-downscales"].as<int>();
@@ -81,22 +86,26 @@ int main(int argc, char *argv[]){
 
     try{
         ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
-        
-        ns::Model model(inputData.points, 
-                        inputData.cameras.size(),
-                        numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-                        refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
-                        device);
-
         for (ns::Camera &cam : inputData.cameras){
             cam.loadImage(downScaleFactor);
         }
 
-        InfiniteRandomIterator<ns::Camera> cams(inputData.cameras);
+        // Withhold a validation camera if necessary
+        auto t = inputData.getCameras(validate, valImage);
+        std::vector<ns::Camera> cams = std::get<0>(t);
+        ns::Camera *valCam = std::get<1>(t);
+
+        ns::Model model(inputData.points, 
+                        cams.size(),
+                        numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
+                        refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
+                        device);
+
+        InfiniteRandomIterator<ns::Camera> camsIter(cams);
 
         int imageSize = -1;
         for (size_t step = 1; step <= numIters; step++){
-            ns::Camera cam = cams.next();
+            ns::Camera cam = camsIter.next();
 
             model.optimizersZeroGrad();
 
@@ -104,14 +113,7 @@ int main(int argc, char *argv[]){
             torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
             gt = gt.to(device);
 
-            if (gt.size(0) != imageSize){
-                imageSize = gt.size(0) + 1;
-                std::cout << "Image size " << imageSize << "px" << std::endl;
-            }
-
-            torch::Tensor ssimLoss = 1.0f - model.ssim.eval(rgb, gt);
-            torch::Tensor l1Loss = ns::l1(rgb, gt);
-            torch::Tensor mainLoss = (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;
+            torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);
             mainLoss.backward();
             
             if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
@@ -127,6 +129,14 @@ int main(int argc, char *argv[]){
         }
 
         model.savePlySplat(outputScene);
+
+        // Validate
+        if (valCam != nullptr){
+            torch::Tensor rgb = model.forward(*valCam, numIters);
+            torch::Tensor gt = valCam->getImage(model.getDownscaleFactor(numIters));
+            gt = gt.to(device);
+            std::cout << valCam->filePath << " validation loss: " << model.mainLoss(rgb, gt, ssimWeight).item<float>() << std::endl; 
+        }
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;
         exit(1);

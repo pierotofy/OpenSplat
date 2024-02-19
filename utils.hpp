@@ -31,5 +31,4 @@ private:
     size_t i;
 };
 
-
 #endif

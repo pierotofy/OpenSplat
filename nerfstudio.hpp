@@ -93,6 +93,8 @@ namespace ns{
         float scaleFactor;
         torch::Tensor transformMatrix;
         Points points;
+
+        std::tuple<std::vector<Camera>, Camera *> getCameras(bool validate, const std::string &valImage = "random");
     };
     InputData inputDataFromNerfStudio(const std::string &projectRoot);
 }   

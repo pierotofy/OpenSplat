@@ -453,5 +453,11 @@ void Model::savePlySplat(const std::string &filename){
     std::cout << "Wrote " << filename << std::endl;
 }
 
+torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight){
+    torch::Tensor ssimLoss = 1.0f - ssim.eval(rgb, gt);
+    torch::Tensor l1Loss = l1(rgb, gt);
+    return (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;
+}
+
 
 }
