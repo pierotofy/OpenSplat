@@ -4,7 +4,6 @@ A free and open source implementation of 3D gaussian splatting written in C++, f
 
 ![OpenSplat](https://github.com/pierotofy/OpenSplat/assets/1951843/3461e0e4-e134-4d6a-8a56-d89d00258e41)
 
-
 OpenSplat takes camera poses + sparse points and computes a [scene file](https://drive.google.com/file/d/1w-CBxyWNXF3omA8B_IeOsRmSJel3iwyr/view?usp=sharing) (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
 Commercial use allowed and encouraged under the terms of the [AGPLv3](https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0). ✅
@@ -30,7 +29,7 @@ Requirements:
 
 ## Run
 
-To get started, download a dataset and extract it to a folder: [ [banana](https://drive.google.com/file/d/1mUUZFDo2swd6CE5vwPPkjN63Hyf4XyEv/view?usp=sharing) ] 
+To get started, download a dataset and extract it to a folder: [ [banana](https://drive.google.com/file/d/1mUUZFDo2swd6CE5vwPPkjN63Hyf4XyEv/view?usp=sharing) ] | [ [train](https://drive.google.com/file/d/1-X741ecDczTRoMc3YenJLSFC9ulWXeNc/view?usp=sharing) ] | [ [truck](https://drive.google.com/file/d/1WWXo-GKo6d-yf-K1T1CswIdkdZrBNZ_e/view?usp=sharing) ] 
 
 Then run:
 
