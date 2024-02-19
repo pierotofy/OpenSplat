@@ -70,6 +70,10 @@ We recently released OpenSplat, so there's lots of work to do.
 
 We welcome contributions! Pull requests are welcome.
 
+## GPU Memory Notes
+
+A single gaussian takes ~2000 bytes of memory, so currenly you need ~1GB of GPU memory for each million gaussians.
+
 ## Credits
 
 The methods used in OpenSplat are originally based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html).
