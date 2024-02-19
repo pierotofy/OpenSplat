@@ -7,7 +7,7 @@ A free and open source implementation of 3D gaussian splatting, written in C++, 
 
 OpenSplat takes camera poses + sparse points and computes a [scene file](https://drive.google.com/file/d/1w-CBxyWNXF3omA8B_IeOsRmSJel3iwyr/view?usp=sharing) (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
-Commercial use allowed and encouraged. :heavy_check_mark:
+Commercial use allowed and encouraged. ✅
 
 ## Build
 
