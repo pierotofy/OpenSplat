@@ -7,6 +7,7 @@
 #include "kdtree_tensor.hpp"
 #include "spherical_harmonics.hpp"
 #include "ssim.hpp"
+#include "optim_scheduler.hpp"
 
 using namespace torch::indexing;
 using namespace torch::autograd;
@@ -23,11 +24,13 @@ struct Model{
   Model(const Points &points, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
         int refineEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
+        int maxSteps,
         const torch::Device &device) :
     numCameras(numCameras),
     numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
     refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(stopSplitAt), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
-    device(device), ssim(11, 3) {
+    maxSteps(maxSteps),
+    device(device), ssim(11, 3){
     long long numPoints = points.xyz.size(0); 
     torch::manual_seed(42);
 
@@ -54,6 +57,8 @@ struct Model{
     featuresDcOpt = new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025));
     featuresRestOpt = new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125));
     opacitiesOpt = new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05));
+
+    meansOptScheduler = new OptimScheduler(meansOpt, 0.0000016f, maxSteps);
   }
 
   ~Model(){
@@ -63,11 +68,14 @@ struct Model{
     delete featuresDcOpt;
     delete featuresRestOpt;
     delete opacitiesOpt;
+
+    delete meansOptScheduler;
   }
 
   torch::Tensor forward(Camera& cam, int step);
   void optimizersZeroGrad();
   void optimizersStep();
+  void schedulersStep(int step);
   int getDownscaleFactor(int step);
   void afterTrain(int step);
   void savePlySplat(const std::string &filename);
@@ -88,6 +96,8 @@ struct Model{
   torch::optim::Adam *featuresDcOpt;
   torch::optim::Adam *featuresRestOpt;
   torch::optim::Adam *opacitiesOpt;
+
+  OptimScheduler *meansOptScheduler;
 
   torch::Tensor radii; // set in forward()
   torch::Tensor xys; // set in forward()
@@ -116,6 +126,7 @@ struct Model{
   float densifySizeThresh;
   int stopScreenSizeAt;
   float splitScreenSize;
+  int maxSteps;
 };
 
 

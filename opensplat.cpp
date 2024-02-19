@@ -99,6 +99,7 @@ int main(int argc, char *argv[]){
                         cams.size(),
                         numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
                         refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
+                        numIters,
                         device);
 
         InfiniteRandomIterator<ns::Camera> camsIter(cams);
@@ -119,7 +120,7 @@ int main(int argc, char *argv[]){
             if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
 
             model.optimizersStep();
-            //model.optimizersScheduleStep(); // TODO
+            model.schedulersStep(step);
             model.afterTrain(step);
 
             if (saveEvery > 0 && step % saveEvery == 0){
@@ -133,8 +134,7 @@ int main(int argc, char *argv[]){
         // Validate
         if (valCam != nullptr){
             torch::Tensor rgb = model.forward(*valCam, numIters);
-            torch::Tensor gt = valCam->getImage(model.getDownscaleFactor(numIters));
-            gt = gt.to(device);
+            torch::Tensor gt = valCam->getImage(model.getDownscaleFactor(numIters)).to(device);
             std::cout << valCam->filePath << " validation loss: " << model.mainLoss(rgb, gt, ssimWeight).item<float>() << std::endl; 
         }
     }catch(const std::exception &e){

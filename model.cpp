@@ -177,6 +177,10 @@ void Model::optimizersStep(){
   opacitiesOpt->step();
 }
 
+void Model::schedulersStep(int step){
+  meansOptScheduler->step(step);
+}
+
 int Model::getDownscaleFactor(int step){
     return std::pow(2, (std::max<int>)(numDownscales - step / resolutionSchedule, 0));
 }

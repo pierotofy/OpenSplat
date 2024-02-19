@@ -35,7 +35,7 @@ target_include_directories(gsplat PRIVATE
 set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(gsplat PROPERTIES CUDA_ARCHITECTURES "70;75")
 
-add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp)
+add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp)
 target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm)
 target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} cuda gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
