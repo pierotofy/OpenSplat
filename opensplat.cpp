@@ -17,7 +17,8 @@ int main(int argc, char *argv[]){
         ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
         ("val", "Withhold a camera shot for validating the scene loss")
         ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
-        
+        ("cpu", "Force CPU use with libtorch even if CUDA is available")
+
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
         ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("1"))
         ("num-downscales", "Number of images downscales to use. After being scaled by [downscale-factor], images are initially scaled by a further (2^[num-downscales]) and the scale is increased every [resolution-schedule]", cxxopts::value<int>()->default_value("3"))
@@ -77,7 +78,7 @@ int main(int argc, char *argv[]){
 
     torch::Device device = torch::kCPU;
 
-    if (torch::cuda::is_available()) {
+    if (torch::cuda::is_available() && !result["cpu"].count()) {
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
     }else{
