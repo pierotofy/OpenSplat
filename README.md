@@ -1,11 +1,13 @@
 # 💦 OpenSplat 
 
-A free and open source implementation of 3D gaussian splatting, written in C++. It's based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) and focuses on being portable, lean and fast.
+A free and open source implementation of 3D gaussian splatting, written in C++, focused on being portable, lean and fast.
 
 ![OpenSplat](https://github.com/pierotofy/OpenSplat/assets/1951843/3461e0e4-e134-4d6a-8a56-d89d00258e41)
 
 
 OpenSplat takes camera poses + sparse points and computes a [scene file](https://drive.google.com/file/d/1w-CBxyWNXF3omA8B_IeOsRmSJel3iwyr/view?usp=sharing) (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
+
+Commercial use allowed and encouraged. :heavy_check_mark:
 
 ## Build
 
@@ -68,6 +70,10 @@ We recently released OpenSplat, so there's lots of work to do.
 ## Contributing
 
 We welcome contributions! Pull requests are welcome.
+
+## Credits
+
+The methods used in OpenSplat are originally based on [splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html).
 
 ## License
 
