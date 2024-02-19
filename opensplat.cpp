@@ -19,7 +19,7 @@ int main(int argc, char *argv[]){
         ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
         
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
-        ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("2"))
+        ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("1"))
         ("num-downscales", "Number of images downscales to use. After being scaled by [downscale-factor], images are initially scaled by a further (2^[num-downscales]) and the scale is increased every [resolution-schedule]", cxxopts::value<int>()->default_value("3"))
         ("resolution-schedule", "Double the image resolution every these many steps", cxxopts::value<int>()->default_value("250"))
         ("sh-degree", "Maximum spherical harmonics degree (must be > 0)", cxxopts::value<int>()->default_value("3"))
