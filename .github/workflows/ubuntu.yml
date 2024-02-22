@@ -1,0 +1,87 @@
+name: OpenSplat (Ubuntu)
+
+on:
+  push:
+    branches:
+      - github-actions
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmakeBuildType }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
+        torch-version: [2.1.2] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0]
+        cuda-version: ['cu118', 'cu121'] # ['cpu', 'cu113', 'cu116', 'cu117']
+        cmake-build-type: [Release] # [Debug, ClangTidy]
+
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Ubuntu
+        run: |
+          sudo apt-get update     
+          sudo apt-get install -y \
+            build-essential \
+            ccache \
+            cmake \
+            ninja-build \
+            libopencv-dev \
+            wget
+
+      - name: Install CUDA ${{ matrix.cuda-version }}
+        if: ${{ matrix.cuda-version != 'cpu' }}
+        run: |
+          bash .github/workflows/cuda/${{ runner.os }}.sh ${{ matrix.cuda-version }}
+
+      - name: Install libtorch ${{ matrix.torch-version }}+${{ matrix.cuda-version }}
+        run: |
+          wget -nv https://download.pytorch.org/libtorch/${{ matrix.cuda-version }}/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2B${{ matrix.cuda-version }}.zip -O libtorch.zip
+          unzip -q ${{ github.workspace }}/libtorch.zip -d ${{ github.workspace }}/
+          rm ${{ github.workspace }}/libtorch.zip
+
+      - name: Cache Build
+        uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmakeBuildType }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmakeBuildType }}-ccache-
+          path: ${{ env.CCACHE_DIR }}
+
+      - name: Configure and build
+        run: |
+          set -x
+          source .github/workflows/cuda/${{ runner.os }}-env.sh ${{ matrix.cuda-version }}
+          cmake --version
+          mkdir build
+          cd build
+          cmake .. \
+            -GNinja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }} \
+            -DCMAKE_CUDA_COMPILER=$CUDA_HOME/bin/nvcc \
+            -DCMAKE_C_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install
+          ninja -k 10000
+
+      - name: Clean compiler cache
+        run: |
+          set -x
+          ccache --show-stats --verbose
+          ccache --evict-older-than 7d
+          ccache -s
+          ccache --show-stats --verbose
