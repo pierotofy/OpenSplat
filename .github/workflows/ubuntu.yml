@@ -3,7 +3,7 @@ name: OpenSplat (Ubuntu)
 on:
   push:
     branches:
-      - github-actions
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -88,7 +88,7 @@ jobs:
       - name: Clean compiler cache
         run: |
           set -x
-          ccache --show-stats --verbose
+          ccache --show-stats
           ccache --evict-older-than 7d
           ccache -s
-          ccache --show-stats --verbose
+          ccache --show-stats
