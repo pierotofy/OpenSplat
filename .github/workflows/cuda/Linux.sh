@@ -5,6 +5,12 @@
 OS=ubuntu2004
 
 case ${1} in
+  cu121)
+    CUDA=12.1
+    APT_KEY=${OS}-${CUDA/./-}-local
+    FILENAME=cuda-repo-${APT_KEY}_${CUDA}.0-530.30.02-1_amd64.deb
+    URL=https://developer.download.nvidia.com/compute/cuda/${CUDA}.0/local_installers
+    ;;
   cu118)
     CUDA=11.8
     APT_KEY=${OS}-${CUDA/./-}-local
@@ -52,7 +58,7 @@ sudo mv cuda-${OS}.pin /etc/apt/preferences.d/cuda-repository-pin-600
 wget -nv ${URL}/${FILENAME}
 sudo dpkg -i ${FILENAME}
 
-if [ "${1}" = "cu117" ] || [ "${1}" = "cu118" ]; then
+if [ "${1}" = "cu117" ] || [ "${1}" = "cu118" ] || [ "${1}" = "cu121" ]; then
   sudo cp /var/cuda-repo-${APT_KEY}/cuda-*-keyring.gpg /usr/share/keyrings/
 else
   sudo apt-key add /var/cuda-repo-${APT_KEY}/7fa2af80.pub

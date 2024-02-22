@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmakeBuildType }}
+    name: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -49,7 +49,7 @@ jobs:
 
       - name: Install libtorch ${{ matrix.torch-version }}+${{ matrix.cuda-version }}
         run: |
-          wget -nv https://download.pytorch.org/libtorch/${{ matrix.cuda-version }}/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2B${{ matrix.cuda-version }}.zip -O libtorch.zip
+          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/${{ matrix.cuda-version }}/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2B${{ matrix.cuda-version }}.zip -O libtorch.zip
           unzip -q ${{ github.workspace }}/libtorch.zip -d ${{ github.workspace }}/
           rm ${{ github.workspace }}/libtorch.zip
 
@@ -57,8 +57,8 @@ jobs:
         uses: actions/cache@v4
         id: cache-builds
         with:
-          key: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmakeBuildType }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmakeBuildType }}-ccache-
+          key: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-
           path: ${{ env.CCACHE_DIR }}
 
       - name: Configure and build
@@ -71,11 +71,11 @@ jobs:
           cmake .. \
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }} \
-            -DCMAKE_CUDA_COMPILER=$CUDA_HOME/bin/nvcc \
             -DCMAKE_C_COMPILER_LAUNCHER=$(which ccache) \
             -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
-            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
+            -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME
           ninja -k 10000
 
       - name: Clean compiler cache
