@@ -47,6 +47,13 @@ jobs:
         run: |
           bash .github/workflows/cuda/${{ runner.os }}.sh ${{ matrix.cuda-version }}
 
+      - name: Free disk space
+        if: ${{ matrix.os == 'ubuntu-20.04' }}
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /usr/lib/php* /opt/ghc || true
+          df -h
+
       - name: Install libtorch ${{ matrix.torch-version }}+${{ matrix.cuda-version }}
         run: |
           wget --no-check-certificate -nv https://download.pytorch.org/libtorch/${{ matrix.cuda-version }}/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2B${{ matrix.cuda-version }}.zip -O libtorch.zip
@@ -76,7 +83,7 @@ jobs:
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
             -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
             -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME
-          ninja -k 10000
+          ninja -k 8
 
       - name: Clean compiler cache
         run: |
