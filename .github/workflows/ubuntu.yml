@@ -3,7 +3,7 @@ name: OpenSplat (Ubuntu)
 on:
   push:
     branches:
-      - main
+      - fix-libtorch-2.2
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -17,9 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
-        torch-version: [2.1.2] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0]
+        torch-version: [2.1.2, 2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
         cuda-version: ['cu118', 'cu121'] # ['cpu', 'cu113', 'cu116', 'cu117']
         cmake-build-type: [Release] # [Debug, ClangTidy]
+        exclude:
+          - os: ubuntu-20.04
+          - cuda-version: cu118
+          - torch-version: 2.1.2
 
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -36,11 +40,17 @@ jobs:
           sudo apt-get update     
           sudo apt-get install -y \
             build-essential \
-            ccache \
             cmake \
             ninja-build \
             libopencv-dev \
             wget
+
+      - name: Install ccache
+        run: |
+          wget -nv https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-linux-x86_64.tar.xz
+          sudo tar xf ccache-4.9.1-linux-x86_64.tar.xz -C /usr/bin --strip-components=1 --no-same-owner ccache-4.9.1-linux-x86_64/ccache
+          rm -f ccache-*-linux-x86_64.tar.xz
+          ccache --version
 
       - name: Install CUDA ${{ matrix.cuda-version }}
         if: ${{ matrix.cuda-version != 'cpu' }}
@@ -83,7 +93,7 @@ jobs:
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
             -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
             -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME
-          ninja -k 8
+          ninja
 
       - name: Clean compiler cache
         run: |
