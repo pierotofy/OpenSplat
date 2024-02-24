@@ -187,7 +187,11 @@ int Model::getDownscaleFactor(int step){
 
 void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples){
     torch::Tensor param = optimizer->param_groups()[0].params()[0];
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto pId = param.unsafeGetTensorImpl();
+#else
+    auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
+#endif
     auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
     
     std::vector<int64_t> repeats;
@@ -208,21 +212,33 @@ void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &n
 
     optimizer->state().erase(pId);
 
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto newPId = newParam.unsafeGetTensorImpl();
+#else
+    auto newPId = c10::guts::to_string(newParam.unsafeGetTensorImpl());
+#endif    
     optimizer->state()[newPId] = std::move(paramState);
     optimizer->param_groups()[0].params()[0] = newParam;
 }
 
 void Model::removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask){
     torch::Tensor param = optimizer->param_groups()[0].params()[0];
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto pId = param.unsafeGetTensorImpl();
+#else
+    auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
+#endif
     auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
 
     paramState->exp_avg(paramState->exp_avg().index({~deletedMask}));
     paramState->exp_avg_sq(paramState->exp_avg_sq().index({~deletedMask}));
 
     optimizer->state().erase(pId);
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto newPId = newParam.unsafeGetTensorImpl();
+#else
+    auto newPId = c10::guts::to_string(newParam.unsafeGetTensorImpl());
+#endif
     optimizer->param_groups()[0].params()[0] = newParam;
     optimizer->state()[newPId] = std::move(paramState);
 }
@@ -383,7 +399,11 @@ void Model::afterTrain(int step){
 
             // Reset optimizer
             torch::Tensor param = opacitiesOpt->param_groups()[0].params()[0];
-            auto pId = param.unsafeGetTensorImpl();
+            #if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
+                auto pId = param.unsafeGetTensorImpl();
+            #else
+                auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
+            #endif    
             auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*opacitiesOpt->state()[pId]));
             paramState->exp_avg(torch::zeros_like(paramState->exp_avg()));
             paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));

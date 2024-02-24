@@ -21,9 +21,8 @@ jobs:
         cuda-version: ['cu118', 'cu121'] # ['cpu', 'cu113', 'cu116', 'cu117']
         cmake-build-type: [Release] # [Debug, ClangTidy]
         exclude:
-          - os: ubuntu-20.04
           - cuda-version: cu118
-          - torch-version: 2.1.2
+          - torch-version: 2.2.1
 
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
