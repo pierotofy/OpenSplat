@@ -3,7 +3,7 @@ name: OpenSplat (Ubuntu)
 on:
   push:
     branches:
-      - fix-libtorch-2.2
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -20,9 +20,6 @@ jobs:
         torch-version: [2.1.2, 2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
         cuda-version: ['cu118', 'cu121'] # ['cpu', 'cu113', 'cu116', 'cu117']
         cmake-build-type: [Release] # [Debug, ClangTidy]
-        exclude:
-          - cuda-version: cu118
-          - torch-version: 2.2.1
 
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
