@@ -8,8 +8,8 @@ case ${1} in
   cu121)
     CUDA=12.1
     APT_KEY=${OS}-${CUDA/./-}-local
-    FILENAME=cuda-repo-${APT_KEY}_${CUDA}.0-530.30.02-1_amd64.deb
-    URL=https://developer.download.nvidia.com/compute/cuda/${CUDA}.0/local_installers
+    FILENAME=cuda-repo-${APT_KEY}_${CUDA}.1-530.30.02-1_amd64.deb
+    URL=https://developer.download.nvidia.com/compute/cuda/${CUDA}.1/local_installers
     ;;
   cu118)
     CUDA=11.8
@@ -64,7 +64,8 @@ else
   sudo apt-key add /var/cuda-repo-${APT_KEY}/7fa2af80.pub
 fi
 
-sudo apt-get update
-sudo apt-get -y install cuda
+sudo apt-get -qq update
+sudo apt install -y cuda-nvcc-${CUDA/./-} cuda-libraries-dev-${CUDA/./-} cuda-command-line-tools-${CUDA/./-}
+sudo apt clean
 
 rm -f ${FILENAME}

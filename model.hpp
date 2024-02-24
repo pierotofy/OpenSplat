@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <torch/torch.h>
+#include <torch/csrc/api/include/torch/version.h>
 #include "nerfstudio.hpp"
 #include "kdtree_tensor.hpp"
 #include "spherical_harmonics.hpp"
