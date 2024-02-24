@@ -45,11 +45,11 @@ jobs:
           Expand-Archive -Path .\ccache.zip -DestinationPath ${{ env.CCACHE_BASEDIR }}
           Remove-Item .\ccache.zip
           echo "${{ env.CCACHE_BASEDIR }}\ccache-4.9.1-windows-x86_64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          
-#          Invoke-WebRequest https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip -OutFile ninja-win.zip
-#          Expand-Archive -Path .\ninja-win.zip -Destination "${{ env.CCACHE_BASEDIR }}\bin"
-#          Remove-Item .\ninja-win.zip
-#          echo "${{ env.CCACHE_BASEDIR }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          # Invoke-WebRequest https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip -OutFile ninja-win.zip
+          # Expand-Archive -Path .\ninja-win.zip -Destination "${{ env.CCACHE_BASEDIR }}\bin"
+          # Remove-Item .\ninja-win.zip
+          # echo "${{ env.CCACHE_BASEDIR }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install CUDA ${{ matrix.cuda-version }}
         if: ${{ matrix.cuda-version != 'cpu' }}
@@ -58,7 +58,10 @@ jobs:
 
       - name: Install libtorch ${{ matrix.torch-version }}+${{ matrix.cuda-version }}
         run: |
-          Invoke-WebRequest https://download.pytorch.org/libtorch/${{ matrix.cuda-version }}/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B${{ matrix.cuda-version }}.zip -OutFile libtorch.zip
+          echo $env:CUDA_VER_SHORT
+          $LIBTORCH_URL = "https://download.pytorch.org/libtorch/$env:CUDA_VER_SHORT/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B$($env:CUDA_VER_SHORT).zip"
+          echo $LIBTORCH_URL
+          Invoke-WebRequest $LIBTORCH_URL -OutFile libtorch.zip
           Expand-Archive -Path .\libtorch.zip -DestinationPath ${{ env.CCACHE_BASEDIR }}
           Remove-Item .\libtorch.zip
 
