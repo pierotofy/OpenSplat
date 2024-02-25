@@ -33,13 +33,14 @@ jobs:
       CL: /MP
       CMAKE_GENERATOR: ${{matrix.generator}}
       CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
+      TORCH_CUDA_ARCH_LIST: "7.0;7.5"
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Windows (ccache, ninja)
+      - name: Setup Windows
         run: |
           Invoke-WebRequest https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-windows-x86_64.zip -OutFile ccache.zip
           Expand-Archive -Path .\ccache.zip -DestinationPath ${{ env.CCACHE_BASEDIR }}
@@ -51,12 +52,39 @@ jobs:
           # Remove-Item .\ninja-win.zip
           # echo "${{ env.CCACHE_BASEDIR }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Install CUDA ${{ matrix.cuda-version }}
-        if: ${{ matrix.cuda-version != 'cpu' }}
+      - name: Restore CUDA Cache
+        uses: actions/cache@v4
+        id: cuda-cache
+        with:
+          key: cuda-${{matrix.CUDA-VERSION}}-${{ matrix.os }}
+          path: |
+            C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
+            C:\Program Files\NVIDIA Corporation\NvToolsExt
+
+      - name: Install CUDA
+        if: ${{ steps.cuda-cache.outputs.cache-hit != 'true' && matrix.cuda-version != 'cpu' }}
         run: |
+          echo ${{ steps.cuda-cache.outputs.cache-hit != 'true' }}
+          echo ${{ matrix.cuda-version != 'cpu' }}
           .github/workflows/cuda/${{ runner.os }}.ps1 ${{ matrix.cuda-version }}
 
-      - name: Install libtorch ${{ matrix.torch-version }}+${{ matrix.cuda-version }}
+      - name: Setup CUDA
+        shell: bash
+        run: |
+          CUDA_VER_FULL=${{ matrix.cuda-version }}
+          CUDA_VER_ARR=($(echo ${CUDA_VER_FULL} | tr "." " "))
+          CUDA_VER="${CUDA_VER_ARR[0]}.${CUDA_VER_ARR[1]}"
+          CUDA_VER_ID="${CUDA_VER_ARR[0]}_${CUDA_VER_ARR[1]}"
+          CUDA_VER_SHORT="cu${CUDA_VER_ARR[0]}${CUDA_VER_ARR[1]}"
+          
+          echo "CUDA_VER_SHORT=${CUDA_VER_SHORT}" >> ${GITHUB_ENV}
+          echo "CUDA_PATH=C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}" >> ${GITHUB_ENV}
+          echo "CUDA_PATH_V${CUDA_VER_ID}=C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}" >> ${GITHUB_ENV}
+          echo "CUDA_PATH_VX_Y=CUDA_PATH_V${CUDA_VER_ID}" >> ${GITHUB_ENV}
+          echo "NVTOOLSEXT_PATH=C:\\Program Files\\NVIDIA Corporation\\NvToolsExt" >> ${GITHUB_ENV}
+          echo "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\bin" >> ${GITHUB_PATH}
+
+      - name: Install libtorch
         run: |
           $LIBTORCH_URL = "https://download.pytorch.org/libtorch/$env:CUDA_VER_SHORT/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B$($env:CUDA_VER_SHORT).zip"
           echo $LIBTORCH_URL

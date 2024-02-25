@@ -25,31 +25,6 @@ $CUDA_VER_SHORT = "cu$($CUDA_VER_ARR[0])$($CUDA_VER_ARR[1])"
 #Remove-Item -Force -Recurse -LiteralPath "C:\msys64\"
 #Remove-Item -Force -Recurse -LiteralPath  "C:\mingw64\"
 
-# Install NvToolsExt
-$NVTOOLSEXT_PATH  = "C:\Program Files\NVIDIA Corporation\NvToolsExt"
-if (Test-Path -Path "$NVTOOLSEXT_PATH " -PathType Container) {
-Write-Output "Existing nvtools installation already found, continuing..."
-return
-}
-function New-TemporaryDirectory() {
-  New-TemporaryFile | ForEach-Object { Remove-Item $_; New-Item -ItemType Directory -Path $_ }
-}
-$NV_TOOLS_URL = "https://ossci-windows.s3.amazonaws.com/NvToolsExt.7z" # pytorch test-infra
-$tmpToolsDl = New-TemporaryFile
-Write-Output "Downloading NvTools, $NV_TOOLS_URL"
-Invoke-WebRequest -Uri "$NV_TOOLS_URL" -OutFile "$tmpToolsDl"
-$tmpExtractedNvTools = New-TemporaryDirectory
-7z x "$tmpToolsDl" -o"$tmpExtractedNvTools"
-Write-Output "Copying NvTools, '$tmpExtractedNvTools' -> '$NVTOOLSEXT_PATH'"
-New-Item -Path "$NVTOOLSEXT_PATH "-ItemType "directory" -Force
-Copy-Item -Recurse -Path "$tmpExtractedNvTools\*" -Destination "$NVTOOLSEXT_PATH"
-Remove-Item "$tmpExtractedNvTools" -Recurse -Force
-Remove-Item "$tmpToolsDl" -Recurse -Force
-
-$NVTOOLSEXT_PATH = "C:\Program Files\NVIDIA Corporation\NvToolsExt"
-echo "NVTOOLSEXT_PATH=$NVTOOLSEXT_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-
 # Network installer url
 if ( $CUDA_VER_ARR[0] -ge 11 ) {
 $CUDA_URL = "https://developer.download.nvidia.com/compute/cuda/$CUDA_VER_FULL/network_installers/cuda_$($CUDA_VER_FULL)_windows_network.exe"
@@ -77,10 +52,36 @@ if ( !$? ) {
 Remove-Item .\cuda.exe -Force
 
 # Add CUDA environment variables.
-$CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v$CUDA_VER"
-echo "CUDA_PATH=$CUDA_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-echo "CUDA_PATH_V$CUDA_VER_ID=$CUDA_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-echo "CUDA_VER_SHORT=$CUDA_VER_SHORT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-echo "$CUDA_PATH\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+# $CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v$CUDA_VER"
+# echo "CUDA_PATH=$CUDA_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+# echo "CUDA_PATH_V$CUDA_VER_ID=$CUDA_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+# echo "CUDA_VER_SHORT=$CUDA_VER_SHORT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+# echo "$CUDA_PATH\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+# $TORCH_CUDA_ARCH_LIST = "7.0;7.5"
+# echo "TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+# Install NvToolsExt
+$NVTOOLSEXT_PATH  = "C:\Program Files\NVIDIA Corporation\NvToolsExt"
+if (Test-Path -Path "$NVTOOLSEXT_PATH " -PathType Container) {
+Write-Output "Existing nvtools installation already found, continuing..."
+return
+}
+function New-TemporaryDirectory() {
+  New-TemporaryFile | ForEach-Object { Remove-Item $_; New-Item -ItemType Directory -Path $_ }
+}
+$NV_TOOLS_URL = "https://ossci-windows.s3.amazonaws.com/NvToolsExt.7z" # pytorch test-infra
+$tmpToolsDl = New-TemporaryFile
+Write-Output "Downloading NvTools, $NV_TOOLS_URL"
+Invoke-WebRequest -Uri "$NV_TOOLS_URL" -OutFile "$tmpToolsDl"
+$tmpExtractedNvTools = New-TemporaryDirectory
+7z x "$tmpToolsDl" -o"$tmpExtractedNvTools"
+Write-Output "Copying NvTools, '$tmpExtractedNvTools' -> '$NVTOOLSEXT_PATH'"
+New-Item -Path "$NVTOOLSEXT_PATH "-ItemType "directory" -Force
+Copy-Item -Recurse -Path "$tmpExtractedNvTools\*" -Destination "$NVTOOLSEXT_PATH"
+Remove-Item "$tmpExtractedNvTools" -Recurse -Force
+Remove-Item "$tmpToolsDl" -Recurse -Force
+
+# $NVTOOLSEXT_PATH = "C:\Program Files\NVIDIA Corporation\NvToolsExt"
+# echo "NVTOOLSEXT_PATH=$NVTOOLSEXT_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
 Get-PSDrive
