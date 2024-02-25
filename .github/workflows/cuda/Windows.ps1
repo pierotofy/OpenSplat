@@ -55,9 +55,14 @@ if ( !$? ) {
 Remove-Item .\cuda.exe -Force
 Get-PSDrive
 
+Get-ChildItem -Path "C:/Program Files" -Recurse -File -Filter "nvToolsExt.dll" -ErrorAction SilentlyContinue
+
 # Add CUDA environment variables.
 $CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v$CUDA_VER"
 echo "CUDA_PATH=$CUDA_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 echo "CUDA_PATH_V$CUDA_VER_ID=$CUDA_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 echo "CUDA_VER_SHORT=$CUDA_VER_SHORT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 echo "$CUDA_PATH\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+$NVTOOLSEXT_PATH = "C:\Program Files\NVIDIA Corporation\NvToolsExt"
+echo "NVTOOLSEXT_PATH=$NVTOOLSEXT_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append

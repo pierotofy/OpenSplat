@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    name: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -20,7 +20,7 @@ jobs:
         arch: [x64] # [x64, x86]
         generator: ['Visual Studio 17 2022'] # ['Visual Studio 16 2019', 'Visual Studio 17 2022']
         torch-version: [2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
-        cuda-version: [12.1.1] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
+        cuda-version: [11.8.0] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
         cmake-build-type: [ Release ] # [Debug, ClangTidy]
 #        include:
 #          - os: windows-2019
@@ -58,7 +58,6 @@ jobs:
 
       - name: Install libtorch ${{ matrix.torch-version }}+${{ matrix.cuda-version }}
         run: |
-          echo $env:CUDA_VER_SHORT
           $LIBTORCH_URL = "https://download.pytorch.org/libtorch/$env:CUDA_VER_SHORT/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B$($env:CUDA_VER_SHORT).zip"
           echo $LIBTORCH_URL
           Invoke-WebRequest $LIBTORCH_URL -OutFile libtorch.zip
@@ -69,13 +68,12 @@ jobs:
         uses: actions/cache@v4
         id: cache-builds
         with:
-          key: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ matrix.os }}-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-
+          key: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-
           path: ${{ env.CCACHE_DIR }}
 
       - name: Configure and build
         run: |
-          ls "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.1/bin"
           echo $env:PATH
           mkdir build
           cd build
