@@ -43,14 +43,14 @@ jobs:
       - name: Setup Windows
         run: |
           Invoke-WebRequest https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-windows-x86_64.zip -OutFile ccache.zip
-          Expand-Archive -Path .\ccache.zip -DestinationPath ${{ env.CCACHE_BASEDIR }}
+          Expand-Archive -Path .\ccache.zip -DestinationPath ${{ github.workspace }}
           Remove-Item .\ccache.zip
-          echo "${{ env.CCACHE_BASEDIR }}\ccache-4.9.1-windows-x86_64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\ccache-4.9.1-windows-x86_64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
           # Invoke-WebRequest https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip -OutFile ninja-win.zip
-          # Expand-Archive -Path .\ninja-win.zip -Destination "${{ env.CCACHE_BASEDIR }}\bin"
+          # Expand-Archive -Path .\ninja-win.zip -Destination "${{ github.workspace }}\bin"
           # Remove-Item .\ninja-win.zip
-          # echo "${{ env.CCACHE_BASEDIR }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          # echo "${{ github.workspace }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Restore CUDA Cache
         uses: actions/cache@v4
@@ -62,10 +62,8 @@ jobs:
             C:\Program Files\NVIDIA Corporation\NvToolsExt
 
       - name: Install CUDA
-        if: ${{ steps.cuda-cache.outputs.cache-hit != 'true' && matrix.cuda-version != 'cpu' }}
+        if: ${{ steps.cuda-cache.outputs.cache-hit != 'true' }}
         run: |
-          echo ${{ steps.cuda-cache.outputs.cache-hit != 'true' }}
-          echo ${{ matrix.cuda-version != 'cpu' }}
           .github/workflows/cuda/${{ runner.os }}.ps1 ${{ matrix.cuda-version }}
 
       - name: Setup CUDA
@@ -84,12 +82,21 @@ jobs:
           echo "NVTOOLSEXT_PATH=C:\\Program Files\\NVIDIA Corporation\\NvToolsExt" >> ${GITHUB_ENV}
           echo "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\bin" >> ${GITHUB_PATH}
 
+      - name: Restore libtorch Cache
+        uses: actions/cache@v4
+        id: libtorch-cache
+        with:
+          key: libtorch-${{ matrix.torch-version }}-${{env.CUDA_VER_SHORT}}-${{ matrix.os }}
+          path: |
+            ${{ github.workspace }}\libtorch
+
       - name: Install libtorch
+        if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
         run: |
           $LIBTORCH_URL = "https://download.pytorch.org/libtorch/$env:CUDA_VER_SHORT/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B$($env:CUDA_VER_SHORT).zip"
           echo $LIBTORCH_URL
           Invoke-WebRequest $LIBTORCH_URL -OutFile libtorch.zip
-          Expand-Archive -Path .\libtorch.zip -DestinationPath ${{ env.CCACHE_BASEDIR }}
+          Expand-Archive -Path .\libtorch.zip -DestinationPath ${{ github.workspace }}
           Remove-Item .\libtorch.zip
 
       - name: Cache Build
