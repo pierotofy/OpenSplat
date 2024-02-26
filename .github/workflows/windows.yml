@@ -23,18 +23,18 @@ jobs:
         cuda-version: [11.8.0] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
         opencv-version: [4.9.0] # [4.7.0, 4.8.1, 4.9.0]
         cmake-build-type: [ Release ] # [Debug, ClangTidy]
-#        include:
+        include:
 #          - os: windows-2019
 #            generator: 'Visual Studio 16 2019'
-#          - os: windows-2022
-#            generator: 'Visual Studio 17 2022'
+          - os: windows-2022
+            generator: 'Visual Studio 17 2022'
     env:
       CCACHE_DIR: ${{ github.workspace }}\ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CL: /MP
       CMAKE_GENERATOR: ${{matrix.generator}}
       CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
-      TORCH_CUDA_ARCH_LIST: "7.0;7.5"
+      TORCH_CUDA_ARCH_LIST: '7.0;7.5'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -88,6 +88,17 @@ jobs:
           echo "CUDA_PATH_VX_Y=CUDA_PATH_V${CUDA_VER_ID}" >> ${GITHUB_ENV}
           echo "NVTOOLSEXT_PATH=C:\\Program Files\\NVIDIA Corporation\\NvToolsExt" >> ${GITHUB_ENV}
           echo "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\bin" >> ${GITHUB_PATH}
+          
+          # Add cuda visual studio integration
+          cache_hit="${{ steps.cuda-cache.outputs.cache-hit }}"
+          generator="${{ matrix.generator }}"
+          if [[ $cache_hit == 'true' ]]; then
+            if [[ $generator == 'Visual Studio 17 2022' ]]; then
+              cp -R "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\extras\\visual_studio_integration\\MSBuildExtensions\\." "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations"
+            else
+              cp -R "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\extras\\visual_studio_integration\\MSBuildExtensions\\." "C:\Program Files\Microsoft Visual Studio\2019\Enterprise\MSBuild\Microsoft\VC\v160\BuildCustomizations"
+            fi
+          fi
 
       - name: Restore LibTorch Cache
         uses: actions/cache@v4
@@ -124,7 +135,8 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER:FILEPATH=ccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=ccache `
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\libtorch `
-            -DOPENCV_DIR=${{ github.workspace }}\OpenCV\opencv\build
+            -DOPENCV_DIR=${{ github.workspace }}\OpenCV\opencv\build `
+            -DTORCH_CUDA_ARCH_LIST="${{ env.TORCH_CUDA_ARCH_LIST }}"
           cmake --build . --parallel --config ${{ matrix.cmake-build-type }}
 
       - name: Clean Compiler Cache
