@@ -1,0 +1,148 @@
+name: OpenSplat (Windows)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2019, windows-2022] # [windows-2019, windows-2022]
+        arch: [x64] # [x64, x86]
+        torch-version: [2.1.2, 2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
+        cuda-version: [11.8.0, 12.1.1] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
+        opencv-version: [4.9.0] # [4.7.0, 4.8.1, 4.9.0]
+        cmake-build-type: [ Release ] # [Debug, ClangTidy]
+        include:
+          - os: windows-2019
+            generator: 'Visual Studio 16 2019'
+          - os: windows-2022
+            generator: 'Visual Studio 17 2022'
+    env:
+      CCACHE_DIR: ${{ github.workspace }}\ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CL: /MP
+      CMAKE_GENERATOR: ${{matrix.generator}}
+      CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
+      TORCH_CUDA_ARCH_LIST: '7.0;7.5'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Windows
+        run: |
+          # Install ccache
+          Invoke-WebRequest https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-windows-x86_64.zip -OutFile ccache.zip
+          Expand-Archive -Path .\ccache.zip -DestinationPath ${{ github.workspace }}
+          Remove-Item .\ccache.zip
+          echo "${{ github.workspace }}\ccache-4.9.1-windows-x86_64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      
+          # Install OpenCV
+          Invoke-WebRequest https://github.com/opencv/opencv/releases/download/${{ matrix.opencv-version }}/opencv-${{ matrix.opencv-version }}-windows.exe -OutFile opencv.exe
+          Start-Process -Wait -FilePath .\opencv.exe  -ArgumentList "-oopencv -y"
+          Remove-Item .\opencv.exe
+          
+          # Invoke-WebRequest https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip -OutFile ninja-win.zip
+          # Expand-Archive -Path .\ninja-win.zip -Destination "${{ github.workspace }}\bin"
+          # Remove-Item .\ninja-win.zip
+          # echo "${{ github.workspace }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Restore CUDA Cache
+        uses: actions/cache@v4
+        id: cuda-cache
+        with:
+          key: cuda-${{matrix.CUDA-VERSION}}-windows
+          path: |
+            C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA*
+            C:\Program Files\NVIDIA Corporation\NvToolsExt
+
+      - name: Install CUDA
+        if: ${{ steps.cuda-cache.outputs.cache-hit != 'true' }}
+        run: |
+          .github/workflows/cuda/${{ runner.os }}.ps1 ${{ matrix.cuda-version }}
+
+      - name: Setup CUDA
+        shell: bash
+        run: |
+          CUDA_VER_FULL=${{ matrix.cuda-version }}
+          CUDA_VER_ARR=($(echo ${CUDA_VER_FULL} | tr "." " "))
+          CUDA_VER="${CUDA_VER_ARR[0]}.${CUDA_VER_ARR[1]}"
+          CUDA_VER_ID="${CUDA_VER_ARR[0]}_${CUDA_VER_ARR[1]}"
+          CUDA_VER_SHORT="cu${CUDA_VER_ARR[0]}${CUDA_VER_ARR[1]}"
+          
+          echo "CUDA_VER_SHORT=${CUDA_VER_SHORT}" >> ${GITHUB_ENV}
+          echo "CUDA_PATH=C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}" >> ${GITHUB_ENV}
+          echo "CUDA_PATH_V${CUDA_VER_ID}=C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}" >> ${GITHUB_ENV}
+          echo "CUDA_PATH_VX_Y=CUDA_PATH_V${CUDA_VER_ID}" >> ${GITHUB_ENV}
+          echo "NVTOOLSEXT_PATH=C:\\Program Files\\NVIDIA Corporation\\NvToolsExt" >> ${GITHUB_ENV}
+          echo "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\bin" >> ${GITHUB_PATH}
+          
+          # Add cuda visual studio integration
+          cache_hit="${{ steps.cuda-cache.outputs.cache-hit }}"
+          generator="${{ matrix.generator }}"
+          if [[ $cache_hit == 'true' ]]; then
+            if [[ $generator == 'Visual Studio 17 2022' ]]; then
+              cp -R "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\extras\\visual_studio_integration\\MSBuildExtensions\\." "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations"
+            else
+              cp -R "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${CUDA_VER}\\extras\\visual_studio_integration\\MSBuildExtensions\\." "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Microsoft\VC\v160\BuildCustomizations"
+            fi
+          fi
+
+      - name: Restore LibTorch Cache
+        uses: actions/cache@v4
+        id: libtorch-cache
+        with:
+          key: libtorch-${{ matrix.torch-version }}-${{env.CUDA_VER_SHORT}}-windows
+          path: |
+            ${{ github.workspace }}\libtorch
+
+      - name: Install LibTorch
+        if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
+        run: |
+          $LIBTORCH_URL = "https://download.pytorch.org/libtorch/$env:CUDA_VER_SHORT/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B$($env:CUDA_VER_SHORT).zip"
+          echo $LIBTORCH_URL
+          Invoke-WebRequest $LIBTORCH_URL -OutFile libtorch.zip
+          Expand-Archive -Path .\libtorch.zip -DestinationPath ${{ github.workspace }}
+          Remove-Item .\libtorch.zip
+
+      - name: Cache Build
+        uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-
+          path: ${{ env.CCACHE_DIR }}
+
+      - name: Configure And Build
+        run: |
+          echo $env:PATH
+          mkdir build
+          cd build
+          cmake .. `
+            -G"${{ matrix.generator }}" `
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }} `
+            -DCMAKE_C_COMPILER_LAUNCHER:FILEPATH=ccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=ccache `
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}\libtorch `
+            -DOPENCV_DIR=${{ github.workspace }}\OpenCV\opencv\build `
+            -DTORCH_CUDA_ARCH_LIST="${{ env.TORCH_CUDA_ARCH_LIST }}"
+          cmake --build . --parallel --config ${{ matrix.cmake-build-type }}
+
+      - name: Clean Compiler Cache
+        shell: pwsh
+        run: |
+          ccache --show-stats
+          ccache --evict-older-than 7d
+          ccache -s
+          ccache --show-stats

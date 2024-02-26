@@ -16,7 +16,7 @@ if (NOT WIN32 AND NOT APPLE)
     set(STDPPFS_LIBRARY stdc++fs)
 endif()
 
-find_package(CUDA REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 find_package(Torch REQUIRED)
 find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
 
