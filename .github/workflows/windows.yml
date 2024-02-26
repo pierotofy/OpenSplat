@@ -16,17 +16,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2019] # [windows-2019, windows-2022]
+        os: [windows-2022] # [windows-2019, windows-2022]
         arch: [x64] # [x64, x86]
         torch-version: [2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
         cuda-version: [11.8.0] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
         opencv-version: [4.9.0] # [4.7.0, 4.8.1, 4.9.0]
         cmake-build-type: [ Release ] # [Debug, ClangTidy]
         include:
-          - os: windows-2019
-            generator: 'Visual Studio 16 2019'
-#          - os: windows-2022
-#            generator: 'Visual Studio 17 2022'
+#          - os: windows-2019
+#            generator: 'Visual Studio 16 2019'
+          - os: windows-2022
+            generator: 'Visual Studio 17 2022'
     env:
       CCACHE_DIR: ${{ github.workspace }}\ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -62,7 +62,7 @@ jobs:
         uses: actions/cache@v4
         id: cuda-cache
         with:
-          key: cuda-${{matrix.CUDA-VERSION}}-windows-2022
+          key: cuda-${{matrix.CUDA-VERSION}}-windows
           path: |
             C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA*
             C:\Program Files\NVIDIA Corporation\NvToolsExt
@@ -103,7 +103,7 @@ jobs:
         uses: actions/cache@v4
         id: libtorch-cache
         with:
-          key: libtorch-${{ matrix.torch-version }}-${{env.CUDA_VER_SHORT}}-windows-2022
+          key: libtorch-${{ matrix.torch-version }}-${{env.CUDA_VER_SHORT}}-windows
           path: |
             ${{ github.workspace }}\libtorch
 
