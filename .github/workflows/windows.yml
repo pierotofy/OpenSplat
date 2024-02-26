@@ -3,7 +3,7 @@ name: OpenSplat (Windows)
 on:
   push:
     branches:
-      - ci-windows
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
