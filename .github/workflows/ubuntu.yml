@@ -48,6 +48,12 @@ jobs:
           rm -f ccache-*-linux-x86_64.tar.xz
           ccache --version
 
+      - name: Sudo Tar Wrapper
+        run: |
+          sudo mv -fv /usr/bin/tar /usr/bin/tar.orig
+          echo -e '#!/bin/sh\n\nsudo /usr/bin/tar.orig "$@"' | sudo tee -a /usr/bin/tar
+          sudo chmod +x /usr/bin/tar
+
       - name: Restore CUDA Cache
         uses: actions/cache@v4
         id: cuda-cache
