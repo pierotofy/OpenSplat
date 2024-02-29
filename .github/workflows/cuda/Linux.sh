@@ -1,10 +1,17 @@
 #!/bin/bash
 
+# CUDA major and minor version
+CUDA_VER_FULL=${1}
+CUDA_VER_ARR=($(echo ${CUDA_VER_FULL} | tr "." " "))
+CUDA_VER="${CUDA_VER_ARR[0]}.${CUDA_VER_ARR[1]}"
+CUDA_VER_ID="${CUDA_VER_ARR[0]}_${CUDA_VER_ARR[1]}"
+CUDA_VER_SHORT="cu${CUDA_VER_ARR[0]}${CUDA_VER_ARR[1]}"
+
 # Took from https://github.com/pyg-team/pyg-lib/
 
 OS=ubuntu2004
 
-case ${1} in
+case ${CUDA_VER_SHORT} in
   cu121)
     CUDA=12.1
     APT_KEY=${OS}-${CUDA/./-}-local
@@ -48,7 +55,7 @@ case ${1} in
     URL=https://developer.download.nvidia.com/compute/cuda/${CUDA}/Prod/local_installers
     ;;
   *)
-    echo "Unrecognized CUDA_VERSION=${1}"
+    echo "Unrecognized CUDA_VERSION=${CUDA_VER_SHORT}"
     exit 1
     ;;
 esac
@@ -58,7 +65,7 @@ sudo mv cuda-${OS}.pin /etc/apt/preferences.d/cuda-repository-pin-600
 wget -nv ${URL}/${FILENAME}
 sudo dpkg -i ${FILENAME}
 
-if [ "${1}" = "cu117" ] || [ "${1}" = "cu118" ] || [ "${1}" = "cu121" ]; then
+if [ "${CUDA_VER_SHORT}" = "cu117" ] || [ "${CUDA_VER_SHORT}" = "cu118" ] || [ "${CUDA_VER_SHORT}" = "cu121" ]; then
   sudo cp /var/cuda-repo-${APT_KEY}/cuda-*-keyring.gpg /usr/share/keyrings/
 else
   sudo apt-key add /var/cuda-repo-${APT_KEY}/7fa2af80.pub
