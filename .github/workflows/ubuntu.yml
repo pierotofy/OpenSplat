@@ -3,7 +3,7 @@ name: OpenSplat (Ubuntu)
 on:
   push:
     branches:
-      - ci-linux-cache
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
