@@ -27,6 +27,25 @@ Requirements:
 
  The software has been tested on Ubuntu 20.04 and Windows. With some changes it could run on macOS (help us by opening a PR?).
 
+## Build Docker Image
+Navigate to the root directory of OpenSplat repo that has Dockerfile and run the following command to build the Docker image:
+```bash
+docker build -t opensplat .
+```
+
+The `-t` flag and other `--build-arg` let you tag and further customize your image across different ubuntu versions, CUDA/libtorch stacks, and hardware accelerators. 
+For example, to build an image with Ubuntu 22.04, CUDA 12.1.1, libtorch 2.2.1, and support for CUDA architectures 7.0 and 7.5, run the following command:
+
+```bash
+docker build \
+  -t opensplat:ubuntu-22.04-cuda-12.1.1-torch-2.2.1 \
+  --build-arg UBUNTU_VERSION=22.04 \
+  --build-arg CUDA_VERSION=12.1.1 \
+  --build-arg TORCH_VERSION=2.2.1 \
+  --build-arg TORCH_CUDA_ARCH_LIST="7.0;7.5" \
+  --build-arg CMAKE_BUILD_TYPE=Release .
+```
+
 ## Run
 
 To get started, download a dataset and extract it to a folder: [ [banana](https://drive.google.com/file/d/1mUUZFDo2swd6CE5vwPPkjN63Hyf4XyEv/view?usp=sharing) ]  [ [train](https://drive.google.com/file/d/1-X741ecDczTRoMc3YenJLSFC9ulWXeNc/view?usp=sharing) ]  [ [truck](https://drive.google.com/file/d/1WWXo-GKo6d-yf-K1T1CswIdkdZrBNZ_e/view?usp=sharing) ] 

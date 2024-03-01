@@ -3,7 +3,7 @@ name: OpenSplat (Docker)
 on:
   push:
     branches:
-      - docker-build
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
