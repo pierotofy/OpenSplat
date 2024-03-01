@@ -18,8 +18,8 @@ jobs:
       matrix:
         os: [ubuntu-22.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
         arch: [x64] # [x64, x86]
-        torch-version: [2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
-        cuda-version: [12.1.1] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
+        torch-version: [2.1.2, 2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
+        cuda-version: [11.8.0, 12.1.1] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
         cmake-build-type: [Release] # [Debug, ClangTidy]
     steps:
       - name: Checkout Repository
@@ -32,5 +32,9 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          build-args: |
+            CUDA_VERSION=${{ matrix.cuda-version }}
+            TORCH_VERSION=${{ matrix.torch-version }}
+            CMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }}
           push: false
           tags: opensplat:latest
