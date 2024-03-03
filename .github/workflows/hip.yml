@@ -81,14 +81,14 @@ jobs:
         with:
           key: rocm-${{matrix.ROCM-VERSION}}-ubuntu
           path: |
-            /usr/local/rocm*
+            /opt/rocm*
 
       - name: Install ROCm
         if: ${{ steps.rocm-cache.outputs.cache-hit != 'true' }}
         run: |
           bash .github/workflows/rocm/${{ runner.os }}.sh ${{ matrix.rocm-version }} ${{ matrix.os }}
 
-      - name: Setup ROCm
+      - name: Setup ROCm And CUDA
         shell: bash
         run: |
           ROCM_VER_FULL=${{ matrix.rocm-version }}
@@ -111,14 +111,15 @@ jobs:
         with:
           key: libtorch-${{ matrix.torch-version }}-${{env.ROCM_VER_SHORT}}-ubuntu
           path: |
-            ${{ github.workspace }}/libtorch
+            /mnt/deps/libtorch
 
       - name: Install LibTorch
         if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
         run: |
-          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/${ROCM_VER_SHORT}/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2B${ROCM_VER_SHORT}.zip -O libtorch.zip
-          unzip -q ${{ github.workspace }}/libtorch.zip -d ${{ github.workspace }}/
-          rm ${{ github.workspace }}/libtorch.zip
+          sudo mkdir -p -m 777 /mnt/deps
+          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/${ROCM_VER_SHORT}/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2B${ROCM_VER_SHORT}.zip -O /mnt/deps/libtorch.zip
+          unzip -q /mnt/deps/libtorch.zip -d /mnt/deps
+          rm /mnt/deps/libtorch.zip
 
       - name: Cache Build
         uses: actions/cache@v4
