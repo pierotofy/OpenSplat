@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
+        os: [ubuntu-22.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
         arch: [x64] # [x64, x86]
         torch-version: [2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
         cuda-version: [12.1.1] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
@@ -34,6 +34,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Free disk space
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /usr/lib/php* /opt/ghc || true
+          df -h
 
       - name: Setup Ubuntu
         run: |
@@ -64,8 +70,21 @@ jobs:
           path: |
             /usr/local/cuda*
 
-      - name: Install ROCM
+      - name: Install CUDA
         if: ${{ steps.cuda-cache.outputs.cache-hit != 'true' }}
+        run: |
+          bash .github/workflows/cuda/${{ runner.os }}.sh ${{ matrix.cuda-version }}
+
+      - name: Restore ROCm Cache
+        uses: actions/cache@v4
+        id: rocm-cache
+        with:
+          key: rocm-${{matrix.ROCM-VERSION}}-ubuntu
+          path: |
+            /usr/local/rocm*
+
+      - name: Install ROCm
+        if: ${{ steps.rocm-cache.outputs.cache-hit != 'true' }}
         run: |
           bash .github/workflows/rocm/${{ runner.os }}.sh ${{ matrix.rocm-version }} ${{ matrix.os }}
 
@@ -79,12 +98,12 @@ jobs:
           ROCM_VER_SHORT="rocm${ROCM_VER_ARR[0]}.${ROCM_VER_ARR[1]}"          
           echo "ROCM_VER_SHORT=${ROCM_VER_SHORT}" >> ${GITHUB_ENV}
 
-      - name: Free disk space
-        if: ${{ matrix.os == 'ubuntu-20.04' }}
-        run: |
-          df -h
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /usr/lib/php* /opt/ghc || true
-          df -h
+          CUDA_VER_FULL=${{ matrix.cuda-version }}
+          CUDA_VER_ARR=($(echo ${CUDA_VER_FULL} | tr "." " "))
+          CUDA_VER="${CUDA_VER_ARR[0]}.${CUDA_VER_ARR[1]}"
+          CUDA_VER_ID="${CUDA_VER_ARR[0]}_${CUDA_VER_ARR[1]}"
+          CUDA_VER_SHORT="cu${CUDA_VER_ARR[0]}${CUDA_VER_ARR[1]}"          
+          echo "CUDA_VER_SHORT=${CUDA_VER_SHORT}" >> ${GITHUB_ENV}
 
       - name: Restore LibTorch Cache
         uses: actions/cache@v4
@@ -112,8 +131,9 @@ jobs:
       - name: Configure And Build
         run: |
           set -x
+          source .github/workflows/cuda/${{ runner.os }}-env.sh ${CUDA_VER_SHORT}
           export PATH=$PATH:/opt/rocm/bin
-          hipify-clang ./vendor/gsplat/backward.cu ./vendor/gsplat/bindings.cu ./vendor/gsplat/forward.cu --cuda-path=/usr/local/cuda
+#          hipify-clang ./vendor/gsplat/backward.cu ./vendor/gsplat/bindings.cu ./vendor/gsplat/forward.cu --cuda-path=${CUDA_HOME}
 
       - name: Clean Compiler Cache
         run: |
