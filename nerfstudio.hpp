@@ -40,11 +40,7 @@ namespace ns{
     void from_json(const json& j, Transforms &t);
 
     Transforms readTransforms(const std::string &filename);
-
     torch::Tensor posesFromTransforms(const Transforms &t);
-    std::tuple<torch::Tensor, torch::Tensor> autoOrientAndCenterPoses(const torch::Tensor &poses);
-
-    torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b);
 
     InputData inputDataFromNerfStudio(const std::string &projectRoot);
 }   

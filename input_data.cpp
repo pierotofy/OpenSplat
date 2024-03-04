@@ -5,15 +5,16 @@
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 
-namespace ns{
-    InputData inputDataFromNerfStudio(const std::string &projectRoot);
-}
+namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
+namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot); }
 
 InputData inputDataFromX(const std::string &projectRoot){
-    fs::path nsRoot(projectRoot);
+    fs::path root(projectRoot);
 
-    if (fs::exists(nsRoot / "transforms.json")){
+    if (fs::exists(root / "transforms.json")){
         return ns::inputDataFromNerfStudio(projectRoot);
+    }else if (fs::exists(root / "sparse") || fs::exists(root / "cameras.bin")){
+        return cm::inputDataFromColmap(projectRoot);
     }else{
         throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio project folder)");
     }

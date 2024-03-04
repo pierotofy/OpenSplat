@@ -15,7 +15,6 @@ using namespace torch::indexing;
 using namespace torch::autograd;
 
 torch::Tensor randomQuatTensor(long long n);
-torch::Tensor quatToRotMat(const torch::Tensor &quat);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
 torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);

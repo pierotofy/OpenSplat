@@ -10,6 +10,7 @@
 
 enum CameraType { Perspective };
 struct Camera{
+    int id = -1;
     int width = 0;
     int height = 0;
     float fx = 0;
@@ -25,6 +26,7 @@ struct Camera{
     std::string filePath = "";
     CameraType cameraType = CameraType::Perspective;
 
+    Camera(){};
     Camera(int width, int height, float fx, float fy, float cx, float cy, 
         float k1, float k2, float k3, float p1, float p2,
         const torch::Tensor &camToWorld, const std::string &filePath) : 

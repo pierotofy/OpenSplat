@@ -23,9 +23,6 @@ find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
 if (NOT WIN32 AND NOT APPLE)
     set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 endif()
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_compile_options(-Wfatal-errors)
-endif()
 set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui opencv_calib3d)
 
 add_library(gsplat vendor/gsplat/forward.cu vendor/gsplat/backward.cu vendor/gsplat/bindings.cu vendor/gsplat/helpers.cuh)
@@ -38,7 +35,7 @@ target_include_directories(gsplat PRIVATE
 set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(gsplat PROPERTIES CUDA_ARCHITECTURES "70;75")
 
-add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp input_data.cpp)
+add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp input_data.cpp tensor_math.cpp)
 target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm)
 target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} cuda gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
