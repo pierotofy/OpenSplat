@@ -8,12 +8,11 @@
 #include "kdtree_tensor.hpp"
 #include "spherical_harmonics.hpp"
 #include "ssim.hpp"
+#include "input_data.hpp"
 #include "optim_scheduler.hpp"
 
 using namespace torch::indexing;
 using namespace torch::autograd;
-
-namespace ns{
 
 torch::Tensor randomQuatTensor(long long n);
 torch::Tensor quatToRotMat(const torch::Tensor &quat);
@@ -130,7 +129,5 @@ struct Model{
   int maxSteps;
 };
 
-
-}
 
 #endif

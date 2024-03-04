@@ -5,8 +5,6 @@
 #include "rasterize_gaussians.hpp"
 #include "vendor/gsplat/config.h"
 
-namespace ns{
-
 torch::Tensor randomQuatTensor(long long n){
     torch::Tensor u = torch::rand(n);
     torch::Tensor v = torch::rand(n);
@@ -481,7 +479,4 @@ torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimW
     torch::Tensor ssimLoss = 1.0f - ssim.eval(rgb, gt);
     torch::Tensor l1Loss = l1(rgb, gt);
     return (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;
-}
-
-
 }
