@@ -101,6 +101,7 @@ PointSet *readPointSet(const std::string &filename) {
     PointSet *r;
     const fs::path p(filename);
     if (p.extension().string() == ".ply") r = fastPlyReadPointSet(filename);
+    else if (p.extension().string() == ".bin") r = colmapReadPointSet(filename);
     else r = pdalReadPointSet(filename);
 
     return r;
@@ -355,6 +356,41 @@ PointSet *pdalReadPointSet(const std::string &filename) {
     fs::path p(filename);
     throw std::runtime_error("Unsupported file extension " + p.extension().string() + ", build program with PDAL support for additional file types support.");
     #endif
+}
+
+PointSet *colmapReadPointSet(const std::string &filename){
+    
+    std::ifstream reader(filename, std::ios::binary);
+    if (!reader.is_open()) throw std::runtime_error("Cannot open " + filename);
+
+    auto *r = new PointSet();
+    size_t numPoints = readBinary<uint64_t>(reader);
+    std::cout << "Reading " << numPoints << " points" << std::endl;
+
+    r->points.resize(numPoints);
+    r->colors.resize(numPoints);
+
+    for (size_t i = 0; i < numPoints; i++){
+        readBinary<uint64_t>(reader); // point ID
+
+        r->points[i][0] = readBinary<double>(reader);
+        r->points[i][1] = readBinary<double>(reader);
+        r->points[i][2] = readBinary<double>(reader);
+        r->colors[i][0] = readBinary<uint8_t>(reader);
+        r->colors[i][1] = readBinary<uint8_t>(reader);
+        r->colors[i][2] = readBinary<uint8_t>(reader);
+
+        readBinary<double>(reader); // error
+        size_t trackLen = readBinary<uint64_t>(reader);
+        for (size_t j = 0; j < trackLen; j++){
+            readBinary<uint32_t>(reader); // imageId
+            readBinary<uint32_t>(reader); // point2D Idx
+        }
+    }
+
+    reader.close();
+
+    return r;
 }
 
 void checkHeader(std::ifstream &reader, const std::string &prop) {

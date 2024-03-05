@@ -3,9 +3,8 @@
 #include "tile_bounds.hpp"
 #include "project_gaussians.hpp"
 #include "rasterize_gaussians.hpp"
+#include "tensor_math.hpp"
 #include "vendor/gsplat/config.h"
-
-namespace ns{
 
 torch::Tensor randomQuatTensor(long long n){
     torch::Tensor u = torch::rand(n);
@@ -17,32 +16,6 @@ torch::Tensor randomQuatTensor(long long n){
         torch::sqrt(u) * torch::sin(2 * PI * w),
         torch::sqrt(u) * torch::cos(2 * PI * w)
     }, -1);
-}
-
-torch::Tensor quatToRotMat(const torch::Tensor &quat){
-    auto u = torch::unbind(torch::nn::functional::normalize(quat, torch::nn::functional::NormalizeFuncOptions().dim(-1)), -1);
-    torch::Tensor w = u[0];
-    torch::Tensor x = u[1];
-    torch::Tensor y = u[2];
-    torch::Tensor z = u[3];
-    return torch::stack({
-        torch::stack({
-            1.0 - 2.0 * (y.pow(2) + z.pow(2)),
-            2.0 * (x * y - w * z),
-            2.0 * (x * z + w * y)
-        }, -1),
-        torch::stack({
-            2.0 * (x * y + w * z),
-            1.0 - 2.0 * (x.pow(2) + z.pow(2)),
-            2.0 * (y * z - w * x)
-        }, -1),
-        torch::stack({
-            2.0 * (x * z - w * y),
-            2.0 * (y * z + w * x),
-            1.0 - 2.0 * (x.pow(2) + y.pow(2))
-        }, -1)
-    }, -2);
-    
 }
 
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device){
@@ -481,7 +454,4 @@ torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimW
     torch::Tensor ssimLoss = 1.0f - ssim.eval(rgb, gt);
     torch::Tensor l1Loss = l1(rgb, gt);
     return (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;
-}
-
-
 }

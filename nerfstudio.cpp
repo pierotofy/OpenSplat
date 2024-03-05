@@ -4,6 +4,7 @@
 #include "nerfstudio.hpp"
 #include "point_io.hpp"
 #include "cv_utils.hpp"
+#include "tensor_math.hpp"
 
 namespace fs = std::filesystem;
 
@@ -123,44 +124,6 @@ torch::Tensor posesFromTransforms(const Transforms &t){
     return poses;
 }
 
-std::tuple<torch::Tensor, torch::Tensor> autoOrientAndCenterPoses(const torch::Tensor &poses){
-    // Center at mean and orient up
-    torch::Tensor origins = poses.index({"...", Slice(None, 3), 3});
-    torch::Tensor translation = torch::mean(origins, 0);
-    torch::Tensor up = torch::mean(poses.index({Slice(), Slice(None, 3), 1}), 0);
-    up = up / up.norm();
-    
-    torch::Tensor rotation = rotationMatrix(up, torch::tensor({0, 0, 1}, torch::kFloat32));
-    torch::Tensor transform = torch::cat({rotation, torch::matmul(rotation, -translation.index({"...", None}))}, -1);
-    torch::Tensor orientedPoses = torch::matmul(transform, poses);
-    return std::make_tuple(orientedPoses, transform);
-}
-
-
-torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b){
-    // Rotation matrix that rotates vector a to vector b
-    torch::Tensor a1 = a / a.norm();
-    torch::Tensor b1 = b / b.norm();
-    torch::Tensor v = torch::cross(a1, b1);
-    torch::Tensor c = torch::dot(a1, b1);
-    const float EPS = 1e-8;
-    if (c.item<float>() < -1 + EPS){
-        torch::Tensor eps = (torch::rand(3) - 0.5f) * 0.01f;
-        return rotationMatrix(a1 + eps, b1);
-    }
-    torch::Tensor s = v.norm();
-    torch::Tensor skew = torch::zeros({3, 3}, torch::kFloat32);
-    skew[0][1] = -v[2];
-    skew[0][2] = v[1];
-    skew[1][0] = v[2];
-    skew[1][2] = -v[0];
-    skew[2][0] = -v[1];
-    skew[2][1] = v[0];
-
-    return torch::eye(3) + skew + torch::matmul(skew, skew * ((1 - c) / (s.pow(2) + EPS)));
-}
-
-
 InputData inputDataFromNerfStudio(const std::string &projectRoot){
     InputData ret;
     fs::path nsRoot(projectRoot);
@@ -204,131 +167,6 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
     RELEASE_POINTSET(pSet);
 
     return ret;
-}
-
-torch::Tensor Camera::getIntrinsicsMatrix(){
-    return torch::tensor({{fx, 0.0f, cx},
-                          {0.0f, fy, cy},
-                          {0.0f, 0.0f, 1.0f}}, torch::kFloat32);
-}
-
-void Camera::loadImage(float downscaleFactor){
-    // Populates image and K, then updates the camera parameters
-    // Caution: this function has destructive behaviors
-    // and should be called only once
-    if (image.numel()) std::runtime_error("loadImage already called");
-    std::cout << "Loading " << filePath << std::endl;
-
-    float scaleFactor = 1.0f / downscaleFactor;
-    fx *= scaleFactor;
-    fy *= scaleFactor;
-    cx *= scaleFactor;
-    cy *= scaleFactor;
-    
-    cv::Mat cImg = imreadRGB(filePath);
-
-    if (downscaleFactor > 1.0f){
-        float f = 1.0f / downscaleFactor;
-        cv::resize(cImg, cImg, cv::Size(), f, f, cv::INTER_AREA);
-    }
-
-    K = getIntrinsicsMatrix();
-    cv::Rect roi;
-
-    if (hasDistortionParameters()){
-        // Undistort
-        std::vector<float> distCoeffs = undistortionParameters();
-        cv::Mat cK = floatNxNtensorToMat(K);
-        cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
-
-        cv::Mat undistorted = cv::Mat::zeros(cImg.rows, cImg.cols, cImg.type());
-        cv::undistort(cImg, undistorted, cK, distCoeffs, newK);
-        
-        image = imageToTensor(undistorted);
-        K = floatNxNMatToTensor(newK);
-    }else{
-        roi = cv::Rect(0, 0, cImg.cols, cImg.rows);
-        image = imageToTensor(cImg);
-    }
-
-    // Crop to ROI
-    image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
-
-    // Update parameters
-    height = image.size(0);
-    width = image.size(1);
-    fx = K[0][0].item<float>();
-    fy = K[1][1].item<float>();
-    cx = K[0][2].item<float>();
-    cy = K[1][2].item<float>();
-}
-
-torch::Tensor Camera::getImage(int downscaleFactor){
-    if (downscaleFactor <= 1) return image;
-    else{
-
-        // torch::jit::script::Module container = torch::jit::load("gt.pt");
-        // return container.attr("val").toTensor();
-
-        if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
-            return imagePyramids[downscaleFactor];
-        }
-
-        // Rescale, store and return
-        cv::Mat cImg = tensorToImage(image);
-        cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
-        torch::Tensor t = imageToTensor(cImg);
-        imagePyramids[downscaleFactor] = t;
-        return t;
-    }
-}
-
-bool Camera::hasDistortionParameters(){
-    return k1 != 0.0f || k2 != 0.0f || k3 != 0.0f || p1 != 0.0f || p2 != 0.0f;
-}
-
-std::vector<float> Camera::undistortionParameters(){
-    std::vector<float> p = { k1, k2, p1, p2, k3, 0.0f, 0.0f, 0.0f };
-    return p;
-}
-
-void Camera::scaleOutputResolution(float scaleFactor){
-    fx = fx * scaleFactor;
-    fy = fy * scaleFactor;
-    cx = cx * scaleFactor;
-    cy = cy * scaleFactor;
-    height = static_cast<int>(static_cast<float>(height) * scaleFactor);
-    width = static_cast<int>(static_cast<float>(width) * scaleFactor);
-}
-
-std::tuple<std::vector<Camera>, Camera *> InputData::getCameras(bool validate, const std::string &valImage){
-    if (!validate) return std::make_tuple(cameras, nullptr);
-    else{
-        size_t valIdx = -1;
-        std::srand(42);
-
-        if (valImage == "random"){
-            valIdx = std::rand() % cameras.size();
-        }else{
-            for (size_t i = 0; i < cameras.size(); i++){
-                if (fs::path(cameras[i].filePath).filename().string() == valImage){
-                    valIdx = i;
-                    break;
-                }
-            }
-            if (valIdx == -1) throw std::runtime_error(valImage + " not in the list of cameras");
-        }
-
-        std::vector<Camera> cams;
-        Camera *valCam = nullptr;
-
-        for (size_t i = 0; i < cameras.size(); i++){
-            if (i != valIdx) cams.push_back(cameras[i]);
-            else valCam = &cameras[i];
-        }
-
-        return std::make_tuple(cams, valCam);
-    }
 }
 
 }

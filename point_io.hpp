@@ -103,8 +103,16 @@ size_t getVertexCount(const std::string &line);
 inline void checkHeader(std::ifstream &reader, const std::string &prop);
 inline bool hasHeader(const std::string &line, const std::string &prop);
 
+template <typename T>
+inline T readBinary(std::ifstream &s){
+    T data;
+    s.read(reinterpret_cast<char*>(&data), sizeof(T));
+    return data;
+}
+
 PointSet *fastPlyReadPointSet(const std::string &filename);
 PointSet *pdalReadPointSet(const std::string &filename);
+PointSet *colmapReadPointSet(const std::string &filename);
 PointSet *readPointSet(const std::string &filename);
 
 void fastPlySavePointSet(PointSet &pSet, const std::string &filename);

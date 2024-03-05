@@ -8,15 +8,13 @@
 #include "kdtree_tensor.hpp"
 #include "spherical_harmonics.hpp"
 #include "ssim.hpp"
+#include "input_data.hpp"
 #include "optim_scheduler.hpp"
 
 using namespace torch::indexing;
 using namespace torch::autograd;
 
-namespace ns{
-
 torch::Tensor randomQuatTensor(long long n);
-torch::Tensor quatToRotMat(const torch::Tensor &quat);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
 torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
@@ -130,7 +128,5 @@ struct Model{
   int maxSteps;
 };
 
-
-}
 
 #endif

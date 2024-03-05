@@ -1,7 +1,7 @@
 #include <filesystem>
 #include "vendor/json/json.hpp"
 #include "opensplat.hpp"
-#include "point_io.hpp"
+#include "input_data.hpp"
 #include "utils.hpp"
 #include "cv_utils.hpp"
 #include "vendor/cxxopts.hpp"
@@ -85,28 +85,30 @@ int main(int argc, char *argv[]){
     }
 
     try{
-        ns::InputData inputData = ns::inputDataFromNerfStudio(projectRoot);
-        for (ns::Camera &cam : inputData.cameras){
+        InputData inputData = inputDataFromX(projectRoot);
+        for (Camera &cam : inputData.cameras){
             cam.loadImage(downScaleFactor);
         }
 
+        
+
         // Withhold a validation camera if necessary
         auto t = inputData.getCameras(validate, valImage);
-        std::vector<ns::Camera> cams = std::get<0>(t);
-        ns::Camera *valCam = std::get<1>(t);
+        std::vector<Camera> cams = std::get<0>(t);
+        Camera *valCam = std::get<1>(t);
 
-        ns::Model model(inputData.points, 
+        Model model(inputData.points, 
                         cams.size(),
                         numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
                         refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
                         numIters,
                         device);
 
-        InfiniteRandomIterator<ns::Camera> camsIter(cams);
+        InfiniteRandomIterator<Camera> camsIter(cams);
 
         int imageSize = -1;
         for (size_t step = 1; step <= numIters; step++){
-            ns::Camera cam = camsIter.next();
+            Camera cam = camsIter.next();
 
             model.optimizersZeroGrad();
 
