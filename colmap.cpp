@@ -84,16 +84,15 @@ InputData inputDataFromColmap(const std::string &projectRoot){
             readBinary<double>(imgf),
             readBinary<double>(imgf)
         }, torch::kFloat32);
-        torch::Tensor R = quatToRotMat(qVec).transpose(0, 1);
+        torch::Tensor R = quatToRotMat(qVec);
         torch::Tensor T = torch::tensor({
             { readBinary<double>(imgf) },
             { readBinary<double>(imgf) },
             { readBinary<double>(imgf) }
         }, torch::kFloat32);
 
-        // TODO: check cam2world matrix
-        // torch::Tensor Rinv = R.transpose(0, 1);
-        // torch::Tensor Tinv = torch::matmul(-Rinv, T);
+        torch::Tensor Rinv = R.transpose(0, 1);
+        torch::Tensor Tinv = torch::matmul(-Rinv, T);
 
         uint32_t camId = readBinary<uint32_t>(imgf);
 
@@ -110,9 +109,13 @@ InputData inputDataFromColmap(const std::string &projectRoot){
         // TODO: should "images" be an option?
         cam.filePath = (fs::path(projectRoot) / "images" / filePath).string();
 
-        unorientedPoses.index_put_({Slice(i), Slice(None, 3), Slice(None, 3)}, R);
-        unorientedPoses.index_put_({Slice(i), Slice(None, 3), Slice(3, 4)}, T);
-        
+        unorientedPoses[i].index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
+        unorientedPoses[i].index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
+        unorientedPoses[i][3][3] = 1.0f;
+
+        // Convert COLMAP's camera CRS (OpenCV) to OpenGL
+        unorientedPoses[i].index_put_({Slice(0, 3), Slice(1,3)}, unorientedPoses[i].index({Slice(0, 3), Slice(1,3)}) * -1.0f);
+
         size_t numPoints2D = readBinary<uint64_t>(imgf);
         for (size_t j = 0; j < numPoints2D; j++){
             readBinary<double>(imgf); // x

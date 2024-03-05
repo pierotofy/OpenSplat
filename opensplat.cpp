@@ -88,12 +88,6 @@ int main(int argc, char *argv[]){
         InputData inputData = inputDataFromX(projectRoot);
         for (Camera &cam : inputData.cameras){
             cam.loadImage(downScaleFactor);
-            std::cout << cam.fx << " " << cam.fy << " " << 
-                    cam.width << " " << cam.height << std::endl <<
-                    cam.cx << " " << cam.cy << std::endl <<
-                    cam.camToWorld << std::endl;
-                    
-            exit(1);
         }
 
         
