@@ -365,6 +365,8 @@ PointSet *colmapReadPointSet(const std::string &filename){
 
     auto *r = new PointSet();
     size_t numPoints = readBinary<uint64_t>(reader);
+    std::cout << "Reading " << numPoints << " points" << std::endl;
+
     r->points.resize(numPoints);
     r->colors.resize(numPoints);
 
