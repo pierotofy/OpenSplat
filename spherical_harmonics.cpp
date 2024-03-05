@@ -1,5 +1,6 @@
 #include "spherical_harmonics.hpp"
-#include "vendor/gsplat/bindings.h"
+//#include "vendor/gsplat/bindings.h"
+#include "gsplat-hip/bindings.h"
 
 int numShBases(int degree){
     switch(degree){

@@ -2,12 +2,13 @@
 #include <cmath>
 
 #include <torch/torch.h>
-#include <torch/cuda.h>
+//#include <torch/cuda.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include "vendor/gsplat/config.h"
+//#include "vendor/gsplat/config.h"
+#include "gsplat-hip/config.h"
 #include "project_gaussians.hpp"
 #include "rasterize_gaussians.hpp"
 #include "constants.hpp"
@@ -58,7 +59,7 @@ int main(int argc, char **argv){
     // torch::Tensor block = torch::tensor({BLOCK_X, BLOCK_Y, 1}, device);
     
     // Init gaussians
-    torch::cuda::manual_seed_all(0);
+    // torch::cuda::manual_seed_all(0);
 
     // Random points, scales and colors
     torch::Tensor means = 2.0 * (torch::rand({numPoints, 3}, device) - 0.5); // Positions [-1, 1]
@@ -108,7 +109,7 @@ int main(int argc, char **argv){
                                 width,
                                 tileBounds);
 
-        torch::cuda::synchronize();
+        // torch::cuda::synchronize();
         
         torch::Tensor outImg = RasterizeGaussians::apply(
             p[0], // xys
@@ -122,13 +123,13 @@ int main(int argc, char **argv){
             width,
             background);
         
-        torch::cuda::synchronize();
+        // torch::cuda::synchronize();
 
         outImg.requires_grad_();
         torch::Tensor loss = mseLoss(outImg, gtImage);
         optimizer.zero_grad();
         loss.backward();
-        torch::cuda::synchronize();
+        // torch::cuda::synchronize();
         optimizer.step();
 
         std::cout << "Iteration " << std::to_string(i + 1) << "/" << std::to_string(iterations) << " Loss: " << loss.item<float>() << std::endl; 

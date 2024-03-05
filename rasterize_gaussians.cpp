@@ -1,6 +1,8 @@
 #include "rasterize_gaussians.hpp"
-#include "vendor/gsplat/bindings.h"
-#include "vendor/gsplat/config.h"
+// #include "vendor/gsplat/bindings.h"
+// #include "vendor/gsplat/config.h"
+#include "gsplat-hip/bindings.h"
+#include "gsplat-hip/config.h"
 
 std::tuple<torch::Tensor,
         torch::Tensor,
