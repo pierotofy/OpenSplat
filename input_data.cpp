@@ -34,12 +34,17 @@ void Camera::loadImage(float downscaleFactor){
     std::cout << "Loading " << filePath << std::endl;
 
     float scaleFactor = 1.0f / downscaleFactor;
-    fx *= scaleFactor;
-    fy *= scaleFactor;
-    cx *= scaleFactor;
-    cy *= scaleFactor;
-    
     cv::Mat cImg = imreadRGB(filePath);
+    
+    float rescaleF = 1.0f;
+    // If camera intrinsics don't match the image dimensions 
+    if (cImg.rows != height || cImg.cols != width){
+        rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(height);
+    }
+    fx *= scaleFactor * rescaleF;
+    fy *= scaleFactor * rescaleF;
+    cx *= scaleFactor * rescaleF;
+    cy *= scaleFactor * rescaleF;
 
     if (downscaleFactor > 1.0f){
         float f = 1.0f / downscaleFactor;
