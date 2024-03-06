@@ -157,16 +157,32 @@ jobs:
           clang --version
           find /opt/rocm -name __clang_cuda_runtime_wrapper.h
           ls /opt/rocm/llvm/lib/clang
-          sudo ln -s /opt/rocm/llvm/lib/clang/16.0.0 /opt/rocm/llvm/lib/clang/16
+          sudo ln -s -f /opt/rocm/llvm/lib/clang/16.0.0 /opt/rocm/llvm/lib/clang/16
           
-          hipify-clang -v ./vendor/gsplat/backward.cu ./vendor/gsplat/bindings.cu ./vendor/gsplat/forward.cu \
+          hipify-clang \
+            ./vendor/gsplat/backward.cu \
+            ./vendor/gsplat/backward.cuh \
+            ./vendor/gsplat/bindings.cu \
+            ./vendor/gsplat/bindings.h \
+            ./vendor/gsplat/config.h \
+            ./vendor/gsplat/forward.cu \
+            ./vendor/gsplat/forward.cuh \
+            ./vendor/gsplat/helpers.cuh \
+            ./vendor/gsplat/sh.cuh \
             --cuda-path=${CUDA_HOME} \
+            -I /opt/rocm/hip/include \
             -I /mnt/deps/libtorch/include \
             -I /mnt/deps/libtorch/include/torch/csrc/api/include \
             -I ${CUDA_HOME}/include \
             -I ${CUDA_HOME}/targets/x86_64-linux/include \
             -I ./vendor/gsplat \
             --print-stats -- -include ./vendor/gsplat/noinline.h -std=c++17
+
+      - name: Save Converted Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            vendor/gsplat/*.hip
 
       - name: Clean Compiler Cache
         run: |
