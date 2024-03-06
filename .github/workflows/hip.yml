@@ -19,9 +19,9 @@ jobs:
         os: [ubuntu-22.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
         arch: [x64] # [x64, x86]
         torch-version: [2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
-        cuda-version: [11.8.0] # [12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
-        rocm-version: [6.0.2] # [5.4.2, 5.6.1, 5.7.3, 6.0.1, 6.0.2]
-        llvm-version: [16] # [12, 13, 14, 15, 16]
+        cuda-version: [12.1.1] # [12.3.2, 12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
+        rocm-version: [5.6.1] # [5.4.2, 5.6.1, 5.7.3, 6.0.1, 6.0.2]
+        llvm-version: [16] # [12, 13, 14, 15, 16, 17]
         cmake-build-type: [Release] # [Debug, ClangTidy]
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -50,10 +50,10 @@ jobs:
             libclang-${{ matrix.llvm-version }}-dev \
             clang-${{ matrix.llvm-version }} \
             wget
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 100
-          sudo update-alternatives --set clang /usr/bin/clang-15
-          sudo update-alternatives --set clang++ /usr/bin/clang++-15
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.llvm-version }} 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ matrix.llvm-version }} 100
+          sudo update-alternatives --set clang /usr/bin/clang-${{ matrix.llvm-version }}
+          sudo update-alternatives --set clang++ /usr/bin/clang++-${{ matrix.llvm-version }}
           
           wget -nv https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-linux-x86_64.tar.xz
           sudo tar xf ccache-4.9.1-linux-x86_64.tar.xz -C /usr/bin --strip-components=1 --no-same-owner ccache-4.9.1-linux-x86_64/ccache
@@ -155,7 +155,25 @@ jobs:
           source .github/workflows/cuda/${{ runner.os }}-env.sh ${CUDA_VER_SHORT}
           export PATH=$PATH:/opt/rocm/bin
           clang --version
-          hipify-clang ./vendor/gsplat/backward.cu ./vendor/gsplat/bindings.cu ./vendor/gsplat/forward.cu --cuda-path=${CUDA_HOME} -I /usr/local/${CUDA_HOME}/include -I ./vendor/gsplat -I /mnt/deps/libtorch/include --print-stats
+          find /opt/rocm -name __clang_cuda_runtime_wrapper.h
+          ls /opt/rocm/llvm/lib/clang
+          sudo ln -s /opt/rocm/llvm/lib/clang/16.0.0 /opt/rocm/llvm/lib/clang/16
+          find /mnt/deps/libtorch -name cuda.h
+          find /opt/rocm-5.6.1 -name cuda.h
+          find /usr/local/cuda-12.1 -name cuda.h
+          
+          hipify-clang -v ./vendor/gsplat/backward.cu ./vendor/gsplat/bindings.cu ./vendor/gsplat/forward.cu \
+            --cuda-path=${CUDA_HOME} \
+            -I /mnt/deps/libtorch/include \
+            -I /mnt/deps/libtorch/include/torch/csrc/api/include \
+            -I ${CUDA_HOME}/include \
+            -I ${CUDA_HOME}/targets/x86_64-linux/include \
+            -I ./vendor/gsplat \
+            --print-stats -- -include ./vendor/gsplat/noinline.h -std=c++17
+#            -I /mnt/deps/libtorch/include/torch/csrc/api/include/torch \
+#            -I /opt/rocm/include \
+#            -I /usr/lib/llvm-15/lib/clang/15.0.7/include \
+
 
       - name: Clean Compiler Cache
         run: |
