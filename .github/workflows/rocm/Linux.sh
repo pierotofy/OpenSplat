@@ -23,8 +23,8 @@ case ${ROCM_VER_FULL} in
     FILENAME=amdgpu-install_6.0.60001-1_all.deb
     URL=https://repo.radeon.com/amdgpu-install/${ROCM_VER_FULL}/ubuntu/${OS_CODE_NAME}
     ;;
-  5.7.3)
-    FILENAME=amdgpu-install_5.7.50703-1_all.deb
+  5.7.1)
+    FILENAME=amdgpu-install_5.7.50701-1_all.deb
     URL=https://repo.radeon.com/amdgpu-install/${ROCM_VER_FULL}/ubuntu/${OS_CODE_NAME}
     ;;
   5.6.1)
