@@ -29,6 +29,7 @@ jobs:
       CL: /MP
       CMAKE_GENERATOR: Ninja
       CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
+      PYTORCH_ROCM_ARCH: gfx906
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -159,30 +160,27 @@ jobs:
           ls /opt/rocm/llvm/lib/clang
           sudo ln -s -f /opt/rocm/llvm/lib/clang/16.0.0 /opt/rocm/llvm/lib/clang/16
           
-          hipify-clang \
-            ./vendor/gsplat/backward.cu \
-            ./vendor/gsplat/backward.cuh \
-            ./vendor/gsplat/bindings.cu \
-            ./vendor/gsplat/bindings.h \
-            ./vendor/gsplat/config.h \
-            ./vendor/gsplat/forward.cu \
-            ./vendor/gsplat/forward.cuh \
-            ./vendor/gsplat/helpers.cuh \
-            ./vendor/gsplat/sh.cuh \
-            --cuda-path=${CUDA_HOME} \
-            -I /opt/rocm/hip/include \
-            -I /mnt/deps/libtorch/include \
-            -I /mnt/deps/libtorch/include/torch/csrc/api/include \
-            -I ${CUDA_HOME}/include \
-            -I ${CUDA_HOME}/targets/x86_64-linux/include \
-            -I ./vendor/gsplat \
-            --print-stats -- -include ./vendor/gsplat/noinline.h -std=c++17
+          mkdir build
+          cd build
+          cmake .. \
+            -G${CMAKE_GENERATOR} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_PREFIX_PATH=/mnt/deps/libtorch \
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
+            -DGPU_RUNTIME=HIP \
+            -DHIP_ROOT_DIR=/opt/rocm \
+            -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
+          ninja
 
       - name: Save Converted Artifacts
         uses: actions/upload-artifact@v4
         with:
           path: |
-            vendor/gsplat/*.hip
+            libgsplat.a
+            opensplat
+            simple_trainer
 
       - name: Clean Compiler Cache
         run: |
