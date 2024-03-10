@@ -1,9 +1,9 @@
-name: OpenSplat (Ubuntu HIP)
+name: OpenSplat (Ubuntu ROCm/HIP)
 
 on:
   push:
     branches:
-      - hip-build
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
