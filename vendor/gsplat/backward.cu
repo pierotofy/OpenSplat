@@ -1,7 +1,15 @@
 #include "backward.cuh"
 #include "helpers.cuh"
+
+#ifdef USE_HIP
+#include "reduce.cuh"
+#include <hip/hip_runtime.h>
+#include <hip/hip_cooperative_groups.h>
+#else
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+#endif
+
 namespace cg = cooperative_groups;
 
 __global__ void nd_rasterize_backward_kernel(
@@ -121,18 +129,33 @@ __global__ void nd_rasterize_backward_kernel(
 }
 
 inline __device__ void warpSum3(float3& val, cg::thread_block_tile<32>& tile){
+#ifdef USE_HIP
+    val.x = warp_reduce_sum(val.x, WARP_SIZE);
+    val.y = warp_reduce_sum(val.y, WARP_SIZE);
+    val.z = warp_reduce_sum(val.z, WARP_SIZE);
+#else
     val.x = cg::reduce(tile, val.x, cg::plus<float>());
     val.y = cg::reduce(tile, val.y, cg::plus<float>());
     val.z = cg::reduce(tile, val.z, cg::plus<float>());
+#endif
 }
 
 inline __device__ void warpSum2(float2& val, cg::thread_block_tile<32>& tile){
+#ifdef USE_HIP
+    val.x = warp_reduce_sum(val.x, WARP_SIZE);
+    val.y = warp_reduce_sum(val.y, WARP_SIZE);
+#else
     val.x = cg::reduce(tile, val.x, cg::plus<float>());
     val.y = cg::reduce(tile, val.y, cg::plus<float>());
+#endif
 }
 
 inline __device__ void warpSum(float& val, cg::thread_block_tile<32>& tile){
+#ifdef USE_HIP
+    val = block_reduce_sum(val, WARP_SIZE);
+#else
     val = cg::reduce(tile, val, cg::plus<float>());
+#endif
 }
 
 __global__ void rasterize_backward_kernel(
@@ -197,7 +220,12 @@ __global__ void rasterize_backward_kernel(
     // each thread loads one gaussian at a time before rasterizing
     const int tr = block.thread_rank();
     cg::thread_block_tile<32> warp = cg::tiled_partition<32>(block);
+
+#ifdef USE_HIP
+    const int warp_bin_final = block_reduce_max(bin_final, WARP_SIZE);
+#else
     const int warp_bin_final = cg::reduce(warp, bin_final, cg::greater<int>());
+#endif
     for (int b = 0; b < num_batches; ++b) {
         // resync all threads before writing next batch of shared mem
         block.sync();
@@ -247,9 +275,21 @@ __global__ void rasterize_backward_kernel(
                 }
             }
             // if all threads are inactive in this warp, skip this loop
+#ifdef USE_HIP
+            int valid_warp = 0;
+            for (int i = 0; i < WARP_SIZE; i++) {
+                valid_warp |= __shfl(valid, i);
+            }
+            if (!valid_warp) {
+                continue;
+
+            }
+#else
             if(!warp.any(valid)){
                 continue;
             }
+#endif
+
             float3 v_rgb_local = {0.f, 0.f, 0.f};
             float3 v_conic_local = {0.f, 0.f, 0.f};
             float2 v_xy_local = {0.f, 0.f};

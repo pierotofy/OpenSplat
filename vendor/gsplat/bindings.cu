@@ -3,12 +3,20 @@
 #include "forward.cuh"
 #include "helpers.cuh"
 #include "sh.cuh"
+
+#ifdef USE_HIP
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime_api.h>
+#include <hip/hip_cooperative_groups.h>
+#else
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
-#include <cstdio>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+#endif
+
+#include <cstdio>
 #include <iostream>
 #include <math.h>
 #include <tuple>

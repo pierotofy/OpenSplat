@@ -1,4 +1,9 @@
+#ifdef USE_HIP
+#include <hip/hip_runtime.h>
+#else
 #include "cuda_runtime.h"
+#endif
+
 #include "forward.cuh"
 #include <cstdio>
 #include <iostream>

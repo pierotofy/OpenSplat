@@ -2,6 +2,12 @@
 #include <cmath>
 
 #include <torch/torch.h>
+#ifdef USE_HIP
+#include <hip/hip_runtime.h>
+#else
+#include <torch/cuda.h>
+#endif
+
 #include <torch/cuda.h>
 
 #include <opencv2/core/core.hpp>
@@ -58,7 +64,10 @@ int main(int argc, char **argv){
     // torch::Tensor block = torch::tensor({BLOCK_X, BLOCK_Y, 1}, device);
     
     // Init gaussians
+#ifdef USE_HIP
+#else
     torch::cuda::manual_seed_all(0);
+#endif
 
     // Random points, scales and colors
     torch::Tensor means = 2.0 * (torch::rand({numPoints, 3}, device) - 0.5); // Positions [-1, 1]
@@ -108,7 +117,14 @@ int main(int argc, char **argv){
                                 width,
                                 tileBounds);
 
+#ifdef USE_HIP
+        hipError_t err = hipDeviceSynchronize();
+        if (err != hipSuccess) {
+            std::cerr << "hipDeviceSynchronize failed with error: " << hipGetErrorString(err) << std::endl;
+        }
+#else   
         torch::cuda::synchronize();
+#endif
         
         torch::Tensor outImg = RasterizeGaussians::apply(
             p[0], // xys
@@ -122,13 +138,28 @@ int main(int argc, char **argv){
             width,
             background);
         
+#ifdef USE_HIP
+        err = hipDeviceSynchronize();
+        if (err != hipSuccess) {
+            std::cerr << "hipDeviceSynchronize failed with error: " << hipGetErrorString(err) << std::endl;
+        }
+#else   
         torch::cuda::synchronize();
+#endif
 
         outImg.requires_grad_();
         torch::Tensor loss = mseLoss(outImg, gtImage);
         optimizer.zero_grad();
         loss.backward();
+
+#ifdef USE_HIP
+        err = hipDeviceSynchronize();
+        if (err != hipSuccess) {
+            std::cerr << "hipDeviceSynchronize failed with error: " << hipGetErrorString(err) << std::endl;
+        }
+#else   
         torch::cuda::synchronize();
+#endif
         optimizer.step();
 
         std::cout << "Iteration " << std::to_string(i + 1) << "/" << std::to_string(iterations) << " Loss: " << loss.item<float>() << std::endl; 

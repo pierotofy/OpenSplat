@@ -1,5 +1,10 @@
+#ifdef USE_HIP
+#include <hip/hip_runtime.h>
+#else
 #include <cuda.h>
 #include <cuda_runtime.h>
+#endif
+
 #include <cstdint>
 
 // compute the 2d gaussian parameters from 3d gaussian parameters
