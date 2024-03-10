@@ -1,0 +1,191 @@
+name: OpenSplat (Ubuntu ROCm/HIP)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-rocm-${{ matrix.rocm-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
+        arch: [x64] # [x64, x86]
+        torch-version: [2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
+        cuda-version: [11.8.0] # [12.3.2, 12.3.1, 12.1.1, 11.8.0, 11.7.1, 11.6.2, 11.5.2,11.4.4, 11.3.1, 11.2.2, 11.1.1, 11.0.3, cpu]
+        rocm-version: [5.7.1] # [5.4.2, 5.6.1, 5.7.1, 6.0.1, 6.0.2]
+        llvm-version: [16] # [12, 13, 14, 15, 16, 17]
+        cmake-build-type: [Release] # [Debug, ClangTidy]
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CL: /MP
+      CMAKE_GENERATOR: Ninja
+      CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
+      PYTORCH_ROCM_ARCH: gfx906
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Ubuntu
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${{ matrix.llvm-version }} main"
+          
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            libopencv-dev \
+            llvm-${{ matrix.llvm-version }}-dev \
+            libclang-${{ matrix.llvm-version }}-dev \
+            clang-${{ matrix.llvm-version }} \
+            wget
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.llvm-version }} 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ matrix.llvm-version }} 100
+          sudo update-alternatives --set clang /usr/bin/clang-${{ matrix.llvm-version }}
+          sudo update-alternatives --set clang++ /usr/bin/clang++-${{ matrix.llvm-version }}
+          
+          wget -nv https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-linux-x86_64.tar.xz
+          sudo tar xf ccache-4.9.1-linux-x86_64.tar.xz -C /usr/bin --strip-components=1 --no-same-owner ccache-4.9.1-linux-x86_64/ccache
+          rm -f ccache-*-linux-x86_64.tar.xz
+          ccache --version
+
+      - name: Free disk space
+        run: |
+          df -hT
+          # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/share/dotnet
+          # delete libraries for Android (12G), CodeQL (5.3G), PowerShell (1.3G), Swift (1.7G)
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf "${AGENT_TOOLSDIRECTORY}/CodeQL"
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/swift  
+          echo "Disk usage after cleanup:"
+          df -hT
+
+      - name: Sudo Tar Wrapper
+        run: |
+          # Workaround: https://github.com/containers/podman/discussions/17868
+          sudo mv -fv /usr/bin/tar /usr/bin/tar.orig
+          echo -e '#!/bin/sh\n\nsudo /usr/bin/tar.orig "$@"' | sudo tee -a /usr/bin/tar
+          sudo chmod +x /usr/bin/tar
+
+      - name: Restore CUDA Cache
+        uses: actions/cache@v4
+        id: cuda-cache
+        with:
+          key: cuda-${{matrix.CUDA-VERSION}}-ubuntu
+          path: |
+            /usr/local/cuda*
+
+      - name: Install CUDA
+        if: ${{ steps.cuda-cache.outputs.cache-hit != 'true' }}
+        run: |
+          bash .github/workflows/cuda/${{ runner.os }}.sh ${{ matrix.cuda-version }}
+
+      - name: Restore ROCm Cache
+        uses: actions/cache@v4
+        id: rocm-cache
+        with:
+          key: rocm-${{matrix.ROCM-VERSION}}-ubuntu
+          path: |
+            /opt/rocm*
+            /etc/alternatives/rocm
+
+      - name: Install ROCm
+        if: ${{ steps.rocm-cache.outputs.cache-hit != 'true' }}
+        run: |
+          bash .github/workflows/rocm/${{ runner.os }}.sh ${{ matrix.rocm-version }} ${{ matrix.os }}
+
+      - name: Setup ROCm And CUDA
+        shell: bash
+        run: |
+          ROCM_VER_FULL=${{ matrix.rocm-version }}
+          ROCM_VER_ARR=($(echo ${ROCM_VER_FULL} | tr "." " "))
+          ROCM_VER="${ROCM_VER_ARR[0]}.${ROCM_VER_ARR[1]}"
+          ROCM_VER_ID="${ROCM_VER_ARR[0]}_${ROCM_VER_ARR[1]}"
+          ROCM_VER_SHORT="rocm${ROCM_VER_ARR[0]}.${ROCM_VER_ARR[1]}"          
+          echo "ROCM_VER_SHORT=${ROCM_VER_SHORT}" >> ${GITHUB_ENV}
+
+          CUDA_VER_FULL=${{ matrix.cuda-version }}
+          CUDA_VER_ARR=($(echo ${CUDA_VER_FULL} | tr "." " "))
+          CUDA_VER="${CUDA_VER_ARR[0]}.${CUDA_VER_ARR[1]}"
+          CUDA_VER_ID="${CUDA_VER_ARR[0]}_${CUDA_VER_ARR[1]}"
+          CUDA_VER_SHORT="cu${CUDA_VER_ARR[0]}${CUDA_VER_ARR[1]}"          
+          echo "CUDA_VER_SHORT=${CUDA_VER_SHORT}" >> ${GITHUB_ENV}
+
+      - name: Restore LibTorch Cache
+        uses: actions/cache@v4
+        id: libtorch-cache
+        with:
+          key: libtorch-${{ matrix.torch-version }}-rocm5.7-ubuntu
+          path: |
+            /mnt/deps/libtorch
+
+      - name: Install LibTorch
+        if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
+        run: |
+          sudo mkdir -p -m 777 /mnt/deps
+          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/${ROCM_VER_SHORT}/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2B${ROCM_VER_SHORT}.zip -O /mnt/deps/libtorch.zip
+          unzip -q /mnt/deps/libtorch.zip -d /mnt/deps
+          rm /mnt/deps/libtorch.zip
+
+      - name: Cache Build
+        uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: ${{ matrix.os }}-rocm-${{ matrix.rocm-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ matrix.os }}-rocm-${{ matrix.rocm-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}-ccache-
+          path: ${{ env.CCACHE_DIR }}
+
+      - name: Configure And Build
+        run: |
+          set -x
+          source .github/workflows/cuda/${{ runner.os }}-env.sh ${CUDA_VER_SHORT}
+          export PATH=$PATH:/opt/rocm/bin
+          clang --version
+          find /opt/rocm -name __clang_cuda_runtime_wrapper.h
+          ls /opt/rocm/llvm/lib/clang
+          sudo ln -s -f /opt/rocm/llvm/lib/clang/16.0.0 /opt/rocm/llvm/lib/clang/16
+          
+          mkdir build
+          cd build
+          cmake .. \
+            -G${CMAKE_GENERATOR} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_PREFIX_PATH=/mnt/deps/libtorch \
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
+            -DGPU_RUNTIME=HIP \
+            -DHIP_ROOT_DIR=/opt/rocm \
+            -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
+          ninja
+
+      - name: Save Converted Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            build/libgsplat.a
+            build/opensplat
+            build/simple_trainer
+
+      - name: Clean Compiler Cache
+        run: |
+          set -x
+          ccache --show-stats
+          ccache --evict-older-than 7d
+          ccache -s
+          ccache --show-stats

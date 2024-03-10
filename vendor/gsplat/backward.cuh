@@ -1,5 +1,10 @@
+#ifdef USE_HIP
+#include <hip/hip_runtime.h>
+#else
 #include <cuda.h>
 #include <cuda_runtime.h>
+#endif
+
 #include <cstdint>
 
 // for f : R(n) -> R(m), J in R(m, n),

@@ -1,5 +1,11 @@
 #include "config.h"
+
+#ifdef USE_HIP
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime.h>
+#endif
+
 #include "../glm/glm/glm.hpp"
 #include "../glm/glm/gtc/type_ptr.hpp"
 #include <iostream>
@@ -123,7 +129,7 @@ inline __device__ float3 project_pix_vjp(
     float4 p_hom = transform_4x4(mat, p);
     float rw = 1.f / (p_hom.w + 1e-6f);
 
-    float3 v_ndc = {0.5f * img_size.x * v_xy.x, 0.5f * img_size.y * v_xy.y};
+    float3 v_ndc = {0.5f * img_size.x * v_xy.x, 0.5f * img_size.y * v_xy.y, 0.0f};
     float4 v_proj = {
         v_ndc.x * rw, v_ndc.y * rw, 0., -(v_ndc.x + v_ndc.y) * rw * rw
     };

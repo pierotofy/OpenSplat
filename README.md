@@ -8,7 +8,7 @@ OpenSplat takes camera poses + sparse points in [COLMAP](https://colmap.github.i
 
 Commercial use allowed and encouraged under the terms of the [AGPLv3](https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0). ✅
 
-## Build
+## Build (CUDA)
 
 Requirements:
 
@@ -27,8 +27,30 @@ Requirements:
 
  The software has been tested on Ubuntu 20.04 and Windows. With some changes it could run on macOS (help us by opening a PR?).
 
-## Build Docker Image
+## Build (ROCm via HIP)
+Requirements:
 
+* **ROCm**: Make sure you have the ROCm installed at /opt/rocm. https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/quick-start.html
+* **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of ROCm (5.7) if you want to leverage AMD GPU support in libtorch.
+* **OpenCV**: `sudo apt install libopencv-dev` should do it.
+
+Then:
+
+ ```bash
+ git clone https://github.com/pierotofy/OpenSplat OpenSplat
+ cd OpenSplat
+ mkdir build && cd build
+ export PYTORCH_ROCM_ARCH=gfx906
+ cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ -DGPU_RUNTIME="HIP" -DHIP_ROOT_DIR=/opt/rocm -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON ..
+ make
+ ```
+In addition, you can leverage Jinja to build the project
+ ```
+ cmake -GNinja -DCMAKE_PREFIX_PATH=/path/to/libtorch/ -DGPU_RUNTIME="HIP" -DHIP_ROOT_DIR=/opt/rocm -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON ..
+ jinja
+ ```
+
+## Docker Build (CUDA)
 Navigate to the root directory of OpenSplat repo that has Dockerfile and run the following command to build the Docker image:
 
 ```bash
@@ -47,6 +69,27 @@ docker build \
   --build-arg TORCH_CUDA_ARCH_LIST="7.0;7.5" \
   --build-arg CMAKE_BUILD_TYPE=Release .
 ```
+
+## Docker Build (ROCm via HIP)
+Navigate to the root directory of OpenSplat repo that has Dockerfile and run the following command to build the Docker image:
+```bash
+docker build -t opensplat -f Dockerfile.rocm .
+```
+
+The `-t` flag and other `--build-arg` let you tag and further customize your image across different ubuntu versions, CUDA/libtorch stacks, and hardware accelerators.
+For example, to build an image with Ubuntu 22.04, CUDA 12.1.1, libtorch 2.2.1, ROCm 5.7.1, and support for ROCm architectures gfx906, run the following command:
+
+```bash
+docker build \
+  -t opensplat:ubuntu-22.04-cuda-12.1.1-libtorch-2.2.1-rocm-5.7.1-llvm-16 \
+  --build-arg UBUNTU_VERSION=22.04 \
+  --build-arg CUDA_VERSION=12.1.1 \
+  --build-arg TORCH_VERSION=2.2.1 \
+  --build-arg ROCM_VERSION=5.7.1 \
+  --build-arg PYTORCH_ROCM_ARCH="gfx906" \
+  --build-arg CMAKE_BUILD_TYPE=Release .
+```
+
 
 ## Run
 
@@ -74,7 +117,7 @@ There's several parameters you can tune. To view the full list:
 
 We recently released OpenSplat, so there's lots of work to do.
 
- * Support for running on AMD cards
+ * Support for running on AMD cards (more testing needed)
  * Support for running on CPU-only
  * Improve speed / reduce memory usage
  * Distributed computation using multiple machines

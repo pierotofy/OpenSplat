@@ -1,8 +1,15 @@
 #include "forward.cuh"
 #include "helpers.cuh"
 #include <algorithm>
+
+#ifdef USE_HIP
+#include <hip/hip_runtime.h>
+#include <hip/hip_cooperative_groups.h>
+#else
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+#endif
+
 #include <iostream>
 
 namespace cg = cooperative_groups;
