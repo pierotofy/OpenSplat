@@ -1,0 +1,72 @@
+ARG UBUNTU_VERSION=22.04
+
+FROM ubuntu:${UBUNTU_VERSION}
+
+ARG UBUNTU_VERSION
+ARG TORCH_VERSION=2.2.1
+ARG CUDA_VERSION=12.1.1
+ARG ROCM_VERSION=5.7.1
+ARG LLVM_VERSION=16
+ARG PYTORCH_ROCM_ARCH=gfx906
+ARG CMAKE_BUILD_TYPE=Release
+
+ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
+
+SHELL ["/bin/bash", "-c"]
+
+# Env variables
+ENV DEBIAN_FRONTEND noninteractive
+
+# Prepare directories
+WORKDIR /code
+
+# Copy everything
+COPY . ./
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
+    software-properties-common \
+    cmake \
+    ninja-build \
+    libopencv-dev \
+    unzip \
+    wget \
+    sudo && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" && \
+    apt-get update && \
+    apt-get install -y \
+    llvm-${LLVM_VERSION}-dev \
+    libclang-${LLVM_VERSION}-dev \
+    clang-${LLVM_VERSION} && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${LLVM_VERSION} 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${LLVM_VERSION} 100 && \
+    update-alternatives --set clang /usr/bin/clang-${LLVM_VERSION} && \
+    update-alternatives --set clang++ /usr/bin/clang++-${LLVM_VERSION} && \
+    apt-get autoremove -y --purge && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# Install CUDA
+RUN bash .github/workflows/cuda/Linux.sh ${CUDA_VERSION}
+
+# Install ROCm
+RUN bash .github/workflows/rocm/Linux.sh ${ROCM_VERSION} ubuntu-${UBUNTU_VERSION}
+
+# Install libtorch
+RUN ROCM_VER_FULL=${ROCM_VERSION} && \
+    ROCM_VER_ARR=($(echo ${ROCM_VER_FULL} | tr "." " ")) && \
+    ROCM_VER="${ROCM_VER_ARR[0]}.${ROCM_VER_ARR[1]}" && \
+    ROCM_VER_ID="${ROCM_VER_ARR[0]}_${ROCM_VER_ARR[1]}" && \
+    ROCM_VER_SHORT="rocm${ROCM_VER_ARR[0]}.${ROCM_VER_ARR[1]}" && \
+    wget --no-check-certificate -nv https://download.pytorch.org/libtorch/${ROCM_VER_SHORT}/libtorch-cxx11-abi-shared-with-deps-${TORCH_VERSION}%2B${ROCM_VER_SHORT}.zip -O libtorch.zip && \
+    unzip -q libtorch.zip -d . && \
+    rm ./libtorch.zip
+
+# Configure and build \
+RUN source .github/workflows/cuda/Linux-env.sh cu"${CUDA_VERSION%%.*}"$(echo $CUDA_VERSION | cut -d'.' -f2) && \
+    export PATH=$PATH:/opt/rocm/bin && \
+    ln -s -f /opt/rocm/llvm/lib/clang/${LLVM_VERSION}.0.0 /opt/rocm/llvm/lib/clang/${LLVM_VERSION}
