@@ -117,15 +117,6 @@ int main(int argc, char **argv){
                                 width,
                                 tileBounds);
 
-#ifdef USE_HIP
-        hipError_t err = hipDeviceSynchronize();
-        if (err != hipSuccess) {
-            std::cerr << "hipDeviceSynchronize failed with error: " << hipGetErrorString(err) << std::endl;
-        }
-#else   
-        torch::cuda::synchronize();
-#endif
-        
         torch::Tensor outImg = RasterizeGaussians::apply(
             p[0], // xys
             p[1], // depths
@@ -138,28 +129,10 @@ int main(int argc, char **argv){
             width,
             background);
         
-#ifdef USE_HIP
-        err = hipDeviceSynchronize();
-        if (err != hipSuccess) {
-            std::cerr << "hipDeviceSynchronize failed with error: " << hipGetErrorString(err) << std::endl;
-        }
-#else   
-        torch::cuda::synchronize();
-#endif
-
         outImg.requires_grad_();
         torch::Tensor loss = mseLoss(outImg, gtImage);
         optimizer.zero_grad();
         loss.backward();
-
-#ifdef USE_HIP
-        err = hipDeviceSynchronize();
-        if (err != hipSuccess) {
-            std::cerr << "hipDeviceSynchronize failed with error: " << hipGetErrorString(err) << std::endl;
-        }
-#else   
-        torch::cuda::synchronize();
-#endif
         optimizer.step();
 
         std::cout << "Iteration " << std::to_string(i + 1) << "/" << std::to_string(iterations) << " Loss: " << loss.item<float>() << std::endl; 

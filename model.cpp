@@ -4,7 +4,7 @@
 #include "project_gaussians.hpp"
 #include "rasterize_gaussians.hpp"
 #include "tensor_math.hpp"
-#include "vendor/gsplat/config.h"
+#include "gsplat.hpp"
 
 torch::Tensor randomQuatTensor(long long n){
     torch::Tensor u = torch::rand(n);
