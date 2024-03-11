@@ -2,6 +2,9 @@
 
 #ifdef USE_HIP
 #include <hip/hip_runtime.h>
+#elif defined(USE_HIP_CPU)
+#include <hip/hip_runtime.h>
+#include "hipcpu_compat.h"
 #else
 #include <cuda_runtime.h>
 #endif

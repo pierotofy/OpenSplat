@@ -1,6 +1,8 @@
 #ifdef USE_HIP
 #include <hip/hip_runtime.h>
 #include <hip/hip_cooperative_groups.h>
+#elif defined(USE_HIP_CPU)
+#include <hip/hip_runtime.h>
 #else
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>

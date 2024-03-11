@@ -1,5 +1,7 @@
 #ifdef USE_HIP
 #include <hip/hip_runtime.h>
+#elif defined(USE_HIP_CPU)
+#include <hip/hip_runtime.h>
 #else
 #include <cuda.h>
 #include <cuda_runtime.h>

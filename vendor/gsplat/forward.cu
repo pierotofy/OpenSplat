@@ -5,6 +5,8 @@
 #ifdef USE_HIP
 #include <hip/hip_runtime.h>
 #include <hip/hip_cooperative_groups.h>
+#elif defined(USE_HIP_CPU)
+#include <hip/hip_runtime.h>
 #else
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
@@ -224,7 +226,7 @@ __global__ void nd_rasterize_forward(
         }
         const float opac = opacities[g];
 
-        const float alpha = min(0.999f, opac * __expf(-sigma));
+        const float alpha = std::min(0.999f, opac * __expf(-sigma));
 
         // break out conditions
         if (alpha < 1.f / 255.f) {
@@ -331,7 +333,7 @@ __global__ void rasterize_forward(
         block.sync();
 
         // process gaussians in the current batch for this pixel
-        int batch_size = min(BLOCK_SIZE, range.y - batch_start);
+        int batch_size = std::min(BLOCK_SIZE, range.y - batch_start);
         for (int t = 0; (t < batch_size) && !done; ++t) {
             const float3 conic = conic_batch[t];
             const float3 xy_opac = xy_opacity_batch[t];

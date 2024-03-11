@@ -8,6 +8,9 @@
 #include <hip/hip_runtime.h>
 #include <hip/hip_runtime_api.h>
 #include <hip/hip_cooperative_groups.h>
+#elif defined(USE_HIP_CPU)
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime_api.h>
 #else
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
