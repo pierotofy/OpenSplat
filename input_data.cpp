@@ -111,15 +111,6 @@ std::vector<float> Camera::undistortionParameters(){
     return p;
 }
 
-void Camera::scaleOutputResolution(float scaleFactor){
-    fx = fx * scaleFactor;
-    fy = fy * scaleFactor;
-    cx = cx * scaleFactor;
-    cy = cy * scaleFactor;
-    height = static_cast<int>(static_cast<float>(height) * scaleFactor);
-    width = static_cast<int>(static_cast<float>(width) * scaleFactor);
-}
-
 std::tuple<std::vector<Camera>, Camera *> InputData::getCameras(bool validate, const std::string &valImage){
     if (!validate) return std::make_tuple(cameras, nullptr);
     else{
