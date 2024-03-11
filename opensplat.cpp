@@ -104,11 +104,13 @@ int main(int argc, char *argv[]){
                         numIters,
                         device);
 
-        InfiniteRandomIterator<Camera> camsIter(cams);
+        std::vector< size_t > camIndices( cams.size() );
+        std::iota( camIndices.begin(), camIndices.end(), 0 );
+        InfiniteRandomIterator<size_t> camsIter( camIndices );
 
         int imageSize = -1;
         for (size_t step = 1; step <= numIters; step++){
-            Camera cam = camsIter.next();
+            Camera& cam = cams[ camsIter.next() ];
 
             model.optimizersZeroGrad();
 
