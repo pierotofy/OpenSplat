@@ -1,3 +1,5 @@
+// Originally based on https://github.dev/nerfstudio-project/gsplat
+
 #include <cstdio>
 #include <iostream>
 #include <math.h>
