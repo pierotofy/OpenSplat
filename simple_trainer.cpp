@@ -64,10 +64,10 @@ int main(int argc, char **argv){
     // torch::Tensor block = torch::tensor({BLOCK_X, BLOCK_Y, 1}, device);
     
     // Init gaussians
-#ifdef USE_HIP
-#else
+#ifdef USE_CUDA
     torch::cuda::manual_seed_all(0);
 #endif
+    torch::manual_seed(0);
 
     // Random points, scales and colors
     torch::Tensor means = 2.0 * (torch::rand({numPoints, 3}, device) - 0.5); // Positions [-1, 1]

@@ -2,12 +2,12 @@
 // This implementation is licensed under the AGPLv3
 
 #include "bindings.h"
+#include "../gsplat/config.h"
 
 #include <cstdio>
 #include <iostream>
 #include <math.h>
 #include <tuple>
-#include <torch/torch.h>
 
 using namespace torch::indexing;
 
@@ -35,6 +35,24 @@ torch::Tensor quatToRotMat(const torch::Tensor &quat){
         }, -1)
     }, -2);
     
+}
+
+std::tuple<torch::Tensor, torch::Tensor> getTileBbox(torch::Tensor &pixCenter, const torch::Tensor &pixRadius, const std::tuple<int, int, int> &tileBounds){
+    torch::Tensor tileSize = torch::tensor({BLOCK_X, BLOCK_Y}, torch::TensorOptions().dtype(torch::kFloat32).device(pixCenter.device()));
+    torch::Tensor tileCenter = pixCenter / tileSize;
+    torch::Tensor tileRadius = pixRadius.index({"...", None}) / tileSize;
+    torch::Tensor topLeft = (tileCenter - tileRadius).to(torch::kInt32);
+    torch::Tensor bottomRight = (tileCenter + tileRadius).to(torch::kInt32) + 1;
+    torch::Tensor tileMin = torch::stack({
+        torch::clamp(topLeft.index({"...", 0}), 0, std::get<0>(tileBounds)),
+        torch::clamp(topLeft.index({"...", 1}), 0, std::get<1>(tileBounds))
+    }, -1);
+    torch::Tensor tileMax = torch::stack({
+        torch::clamp(bottomRight.index({"...", 0}), 0, std::get<0>(tileBounds)),
+        torch::clamp(bottomRight.index({"...", 1}), 0, std::get<1>(tileBounds))
+    }, -1);
+
+    return std::make_tuple(tileMin, tileMax);    
 }
 
 torch::Tensor compute_sh_forward_tensor(
@@ -88,7 +106,7 @@ project_gaussians_forward_tensor(
     torch::Tensor Rclip = viewmat.index({"...", Slice(None, 3), Slice(None, 3)}); 
     torch::Tensor Tclip = viewmat.index({"...", Slice(None, 3), 3});
     torch::Tensor pView = torch::matmul(Rclip, means3d.index({"...", None})).index({"...", 0}) + Tclip;
-    torch::Tensor isClose = pView.index({"...", 2}) < clip_thresh;
+    // torch::Tensor isClose = pView.index({"...", 2}) < clip_thresh;
 
     // scale_rot_to_cov3d
     torch::Tensor R = quatToRotMat(quats);
@@ -137,10 +155,27 @@ project_gaussians_forward_tensor(
     torch::Tensor v1 = b + sq;
     torch::Tensor v2 = b - sq;
     torch::Tensor radius = torch::ceil(3.0f * torch::sqrt(torch::max(v1, v2)));
-    torch::Tensor detValid = det > eps;
+    // torch::Tensor detValid = det > eps;
 
+    // project_pix
+    torch::Tensor pHom = torch::nn::functional::pad(means3d, torch::nn::functional::PadFuncOptions({0, 1}).mode(torch::kConstant).value(1.0f));
+    pHom = torch::einsum("...ij,...j->...i", {projmat, pHom});
+    torch::Tensor rw = 1.0f / torch::clamp_min(pHom.index({"...", 3}), eps);
+    torch::Tensor pProj = pHom.index({"...", Slice(None, 3)}) * rw.index({"...", None});
+    torch::Tensor u = 0.5f * ((pProj.index({"...", 0}) + 1.0f) * static_cast<float>(img_height) - 1.0f);
+    torch::Tensor v = 0.5f * ((pProj.index({"...", 1}) + 1.0f) * static_cast<float>(img_width) - 1.0f);
+    torch::Tensor xys = torch::stack({u, v}, -1); // center
 
-    return std::make_tuple(torch::Tensor(), torch::Tensor(), torch::Tensor(), torch::Tensor(), torch::Tensor(), torch::Tensor());
+    auto bbox = getTileBbox(xys, radius, tile_bounds);
+    torch::Tensor tileMin = std::get<0>(bbox);
+    torch::Tensor tileMax = std::get<1>(bbox);
+    torch::Tensor numTilesHit = (tileMax.index({"...", 0}) - tileMin.index({"...", 0})) * 
+                   (tileMax.index({"...", 1}) - tileMin.index({"...", 1}));
+
+    torch::Tensor depths = pView.index({"...", 2});
+    torch::Tensor radii = radius.to(torch::kInt32);
+
+    return std::make_tuple(cov3d, xys, depths, radii, conic, numTilesHit );
 }
 
 std::tuple<
