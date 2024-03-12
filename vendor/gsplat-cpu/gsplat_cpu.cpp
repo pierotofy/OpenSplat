@@ -37,7 +37,7 @@ torch::Tensor quatToRotMat(const torch::Tensor &quat){
     
 }
 
-std::tuple<torch::Tensor, torch::Tensor> getTileBbox(torch::Tensor &pixCenter, const torch::Tensor &pixRadius, const std::tuple<int, int, int> &tileBounds){
+std::tuple<torch::Tensor, torch::Tensor> getTileBbox(const torch::Tensor &pixCenter, const torch::Tensor &pixRadius, const std::tuple<int, int, int> &tileBounds){
     torch::Tensor tileSize = torch::tensor({BLOCK_X, BLOCK_Y}, torch::TensorOptions().dtype(torch::kFloat32).device(pixCenter.device()));
     torch::Tensor tileCenter = pixCenter / tileSize;
     torch::Tensor tileRadius = pixRadius.index({"...", None}) / tileSize;
@@ -245,28 +245,45 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
 
         for (int i = iStart; i < iEnd; i++){
             for (int j = jStart; j < jEnd; j++){
-                int tileId = i * b + j;
-                isectIds[curIdx]
+                int64_t tileId = i * b + j;
+                isectIds[curIdx] = (tileId << 32) | depthIdN;
+                gaussianIds[curIdx] = idx;
+                curIdx += 1;
             }
         }
     }
-    //     for i in range(tile_min[1], tile_max[1]):
-    //         for j in range(tile_min[0], tile_max[0]):
-    //             tile_id = i * tile_bounds[0] + j
-    //             isect_ids[cur_idx] = (tile_id << 32) | depth_id_n
-    //             gaussian_ids[cur_idx] = idx
-    //             cur_idx += 1
 
-    // return isect_ids, gaussian_ids
-
-    return std::make_tuple(torch::Tensor(), torch::Tensor());
+    return std::make_tuple(isectIds, gaussianIds); 
 }
 
 torch::Tensor get_tile_bin_edges_tensor(
     int num_intersects,
     const torch::Tensor &isect_ids_sorted
 ){
-    return torch::Tensor();
+    torch::Tensor tileBins = torch::zeros({num_intersects, 2}, torch::TensorOptions().dtype(torch::kInt32).device(isect_ids_sorted.device()));
+
+    for (int idx = 0; idx < num_intersects; idx++){
+        int64_t curTileIdx = isect_ids_sorted[idx].item<int64_t>() >> 32;
+
+        if (idx == 0){
+            tileBins[curTileIdx][0] = 0;
+            continue;
+        }
+
+        if (idx == num_intersects - 1){
+            tileBins[curTileIdx][1] = num_intersects;
+            break;
+        }
+
+        int64_t prevTileIdx = isect_ids_sorted[idx - 1].item<int64_t>() >> 32;
+
+        if (curTileIdx != prevTileIdx){
+            tileBins[prevTileIdx][1] = idx;
+            tileBins[curTileIdx][0] = idx;
+        }
+    }
+
+    return tileBins;
 }
 
 std::tuple<
@@ -294,10 +311,14 @@ std::tuple<
     torch::Tensor finalTs = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
     torch::Tensor finalIdx = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kInt32).device(device));   
 
-
+    int blockX = std::get<0>(block);
+    int blockY = std::get<1>(block);
+    int tileBoundsX = std::get<0>(tile_bounds);
+    
     for (int i = 0; i < width; i++){
+        std::cout << i << std::endl;
         for (int j = 0; j < height; j++){
-            int tileId = (i / std::get<0>(block)) * std::get<0>(tile_bounds) + (j / std::get<1>(block));
+            int tileId = (i / blockX) * tileBoundsX + (j / blockY);
             int tileBinStart = tile_bins[tileId][0].item<int>();
             int tileBinEnd = tile_bins[tileId][1].item<int>();
             float T = 1.0f;
