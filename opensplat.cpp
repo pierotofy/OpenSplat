@@ -20,8 +20,8 @@ int main(int argc, char *argv[]){
         
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
         ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("1"))
-        ("num-downscales", "Number of images downscales to use. After being scaled by [downscale-factor], images are initially scaled by a further (2^[num-downscales]) and the scale is increased every [resolution-schedule]", cxxopts::value<int>()->default_value("3"))
-        ("resolution-schedule", "Double the image resolution every these many steps", cxxopts::value<int>()->default_value("250"))
+        ("num-downscales", "Number of images downscales to use. After being scaled by [downscale-factor], images are initially scaled by a further (2^[num-downscales]) and the scale is increased every [resolution-schedule]", cxxopts::value<int>()->default_value("2"))
+        ("resolution-schedule", "Double the image resolution every these many steps", cxxopts::value<int>()->default_value("3000"))
         ("sh-degree", "Maximum spherical harmonics degree (must be > 0)", cxxopts::value<int>()->default_value("3"))
         ("sh-degree-interval", "Increase the number of spherical harmonics degree after these many steps (will not exceed [sh-degree])", cxxopts::value<int>()->default_value("1000"))
         ("ssim-weight", "Weight to apply to the structural similarity loss. Set to zero to use least absolute deviation (L1) loss only", cxxopts::value<float>()->default_value("0.2"))
@@ -104,11 +104,13 @@ int main(int argc, char *argv[]){
                         numIters,
                         device);
 
-        InfiniteRandomIterator<Camera> camsIter(cams);
+        std::vector< size_t > camIndices( cams.size() );
+        std::iota( camIndices.begin(), camIndices.end(), 0 );
+        InfiniteRandomIterator<size_t> camsIter( camIndices );
 
         int imageSize = -1;
         for (size_t step = 1; step <= numIters; step++){
-            Camera cam = camsIter.next();
+            Camera& cam = cams[ camsIter.next() ];
 
             model.optimizersZeroGrad();
 
