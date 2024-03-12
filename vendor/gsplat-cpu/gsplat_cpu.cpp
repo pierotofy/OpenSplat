@@ -218,32 +218,46 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
     const torch::Tensor &cum_tiles_hit,
     const std::tuple<int, int, int> tile_bounds
 ){
-    num_intersects = cum_tiles_hit[-1]
-    isect_ids = torch.zeros(num_intersects, dtype=torch.int64, device=xys.device)
-    gaussian_ids = torch.zeros(num_intersects, dtype=torch.int32, device=xys.device)
+    torch::Device device = xys.device();
+    int numIntersects = cum_tiles_hit[-1].item<int>();
+    torch::Tensor isectIds = torch::zeros(numIntersects, torch::TensorOptions().dtype(torch::kInt64).device(device));
+    torch::Tensor gaussianIds = torch::zeros(numIntersects, torch::TensorOptions().dtype(torch::kInt32).device(device));
+    for (int idx = 0; idx < num_points; idx++){
+        if (radii[idx].item<float>() <= 0.0f) break;
 
-    for idx in range(num_points):
-        if radii[idx] <= 0:
-            break
+        auto bbox = getTileBbox(xys[idx], radii[idx], tile_bounds);
+        torch::Tensor tileMin = std::get<0>(bbox);
+        torch::Tensor tileMax = std::get<1>(bbox);
+        int curIdx;
 
-        tile_min, tile_max = get_tile_bbox(xys[idx], radii[idx], tile_bounds)
+        if (idx == 0){
+            curIdx = 0;
+        }else{
+            curIdx = cum_tiles_hit[idx - 1].item<int>();
+        }
 
-        cur_idx = 0 if idx == 0 else cum_tiles_hit[idx - 1].item()
+        int32_t depthIdN = static_cast<int32_t>(depths[idx].item<float>());
+        int iStart = tileMin[1].item<int>();
+        int iEnd = tileMax[1].item<int>();
+        int jStart = tileMin[0].item<int>();
+        int jEnd = tileMax[0].item<int>();
+        int b = std::get<0>(tile_bounds);
 
-        # Get raw byte representation of the float value at the given index
-        raw_bytes = struct.pack("f", depths[idx])
+        for (int i = iStart; i < iEnd; i++){
+            for (int j = jStart; j < jEnd; j++){
+                int tileId = i * b + j;
+                isectIds[curIdx]
+            }
+        }
+    }
+    //     for i in range(tile_min[1], tile_max[1]):
+    //         for j in range(tile_min[0], tile_max[0]):
+    //             tile_id = i * tile_bounds[0] + j
+    //             isect_ids[cur_idx] = (tile_id << 32) | depth_id_n
+    //             gaussian_ids[cur_idx] = idx
+    //             cur_idx += 1
 
-        # Interpret those bytes as an int32_t
-        depth_id_n = struct.unpack("i", raw_bytes)[0]
-
-        for i in range(tile_min[1], tile_max[1]):
-            for j in range(tile_min[0], tile_max[0]):
-                tile_id = i * tile_bounds[0] + j
-                isect_ids[cur_idx] = (tile_id << 32) | depth_id_n
-                gaussian_ids[cur_idx] = idx
-                cur_idx += 1
-
-    return isect_ids, gaussian_ids
+    // return isect_ids, gaussian_ids
 
     return std::make_tuple(torch::Tensor(), torch::Tensor());
 }
