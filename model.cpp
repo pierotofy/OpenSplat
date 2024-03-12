@@ -44,8 +44,13 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
 
 torch::Tensor Model::forward(Camera& cam, int step){
 
-    float scaleFactor = 1.0f / static_cast<float>(getDownscaleFactor(step));
-    cam.scaleOutputResolution(scaleFactor);
+    const float scaleFactor = getDownscaleFactor(step);
+    const float fx = cam.fx / scaleFactor;
+    const float fy = cam.fy / scaleFactor;
+    const float cx = cam.cx / scaleFactor;
+    const float cy = cam.cy / scaleFactor;
+    const int height = static_cast<int>(static_cast<float>(cam.height) / scaleFactor);
+    const int width = static_cast<int>(static_cast<float>(cam.width) / scaleFactor);
 
     // TODO: these can be moved to Camera and computed only once?
     torch::Tensor R = cam.camToWorld.index({Slice(None, 3), Slice(None, 3)});
@@ -58,20 +63,20 @@ torch::Tensor Model::forward(Camera& cam, int step){
     torch::Tensor Rinv = R.transpose(0, 1);
     torch::Tensor Tinv = torch::matmul(-Rinv, T);
 
-    lastHeight = cam.height;
-    lastWidth = cam.width;
+    lastHeight = height;
+    lastWidth = width;
 
     torch::Tensor viewMat = torch::eye(4, device);
     viewMat.index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
     viewMat.index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
         
-    float fovX = 2.0f * std::atan(cam.width / (2.0f * cam.fx));
-    float fovY = 2.0f * std::atan(cam.height / (2.0f * cam.fy));
+    float fovX = 2.0f * std::atan(width / (2.0f * fx));
+    float fovY = 2.0f * std::atan(height / (2.0f * fy));
 
     torch::Tensor projMat = projectionMatrix(0.001f, 1000.0f, fovX, fovY, device);
 
-    TileBounds tileBounds = std::make_tuple((cam.width + BLOCK_X - 1) / BLOCK_X,
-                      (cam.height + BLOCK_Y - 1) / BLOCK_Y,
+    TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
+                      (height + BLOCK_Y - 1) / BLOCK_Y,
                       1);
 
     torch::Tensor colors =  torch::cat({featuresDc.index({Slice(), None, Slice()}), featuresRest}, 1);
@@ -82,12 +87,12 @@ torch::Tensor Model::forward(Camera& cam, int step){
                     quats / quats.norm(2, {-1}, true), 
                     viewMat, 
                     torch::matmul(projMat, viewMat),
-                    cam.fx, 
-                    cam.fy,
-                    cam.cx,
-                    cam.cy,
-                    cam.height,
-                    cam.width,
+                    fx, 
+                    fy,
+                    cx,
+                    cy,
+                    height,
+                    width,
                     tileBounds);
     xys = p[0];
     torch::Tensor depths = p[1];
@@ -96,11 +101,8 @@ torch::Tensor Model::forward(Camera& cam, int step){
     torch::Tensor numTilesHit = p[4];
     
 
-    if (radii.sum().item<float>() == 0.0f){
-        // Rescale resolution back
-        cam.scaleOutputResolution(1.0f / scaleFactor);
-        return backgroundColor.repeat({cam.height, cam.width, 1});
-    }
+    if (radii.sum().item<float>() == 0.0f)
+        return backgroundColor.repeat({height, width, 1});
 
     // TODO: is this needed?
     xys.retain_grad();
@@ -120,15 +122,12 @@ torch::Tensor Model::forward(Camera& cam, int step){
             numTilesHit,
             rgbs, // TODO: why not sigmod?
             torch::sigmoid(opacities),
-            cam.height,
-            cam.width,
+            height,
+            width,
             backgroundColor);
     
     rgb = torch::clamp_max(rgb, 1.0f);
 
-    // Rescale resolution back
-    cam.scaleOutputResolution(1.0f / scaleFactor);
-    
     return rgb;
 }
 

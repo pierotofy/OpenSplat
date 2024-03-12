@@ -29,7 +29,8 @@ cv::Mat tensorToImage(const torch::Tensor &t){
     if (c != 3) throw std::runtime_error("Only images with 3 channels are supported");
 
     cv::Mat image(h, w, type);
-    uint8_t *dataPtr = static_cast<uint8_t *>((t * 255.0).toType(torch::kU8).data_ptr());
+    torch::Tensor scaledTensor = (t * 255.0).toType(torch::kU8);
+    uint8_t* dataPtr = static_cast<uint8_t*>(scaledTensor.data_ptr());
     std::copy(dataPtr, dataPtr + (w * h * c), image.data);
 
     return image;
