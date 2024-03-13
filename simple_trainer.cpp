@@ -27,8 +27,8 @@ using namespace torch::indexing;
 
 
 int main(int argc, char **argv){
-    int width = 256,
-        height = 256;
+    int width = 16,
+        height = 16;
     int numPoints = 100000;
     int iterations = 1000;
     float learningRate = 0.01;
@@ -108,7 +108,7 @@ int main(int argc, char **argv){
     torch::nn::MSELoss mseLoss;
 
     for (size_t i = 0; i < iterations; i++){
-        auto p = ProjectGaussians::apply(means, scales, 1, 
+        auto p = ProjectGaussians::forward(nullptr, means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,
                                 width / 2,
@@ -117,7 +117,7 @@ int main(int argc, char **argv){
                                 width,
                                 tileBounds);
 
-        torch::Tensor outImg = RasterizeGaussians::apply(
+        torch::Tensor outImg = RasterizeGaussians::forward(nullptr,
             p[0], // xys
             p[1], // depths
             p[2], // radii,
@@ -137,8 +137,8 @@ int main(int argc, char **argv){
 
         std::cout << "Iteration " << std::to_string(i + 1) << "/" << std::to_string(iterations) << " Loss: " << loss.item<float>() << std::endl; 
 
-        // cv::Mat image = tensorToImage(outImg.detach().cpu());
-        // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-        // cv::imwrite("render/" + std::to_string(i + 1) + ".png", image);
+        cv::Mat image = tensorToImage(outImg.detach().cpu());
+        cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+        cv::imwrite("render/" + std::to_string(i + 1) + ".png", image);
     }
 }

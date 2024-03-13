@@ -236,7 +236,9 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
             curIdx = cum_tiles_hit[idx - 1].item<int>();
         }
 
-        int32_t depthIdN = static_cast<int32_t>(depths[idx].item<float>());
+        float depth = depths[idx].item<float>();
+        int32_t depthIdN = *(reinterpret_cast<int32_t *>(&depth));
+
         int iStart = tileMin[1].item<int>();
         int iEnd = tileMax[1].item<int>();
         int jStart = tileMin[0].item<int>();
@@ -246,7 +248,7 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
         for (int i = iStart; i < iEnd; i++){
             for (int j = jStart; j < jEnd; j++){
                 int64_t tileId = i * b + j;
-                isectIds[curIdx] = (tileId << 32) | depthIdN;
+                isectIds[curIdx] = static_cast<int64_t>(tileId << 32) | depthIdN;
                 gaussianIds[curIdx] = idx;
                 curIdx += 1;
             }
@@ -263,7 +265,7 @@ torch::Tensor get_tile_bin_edges_tensor(
     torch::Tensor tileBins = torch::zeros({num_intersects, 2}, torch::TensorOptions().dtype(torch::kInt32).device(isect_ids_sorted.device()));
 
     for (int idx = 0; idx < num_intersects; idx++){
-        int64_t curTileIdx = isect_ids_sorted[idx].item<int64_t>() >> 32;
+        int32_t curTileIdx = static_cast<int32_t>(isect_ids_sorted[idx].item<int64_t>() >> 32);
 
         if (idx == 0){
             tileBins[curTileIdx][0] = 0;
@@ -275,7 +277,7 @@ torch::Tensor get_tile_bin_edges_tensor(
             break;
         }
 
-        int64_t prevTileIdx = isect_ids_sorted[idx - 1].item<int64_t>() >> 32;
+        int32_t prevTileIdx = static_cast<int32_t>(isect_ids_sorted[idx - 1].item<int64_t>() >> 32);
 
         if (curTileIdx != prevTileIdx){
             tileBins[prevTileIdx][1] = idx;
@@ -322,13 +324,14 @@ std::tuple<
             int tileBinStart = tile_bins[tileId][0].item<int>();
             int tileBinEnd = tile_bins[tileId][1].item<int>();
             float T = 1.0f;
-
+            torch::Tensor ji = torch::tensor({j, i}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+            
             int idx = tileBinStart;
             for (; idx < tileBinEnd; idx++){
                 torch::Tensor gaussianId = gaussian_ids_sorted[idx];
                 torch::Tensor conic = conics[gaussianId];
                 torch::Tensor center = xys[gaussianId];
-                torch::Tensor delta = center - torch::tensor({j, i}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+                torch::Tensor delta = center - ji;
 
                 torch::Tensor sigma = (
                     0.5f

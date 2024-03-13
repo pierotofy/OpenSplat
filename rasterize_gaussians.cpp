@@ -82,10 +82,11 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
     // Map of tile bin IDs
     torch::Tensor finalIdx = std::get<2>(t);
 
-    ctx->saved_data["imgWidth"] = imgWidth;
-    ctx->saved_data["imgHeight"] = imgHeight;
-    
-    ctx->save_for_backward({ gaussianIdsSorted, tileBins, xys, conics, colors, opacity, background, finalTs, finalIdx });
+    if (ctx != nullptr){
+        ctx->saved_data["imgWidth"] = imgWidth;
+        ctx->saved_data["imgHeight"] = imgHeight;
+        ctx->save_for_backward({ gaussianIdsSorted, tileBins, xys, conics, colors, opacity, background, finalTs, finalIdx });
+    }
     
     return outImg;
 }

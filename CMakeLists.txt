@@ -93,7 +93,7 @@ elseif(GPU_RUNTIME STREQUAL "CUDA")
 endif()
 
 if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
-    add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp)
+    add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp cv_utils.cpp)
     target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm ${GPU_INCLUDE_DIRS})
     target_link_libraries(simple_trainer PUBLIC ${GPU_LIBRARIES} gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
     set_property(TARGET simple_trainer PROPERTY CXX_STANDARD 17)
