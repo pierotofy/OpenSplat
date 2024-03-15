@@ -3,7 +3,7 @@ name: OpenSplat (Docker ROCm 6.x)
 on:
   push:
     branches:
-      - docker-rocm6
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:

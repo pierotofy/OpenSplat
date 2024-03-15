@@ -73,7 +73,9 @@ docker build \
 ## Docker Build (ROCm via HIP)
 Navigate to the root directory of OpenSplat repo that has Dockerfile and run the following command to build the Docker image:
 ```bash
-docker build -t opensplat -f Dockerfile.rocm .
+docker build \
+  -t opensplat \
+  -f Dockerfile.rocm .
 ```
 
 The `-t` flag and other `--build-arg` let you tag and further customize your image across different ubuntu versions, CUDA/libtorch stacks, and hardware accelerators.
@@ -89,7 +91,12 @@ docker build \
   --build-arg PYTORCH_ROCM_ARCH="gfx906" \
   --build-arg CMAKE_BUILD_TYPE=Release .
 ```
-
+Note: If you want to use ROCm 6.x, you need to switch to AMD version of pytorch docker as a base layer to build:
+```bash
+docker build \
+  -t opensplat:ubuntu-22.04-libtorch-torch-2.1.2-rocm-6.0.2 \
+  -f Dockerfile.rocm6 .
+```
 
 ## Run
 
