@@ -53,6 +53,14 @@ jobs:
           docker system prune -a -f
           echo "Disk usage after cleanup:"
           df -hT
+          sudo service docker stop
+          echo "Docker Stopped"
+          sudo mv /var/lib/docker /mnt/docker-data
+          echo "Docker data moved"
+          sudo ln -s /mnt/docker-data /var/lib/docker
+          echo "Docker data relinked"
+          sudo service docker start
+          echo "Docker Restarted"          
 
       - name: Build Docker Image
         uses: docker/build-push-action@v5
