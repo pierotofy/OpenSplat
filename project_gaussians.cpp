@@ -29,6 +29,8 @@ variable_list ProjectGaussians::forward(AutogradContext *ctx,
     torch::Tensor radii = std::get<3>(t);
     torch::Tensor conics = std::get<4>(t);
     torch::Tensor numTilesHit = std::get<5>(t);
+    torch::Tensor cov2d = std::get<6>(t);
+    
 
     if (ctx != nullptr){
         ctx->saved_data["imgHeight"] = imgHeight;
@@ -42,7 +44,7 @@ variable_list ProjectGaussians::forward(AutogradContext *ctx,
         ctx->save_for_backward({ means, scales, quats, viewMat, projMat, cov3d, radii, conics });
     }
 
-    return { xys, depths, radii, conics, numTilesHit, cov3d };
+    return { xys, depths, radii, conics, numTilesHit, cov3d, cov2d };
 }
 
 tensor_list ProjectGaussians::backward(AutogradContext *ctx, tensor_list grad_outputs) {

@@ -81,6 +81,7 @@ std::tuple<
     torch::Tensor,
     torch::Tensor,
     torch::Tensor,
+    torch::Tensor,
     torch::Tensor>
 project_gaussians_forward_tensor(
     const int num_points,
@@ -101,6 +102,8 @@ project_gaussians_forward_tensor(
 ){
     float fovx = 0.5f * static_cast<float>(img_width) / fx;
     float fovy = 0.5f * static_cast<float>(img_height) / fy;
+    
+    // TODO: no need to recompute W,p,t below (they are the same)
 
     // clip_near_plane
     torch::Tensor Rclip = viewmat.index({"...", Slice(None, 3), Slice(None, 3)}); 
@@ -175,7 +178,7 @@ project_gaussians_forward_tensor(
     torch::Tensor depths = pView.index({"...", 2});
     torch::Tensor radii = radius.to(torch::kInt32);
 
-    return std::make_tuple(cov3d, xys, depths, radii, conic, numTilesHit );
+    return std::make_tuple(cov3d, xys, depths, radii, conic, numTilesHit, cov2d );
 }
 
 std::tuple<
@@ -302,23 +305,134 @@ std::tuple<
     const torch::Tensor &conics,
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
-    const torch::Tensor &background
+    const torch::Tensor &background,
+    const torch::Tensor &cov2d
 ){
     int channels = colors.size(1);
     int width = std::get<1>(img_size);
     int height = std::get<0>(img_size);
+    int numPoints = xys.size(0);
+
     torch::Device device = xys.device();
 
     torch::Tensor outImg = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
-    torch::Tensor finalTs = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
+    torch::Tensor finalTs = torch::ones({width, height, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
     torch::Tensor finalIdx = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kInt32).device(device));   
+
+    const float alphaThresh = 1.0f / 255.0f;
+    int idx = 0;
+    for (; idx < numPoints; idx++){
+        torch::Tensor gaussianId = gaussian_ids_sorted[idx];
+        torch::Tensor conic = conics[gaussianId];
+        torch::Tensor center = xys[gaussianId];
+        
+        float sqx = 3.0f * std::sqrt(cov2d[gaussianId][0][0].item<float>());
+        float sqy = 3.0f * std::sqrt(cov2d[gaussianId][1][1].item<float>());
+
+        int minx = (std::max)(0, static_cast<int>(std::floor(center[1].item<float>() - sqy)) - 2);
+        int maxx = (std::min)(width, static_cast<int>(std::ceil(center[1].item<float>() + sqy)) + 2);
+        int miny = (std::max)(0, static_cast<int>(std::floor(center[0].item<float>() - sqx)) - 2);
+        int maxy = (std::min)(height, static_cast<int>(std::ceil(center[0].item<float>() + sqx)) + 2);
+
+        for (int i = minx; i < maxx; i++){
+            for (int j = miny; j < maxy; j++){
+                torch::Tensor ji = torch::tensor({j, i}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+            
+                torch::Tensor delta = center - ji;
+                torch::Tensor sigma = (
+                    0.5f
+                    * (conic[0] * delta[0] * delta[0] + conic[2] * delta[1] * delta[1])
+                    + conic[1] * delta[0] * delta[1]
+                );
+
+                if (sigma.item<float>() < 0.0f) continue;
+                float alpha = (std::min)(0.999f, (opacities[gaussianId] * torch::exp(-sigma)).item<float>());
+                if (alpha < alphaThresh) continue;
+
+                torch::Tensor T = finalTs[i][j];
+                torch::Tensor nextT = T * (1.0f - alpha);
+
+                // if (nextT.item<float>() <= 1e-4f){
+                //     idx -= 1;
+                //     break;
+                // }
+
+                // outImg[i][j] = torch::tensor({1.0f, 1.0f, 1.0f}); 
+                outImg[i][j] += alpha * T * colors[gaussianId];
+                finalTs[i][j] = nextT;
+            }
+        }
+    }
+
+    return std::make_tuple(outImg, finalTs, finalIdx);
+
+/*
+    int minx = 99999;
+    int miny = 99999;
+    int maxx = 0;
+    int maxy = 0;
+    for (int i = 0; i < width; i++){
+        std::cout << i << std::endl;
+        for (int j = 0; j < height; j++){
+            float T = 1.0f;
+            torch::Tensor ji = torch::tensor({j, i}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+            
+            int idx = 0;
+            for (; idx < 1; idx++){
+                torch::Tensor gaussianId = gaussian_ids_sorted[idx];
+                torch::Tensor conic = conics[gaussianId];
+                torch::Tensor center = xys[gaussianId];
+                torch::Tensor delta = center - ji;
+
+                torch::Tensor sigma = (
+                    0.5f
+                    * (conic[0] * delta[0] * delta[0] + conic[2] * delta[1] * delta[1])
+                    + conic[1] * delta[0] * delta[1]
+                );
+
+                if (sigma.item<float>() < 0.0f) continue;
+
+                float alpha = (std::min)(0.999f, (opacities[gaussianId] * torch::exp(-sigma)).item<float>());
+
+                if (alpha < 1.0f / 255.0f) continue;
+
+                float nextT = T * (1.0f - alpha);
+
+                if (nextT <= 1e-4f){
+                    idx -= 1;
+                    break;
+                }
+
+                float vis = alpha * T;
+                // outImg[i][j] = torch::tensor({1.0f, 1.0f, 1.0f}); 
+                outImg[i][j] += vis * colors[gaussianId];
+
+                maxx = (std::max)(i, maxx);
+                maxy = (std::max)(j, maxy);
+                minx = (std::min)(i, minx);
+                miny = (std::min)(j, miny);               
+                
+
+                T = nextT;
+            }
+
+            finalTs[i][j] = T;
+            finalIdx[i][j] = idx;
+            // outImg[i][j] += T * background;
+        }
+    }
+
+    std::cout << "[" << minx << ", " << miny << "], [" << maxx << ", " << maxy << "]" << std::endl;
+
+    return std::make_tuple(outImg, finalTs, finalIdx);
+*/
+/*
 
     int blockX = std::get<0>(block);
     int blockY = std::get<1>(block);
     int tileBoundsX = std::get<0>(tile_bounds);
     
     for (int i = 0; i < width; i++){
-        std::cout << i << std::endl;
         for (int j = 0; j < height; j++){
             int tileId = (i / blockX) * tileBoundsX + (j / blockY);
             int tileBinStart = tile_bins[tileId][0].item<int>();
@@ -364,6 +478,7 @@ std::tuple<
     }
 
     return std::make_tuple(outImg, finalTs, finalIdx);
+    */
 }
 
 

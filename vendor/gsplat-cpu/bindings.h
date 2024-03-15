@@ -28,6 +28,7 @@ std::tuple<
     torch::Tensor,
     torch::Tensor,
     torch::Tensor,
+    torch::Tensor,
     torch::Tensor>
 project_gaussians_forward_tensor(
     const int num_points,
@@ -105,7 +106,8 @@ std::tuple<
     const torch::Tensor &conics,
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
-    const torch::Tensor &background
+    const torch::Tensor &background,
+    const torch::Tensor &cov2d
 );
 
 std::

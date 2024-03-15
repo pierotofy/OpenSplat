@@ -27,8 +27,8 @@ using namespace torch::indexing;
 
 
 int main(int argc, char **argv){
-    int width = 16,
-        height = 16;
+    int width = 128,
+        height = 128;
     int numPoints = 100000;
     int iterations = 1000;
     float learningRate = 0.01;
@@ -125,6 +125,7 @@ int main(int argc, char **argv){
             p[4], // numTilesHit
             torch::sigmoid(rgbs),
             torch::sigmoid(opacities),
+            p[6], // cov2d
             height,
             width,
             background);

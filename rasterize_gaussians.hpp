@@ -27,6 +27,7 @@ public:
             torch::Tensor numTilesHit,
             torch::Tensor colors,
             torch::Tensor opacity,
+            torch::Tensor cov2d,
             int imgHeight,
             int imgWidth,
             torch::Tensor background);

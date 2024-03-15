@@ -2,6 +2,8 @@
 #include "gsplat.hpp"
 #include "vendor/gsplat/config.h"
 
+#include "cv_utils.hpp" // TODO REMOVE
+
 std::tuple<torch::Tensor,
         torch::Tensor,
         torch::Tensor,
@@ -43,6 +45,7 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
             torch::Tensor numTilesHit,
             torch::Tensor colors,
             torch::Tensor opacity,
+            torch::Tensor cov2d,
             int imgHeight,
             int imgWidth,
             torch::Tensor background
@@ -72,9 +75,17 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
                             conics,
                             colors,
                             opacity,
-                            background);
+                            background,
+                            cov2d);
     // Final image
     torch::Tensor outImg = std::get<0>(t);
+
+    cv::Mat image = tensorToImage(outImg.detach().cpu());
+    cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+    cv::imwrite("test.png", image);
+    std::cout << "WROTE";
+    exit(1);
+
 
     // Map of alpha-inverse (1 - finalTs = alpha)
     torch::Tensor finalTs = std::get<1>(t);
