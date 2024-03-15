@@ -1,0 +1,40 @@
+name: OpenSplat (Docker ROCm 6.x)
+
+on:
+  push:
+    branches:
+      - docker-rocm6
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
+        arch: [x64] # [x64, x86]
+        torch-version: [2.1.2] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
+        rocm-version: [6.0.2]
+        cmake-build-type: [Release] # [Debug, ClangTidy]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.rocm6
+          build-args: |
+            ROCM_VERSION=${{ matrix.rocm-version }}
+            TORCH_VERSION=${{ matrix.torch-version }}
+            CMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }}
+          push: false
+          tags: opensplat:ubuntu-22.04-libtorch-torch-2.1.2-rocm-6.0.2
