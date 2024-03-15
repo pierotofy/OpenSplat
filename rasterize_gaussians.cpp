@@ -76,7 +76,8 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
                             colors,
                             opacity,
                             background,
-                            cov2d);
+                            cov2d,
+                            depths);
     // Final image
     torch::Tensor outImg = std::get<0>(t);
 

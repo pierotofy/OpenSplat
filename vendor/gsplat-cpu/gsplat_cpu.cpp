@@ -178,6 +178,8 @@ project_gaussians_forward_tensor(
     torch::Tensor depths = pView.index({"...", 2});
     torch::Tensor radii = radius.to(torch::kInt32);
 
+    // TODO: compute camDepths as pProj.index({"...", 2});
+
     return std::make_tuple(cov3d, xys, depths, radii, conic, numTilesHit, cov2d );
 }
 
@@ -306,12 +308,26 @@ std::tuple<
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
     const torch::Tensor &background,
-    const torch::Tensor &cov2d
+    const torch::Tensor &cov2d,
+    const torch::Tensor &depths
 ){
+    // torch::NoGradGuard noGrad;
+
     int channels = colors.size(1);
     int width = std::get<1>(img_size);
     int height = std::get<0>(img_size);
     int numPoints = xys.size(0);
+    float *pDepths = static_cast<float *>(depths.data_ptr());
+
+    std::vector< size_t > gIndices( numPoints );
+    std::iota( gIndices.begin(), gIndices.end(), 0 );
+    std::sort(gIndices.begin(), gIndices.end(), [&pDepths](int a, int b){
+        return pDepths[a] < pDepths[b];
+    });
+
+    std::cout << pDepths[0] << std::endl;
+
+    std::cout << pDepths[100];
 
     torch::Device device = xys.device();
 
@@ -319,52 +335,78 @@ std::tuple<
     torch::Tensor finalTs = torch::ones({width, height, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
     torch::Tensor finalIdx = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kInt32).device(device));   
 
+    torch::Tensor sqCov2dX = 3.0f * torch::sqrt(cov2d.index({"...", 0, 0}));
+    torch::Tensor sqCov2dY = 3.0f * torch::sqrt(cov2d.index({"...", 1, 1}));
+    
+    int32_t *pGaussianIds = static_cast<int32_t*>(gaussian_ids_sorted.data_ptr());
+    float *pConics = static_cast<float *>(conics.data_ptr());
+    float *pCenters = static_cast<float *>(xys.data_ptr());
+    float *pSqCov2dX = static_cast<float *>(sqCov2dX.data_ptr());
+    float *pSqCov2dY = static_cast<float *>(sqCov2dY.data_ptr());
+    float *pOpacities = static_cast<float *>(opacities.data_ptr());
+
+    float *pOutImg = static_cast<float *>(outImg.data_ptr());
+    float *pFinalTs = static_cast<float *>(finalTs.data_ptr());
+    int32_t *pFinalIdx = static_cast<int32_t *>(finalIdx.data_ptr());
+    float *pColors = static_cast<float *>(colors.data_ptr());
+    
+    float bgX = background[0].item<float>();
+    float bgY = background[1].item<float>();
+    float bgZ = background[2].item<float>();
+
     const float alphaThresh = 1.0f / 255.0f;
+    float T = 1.0f;
     int idx = 0;
     for (; idx < numPoints; idx++){
-        torch::Tensor gaussianId = gaussian_ids_sorted[idx];
-        torch::Tensor conic = conics[gaussianId];
-        torch::Tensor center = xys[gaussianId];
-        
-        float sqx = 3.0f * std::sqrt(cov2d[gaussianId][0][0].item<float>());
-        float sqy = 3.0f * std::sqrt(cov2d[gaussianId][1][1].item<float>());
+        int32_t gaussianId = gIndices[idx];
 
-        int minx = (std::max)(0, static_cast<int>(std::floor(center[1].item<float>() - sqy)) - 2);
-        int maxx = (std::min)(width, static_cast<int>(std::ceil(center[1].item<float>() + sqy)) + 2);
-        int miny = (std::max)(0, static_cast<int>(std::floor(center[0].item<float>() - sqx)) - 2);
-        int maxy = (std::min)(height, static_cast<int>(std::ceil(center[0].item<float>() + sqx)) + 2);
+        float A = pConics[gaussianId * 3 + 0];
+        float B = pConics[gaussianId * 3 + 1];
+        float C = pConics[gaussianId * 3 + 2];
+
+        float gX = pCenters[gaussianId * 2 + 0];
+        float gY = pCenters[gaussianId * 2 + 1];
+
+        float sqx = pSqCov2dX[gaussianId];
+        float sqy = pSqCov2dY[gaussianId];
+        
+        int minx = (std::max)(0, static_cast<int>(std::floor(gY - sqy)) - 2);
+        int maxx = (std::min)(width, static_cast<int>(std::ceil(gY + sqy)) + 2);
+        int miny = (std::max)(0, static_cast<int>(std::floor(gX - sqx)) - 2);
+        int maxy = (std::min)(height, static_cast<int>(std::ceil(gX + sqx)) + 2);
 
         for (int i = minx; i < maxx; i++){
             for (int j = miny; j < maxy; j++){
-                torch::Tensor ji = torch::tensor({j, i}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
-            
-                torch::Tensor delta = center - ji;
-                torch::Tensor sigma = (
+                float xCam = gX - j;
+                float yCam = gY - i;
+                float sigma = (
                     0.5f
-                    * (conic[0] * delta[0] * delta[0] + conic[2] * delta[1] * delta[1])
-                    + conic[1] * delta[0] * delta[1]
+                    * (A * xCam * xCam + C * yCam * yCam)
+                    + B * xCam * yCam
                 );
 
-                if (sigma.item<float>() < 0.0f) continue;
-                float alpha = (std::min)(0.999f, (opacities[gaussianId] * torch::exp(-sigma)).item<float>());
+                if (sigma < 0.0f) continue;
+                float alpha = (std::min)(0.999f, (pOpacities[gaussianId] * std::exp(-sigma)));
                 if (alpha < alphaThresh) continue;
 
-                torch::Tensor T = finalTs[i][j];
-                torch::Tensor nextT = T * (1.0f - alpha);
+                size_t pixIdx = (i * height + j);
+                float T = pFinalTs[pixIdx];
+                float nextT = T * (1.0f - alpha);
 
-                // if (nextT.item<float>() <= 1e-4f){
-                //     idx -= 1;
-                //     break;
-                // }
+                float alphaT = alpha * T;
 
-                // outImg[i][j] = torch::tensor({1.0f, 1.0f, 1.0f}); 
-                outImg[i][j] += alpha * T * colors[gaussianId];
-                finalTs[i][j] = nextT;
+                pOutImg[pixIdx * 3 + 0] += alphaT * (pColors[gaussianId * 3 + 0] + bgX);
+                pOutImg[pixIdx * 3 + 1] += alphaT * (pColors[gaussianId * 3 + 1] + bgY);
+                pOutImg[pixIdx * 3 + 2] += alphaT * (pColors[gaussianId * 3 + 2] + bgZ);
+                
+                pFinalTs[pixIdx] = nextT;
+                pFinalIdx[pixIdx] = idx;
             }
         }
     }
 
     return std::make_tuple(outImg, finalTs, finalIdx);
+
 
 /*
     int minx = 99999;
@@ -418,16 +460,16 @@ std::tuple<
 
             finalTs[i][j] = T;
             finalIdx[i][j] = idx;
-            // outImg[i][j] += T * background;
+            outImg[i][j] += T * background;
         }
     }
 
     std::cout << "[" << minx << ", " << miny << "], [" << maxx << ", " << maxy << "]" << std::endl;
 
     return std::make_tuple(outImg, finalTs, finalIdx);
+
 */
 /*
-
     int blockX = std::get<0>(block);
     int blockY = std::get<1>(block);
     int tileBoundsX = std::get<0>(tile_bounds);
@@ -446,7 +488,7 @@ std::tuple<
                 torch::Tensor conic = conics[gaussianId];
                 torch::Tensor center = xys[gaussianId];
                 torch::Tensor delta = center - ji;
-
+pGaussianIds
                 torch::Tensor sigma = (
                     0.5f
                     * (conic[0] * delta[0] * delta[0] + conic[2] * delta[1] * delta[1])
@@ -478,7 +520,7 @@ std::tuple<
     }
 
     return std::make_tuple(outImg, finalTs, finalIdx);
-    */
+*/
 }
 
 

@@ -107,7 +107,8 @@ std::tuple<
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
     const torch::Tensor &background,
-    const torch::Tensor &cov2d
+    const torch::Tensor &cov2d,
+    const torch::Tensor &depths
 );
 
 std::
