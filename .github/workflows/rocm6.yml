@@ -1,0 +1,75 @@
+name: OpenSplat (Docker ROCm 6.x)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
+        arch: [x64] # [x64, x86]
+        torch-version: [2.1.2] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
+        rocm-version: [6.0.2]
+        cmake-build-type: [Release] # [Debug, ClangTidy]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Free disk space
+        run: |
+          df -hT
+          # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/share/dotnet
+          # delete libraries for Android (12G), CodeQL (5.3G), PowerShell (1.3G), Swift (1.7G)
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/swift  
+          sudo rm -rf /usr/local/lib/android/sdk
+          sudo rm -rf /opt/hostedtoolcache/Python
+          sudo rm -rf /opt/hostedtoolcache/go
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /var/lib/gems          
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo apt-get autoremove -y
+          sudo apt-get autoclean -y
+          sudo snap set system refresh.retain=2
+          docker images -qf "dangling=true" | xargs -r sudo docker rmi
+          docker system prune -a -f
+          echo "Disk usage after cleanup:"
+          df -hT
+          sudo service docker stop
+          echo "Docker Stopped"
+          sudo mv /var/lib/docker /mnt/docker-data
+          echo "Docker data moved"
+          sudo ln -s /mnt/docker-data /var/lib/docker
+          echo "Docker data relinked"
+          sudo service docker start
+          echo "Docker Restarted"          
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.rocm6
+          build-args: |
+            ROCM_VERSION=${{ matrix.rocm-version }}
+            TORCH_VERSION=${{ matrix.torch-version }}
+            CMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }}
+          push: false
+          tags: opensplat:ubuntu-22.04-libtorch-2.1.2-rocm-6.0.2
