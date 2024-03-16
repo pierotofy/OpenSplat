@@ -40,13 +40,11 @@ elseif(GPU_RUNTIME STREQUAL "HIP")
     list(APPEND CMAKE_PREFIX_PATH "${ROCM_ROOT}")
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     enable_language(${GPU_RUNTIME})
     set(CMAKE_${GPU_RUNTIME}_STANDARD 17)
     set(${GPU_RUNTIME}_STANDARD 17)
-else()
-    # CPU
-    set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if (NOT WIN32 AND NOT APPLE)
@@ -61,8 +59,10 @@ if (NOT WIN32 AND NOT APPLE)
 endif()
 set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui opencv_calib3d)
 
+set(GSPLAT_LIBS gsplat_cpu)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     add_library(gsplat vendor/gsplat/forward.cu vendor/gsplat/backward.cu vendor/gsplat/bindings.cu vendor/gsplat/helpers.cuh)
+    list(APPEND GSPLAT_LIBS gsplat)
     if(GPU_RUNTIME STREQUAL "CUDA")
         set(GPU_LIBRARIES "cuda")
         target_link_libraries(gsplat PUBLIC cuda)
@@ -71,21 +71,21 @@ if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
         set(GPU_INCLUDE_DIRS "${ROCM_ROOT}/include")
         target_compile_definitions(gsplat PRIVATE USE_HIP __HIP_PLATFORM_AMD__)
     endif()
-else()
-    add_library(gsplat vendor/gsplat-cpu/gsplat_cpu.cpp)
+    target_include_directories(gsplat PRIVATE
+        ${PROJECT_SOURCE_DIR}/vendor/glm        
+        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+        ${TORCH_INCLUDE_DIRS}
+    )
+    set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
 endif()
 
-target_include_directories(gsplat PRIVATE
-    ${PROJECT_SOURCE_DIR}/vendor/glm        
-    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-    ${TORCH_INCLUDE_DIRS}
-)
-set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
+add_library(gsplat_cpu vendor/gsplat-cpu/gsplat_cpu.cpp)
+target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 
 add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp input_data.cpp tensor_math.cpp)
 set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
 target_include_directories(opensplat PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm ${GPU_INCLUDE_DIRS})
-target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 if(GPU_RUNTIME STREQUAL "HIP")
     target_compile_definitions(opensplat PRIVATE USE_HIP __HIP_PLATFORM_AMD__)
 elseif(GPU_RUNTIME STREQUAL "CUDA")
@@ -95,7 +95,7 @@ endif()
 if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
     add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp cv_utils.cpp)
     target_include_directories(simple_trainer PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glm ${GPU_INCLUDE_DIRS})
-    target_link_libraries(simple_trainer PUBLIC ${GPU_LIBRARIES} gsplat ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+    target_link_libraries(simple_trainer PUBLIC ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
     set_property(TARGET simple_trainer PROPERTY CXX_STANDARD 17)
     if(GPU_RUNTIME STREQUAL "HIP")
         target_compile_definitions(simple_trainer PRIVATE USE_HIP __HIP_PLATFORM_AMD__)

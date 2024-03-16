@@ -17,17 +17,32 @@ std::tuple<torch::Tensor,
                                             torch::Tensor cumTilesHit,
                                             TileBounds tileBounds);
 
-class RasterizeGaussians : public Function<RasterizeGaussians>{
+// class RasterizeGaussians : public Function<RasterizeGaussians>{
+// public:
+//     static torch::Tensor forward(AutogradContext *ctx, 
+//             torch::Tensor xys,
+//             torch::Tensor depths,
+//             torch::Tensor radii,
+//             torch::Tensor conics,
+//             torch::Tensor numTilesHit,
+//             torch::Tensor colors,
+//             torch::Tensor opacity,
+//             int imgHeight,
+//             int imgWidth,
+//             torch::Tensor background);
+//     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs);
+// };
+
+class RasterizeGaussiansCPU : public Function<RasterizeGaussiansCPU>{
 public:
     static torch::Tensor forward(AutogradContext *ctx, 
             torch::Tensor xys,
-            torch::Tensor depths,
             torch::Tensor radii,
             torch::Tensor conics,
-            torch::Tensor numTilesHit,
             torch::Tensor colors,
             torch::Tensor opacity,
             torch::Tensor cov2d,
+            torch::Tensor camDepths,
             int imgHeight,
             int imgWidth,
             torch::Tensor background);

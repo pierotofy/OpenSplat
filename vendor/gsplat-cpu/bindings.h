@@ -27,10 +27,8 @@ std::tuple<
     torch::Tensor,
     torch::Tensor,
     torch::Tensor,
-    torch::Tensor,
-    torch::Tensor,
     torch::Tensor>
-project_gaussians_forward_tensor(
+project_gaussians_forward_tensor_cpu(
     const int num_points,
     torch::Tensor &means3d,
     torch::Tensor &scales,
@@ -44,7 +42,6 @@ project_gaussians_forward_tensor(
     const float cy,
     const unsigned img_height,
     const unsigned img_width,
-    const std::tuple<int, int, int> tile_bounds,
     const float clip_thresh
 );
 
@@ -96,19 +93,16 @@ std::tuple<
     torch::Tensor,
     torch::Tensor,
     torch::Tensor
-> rasterize_forward_tensor(
-    const std::tuple<int, int, int> tile_bounds,
-    const std::tuple<int, int, int> block,
-    const std::tuple<int, int, int> img_size,
-    const torch::Tensor &gaussian_ids_sorted,
-    const torch::Tensor &tile_bins,
+> rasterize_forward_tensor_cpu(
+    const int width,
+    const int height,
     const torch::Tensor &xys,
     const torch::Tensor &conics,
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
     const torch::Tensor &background,
     const torch::Tensor &cov2d,
-    const torch::Tensor &depths
+    const torch::Tensor &camDepths
 );
 
 std::

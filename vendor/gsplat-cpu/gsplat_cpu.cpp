@@ -80,10 +80,8 @@ std::tuple<
     torch::Tensor,
     torch::Tensor,
     torch::Tensor,
-    torch::Tensor,
-    torch::Tensor,
     torch::Tensor>
-project_gaussians_forward_tensor(
+project_gaussians_forward_tensor_cpu(
     const int num_points,
     torch::Tensor &means3d,
     torch::Tensor &scales,
@@ -97,7 +95,6 @@ project_gaussians_forward_tensor(
     const float cy,
     const unsigned img_height,
     const unsigned img_width,
-    const std::tuple<int, int, int> tile_bounds,
     const float clip_thresh
 ){
     float fovx = 0.5f * static_cast<float>(img_width) / fx;
@@ -169,18 +166,10 @@ project_gaussians_forward_tensor(
     torch::Tensor v = 0.5f * ((pProj.index({"...", 1}) + 1.0f) * static_cast<float>(img_width) - 1.0f);
     torch::Tensor xys = torch::stack({u, v}, -1); // center
 
-    auto bbox = getTileBbox(xys, radius, tile_bounds);
-    torch::Tensor tileMin = std::get<0>(bbox);
-    torch::Tensor tileMax = std::get<1>(bbox);
-    torch::Tensor numTilesHit = (tileMax.index({"...", 0}) - tileMin.index({"...", 0})) * 
-                   (tileMax.index({"...", 1}) - tileMin.index({"...", 1}));
-
-    torch::Tensor depths = pView.index({"...", 2});
     torch::Tensor radii = radius.to(torch::kInt32);
+    torch::Tensor camDepths = pProj.index({"...", 2});
 
-    // TODO: compute camDepths as pProj.index({"...", 2});
-
-    return std::make_tuple(cov3d, xys, depths, radii, conic, numTilesHit, cov2d );
+    return std::make_tuple(xys, radii, conic, cov2d, camDepths);
 }
 
 std::tuple<
@@ -297,27 +286,22 @@ std::tuple<
     torch::Tensor,
     torch::Tensor,
     torch::Tensor
-> rasterize_forward_tensor(
-    const std::tuple<int, int, int> tile_bounds,
-    const std::tuple<int, int, int> block,
-    const std::tuple<int, int, int> img_size,
-    const torch::Tensor &gaussian_ids_sorted,
-    const torch::Tensor &tile_bins,
+> rasterize_forward_tensor_cpu(
+    const int width,
+    const int height,
     const torch::Tensor &xys,
     const torch::Tensor &conics,
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
     const torch::Tensor &background,
     const torch::Tensor &cov2d,
-    const torch::Tensor &depths
+    const torch::Tensor &camDepths
 ){
-    // torch::NoGradGuard noGrad;
+    torch::NoGradGuard noGrad;
 
     int channels = colors.size(1);
-    int width = std::get<1>(img_size);
-    int height = std::get<0>(img_size);
     int numPoints = xys.size(0);
-    float *pDepths = static_cast<float *>(depths.data_ptr());
+    float *pDepths = static_cast<float *>(camDepths.data_ptr());
 
     std::vector< size_t > gIndices( numPoints );
     std::iota( gIndices.begin(), gIndices.end(), 0 );
@@ -338,7 +322,6 @@ std::tuple<
     torch::Tensor sqCov2dX = 3.0f * torch::sqrt(cov2d.index({"...", 0, 0}));
     torch::Tensor sqCov2dY = 3.0f * torch::sqrt(cov2d.index({"...", 1, 1}));
     
-    int32_t *pGaussianIds = static_cast<int32_t*>(gaussian_ids_sorted.data_ptr());
     float *pConics = static_cast<float *>(conics.data_ptr());
     float *pCenters = static_cast<float *>(xys.data_ptr());
     float *pSqCov2dX = static_cast<float *>(sqCov2dX.data_ptr());

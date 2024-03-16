@@ -23,9 +23,6 @@ using namespace torch::indexing;
 
 
 
-
-
-
 int main(int argc, char **argv){
     int width = 128,
         height = 128;
@@ -34,7 +31,7 @@ int main(int argc, char **argv){
     float learningRate = 0.01;
 
     torch::Device device = torch::kCPU;
-    if (torch::cuda::is_available()) {
+    if (torch::cuda::is_available() && !(argc == 2 && std::string(argv[1]) == "--cpu")){
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
     }else{
@@ -108,24 +105,44 @@ int main(int argc, char **argv){
     torch::nn::MSELoss mseLoss;
 
     for (size_t i = 0; i < iterations; i++){
-        auto p = ProjectGaussians::forward(nullptr, means, scales, 1, 
+        // auto p = ProjectGaussians::Apply(means, scales, 1, 
+        //                         quats, viewMat, viewMat,
+        //                         focal, focal,
+        //                         width / 2,
+        //                         height / 2,
+        //                         height,
+        //                         width,
+        //                         tileBounds);
+
+        // torch::Tensor outImg = RasterizeGaussians::apply(
+        //     p[0], // xys
+        //     p[1], // depths
+        //     p[2], // radii,
+        //     p[3], // conics
+        //     p[4], // numTilesHit
+        //     torch::sigmoid(rgbs),
+        //     torch::sigmoid(opacities),
+        //     p[6], // cov2d
+        //     height,
+        //     width,
+        //     background);
+
+        auto p = ProjectGaussiansCPU::Apply(means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,
                                 width / 2,
                                 height / 2,
                                 height,
-                                width,
-                                tileBounds);
+                                width);
 
-        torch::Tensor outImg = RasterizeGaussians::forward(nullptr,
+        torch::Tensor outImg = RasterizeGaussiansCPU::apply(
             p[0], // xys
-            p[1], // depths
-            p[2], // radii,
-            p[3], // conics
-            p[4], // numTilesHit
+            p[1], // radii,
+            p[2], // conics
             torch::sigmoid(rgbs),
             torch::sigmoid(opacities),
-            p[6], // cov2d
+            p[3], // cov2d
+            p[4], // camDepths
             height,
             width,
             background);
