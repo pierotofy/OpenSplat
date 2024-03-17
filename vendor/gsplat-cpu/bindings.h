@@ -6,22 +6,6 @@
 #include <tuple>
 #include <torch/all.h>
 
-torch::Tensor compute_sh_forward_tensor(
-    unsigned num_points,
-    unsigned degree,
-    unsigned degrees_to_use,
-    torch::Tensor &viewdirs,
-    torch::Tensor &coeffs
-);
-
-torch::Tensor compute_sh_backward_tensor(
-    unsigned num_points,
-    unsigned degree,
-    unsigned degrees_to_use,
-    torch::Tensor &viewdirs,
-    torch::Tensor &v_colors
-);
-
 std::tuple<
     torch::Tensor,
     torch::Tensor,
@@ -48,50 +32,6 @@ project_gaussians_forward_tensor_cpu(
 std::tuple<
     torch::Tensor,
     torch::Tensor,
-    torch::Tensor,
-    torch::Tensor,
-    torch::Tensor>
-project_gaussians_backward_tensor(
-    const int num_points,
-    torch::Tensor &means3d,
-    torch::Tensor &scales,
-    const float glob_scale,
-    torch::Tensor &quats,
-    torch::Tensor &viewmat,
-    torch::Tensor &projmat,
-    const float fx,
-    const float fy,
-    const float cx,
-    const float cy,
-    const unsigned img_height,
-    const unsigned img_width,
-    torch::Tensor &cov3d,
-    torch::Tensor &radii,
-    torch::Tensor &conics,
-    torch::Tensor &v_xy,
-    torch::Tensor &v_depth,
-    torch::Tensor &v_conic
-);
-
-
-std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
-    const int num_points,
-    const int num_intersects,
-    const torch::Tensor &xys,
-    const torch::Tensor &depths,
-    const torch::Tensor &radii,
-    const torch::Tensor &cum_tiles_hit,
-    const std::tuple<int, int, int> tile_bounds
-);
-
-torch::Tensor get_tile_bin_edges_tensor(
-    int num_intersects,
-    const torch::Tensor &isect_ids_sorted
-);
-
-std::tuple<
-    torch::Tensor,
-    torch::Tensor,
     torch::Tensor
 > rasterize_forward_tensor_cpu(
     const int width,
@@ -112,7 +52,7 @@ std::
         torch::Tensor, // dL_dcolors
         torch::Tensor  // dL_dopacity
         >
-    rasterize_backward_tensor(
+    rasterize_backward_tensor_cpu(
         const unsigned img_height,
         const unsigned img_width,
         const torch::Tensor &gaussians_ids_sorted,

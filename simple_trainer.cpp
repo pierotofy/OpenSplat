@@ -4,11 +4,9 @@
 #include <torch/torch.h>
 #ifdef USE_HIP
 #include <hip/hip_runtime.h>
-#else
+#elif defined(USE_CUDA)
 #include <torch/cuda.h>
 #endif
-
-#include <torch/cuda.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -24,8 +22,8 @@ using namespace torch::indexing;
 
 
 int main(int argc, char **argv){
-    int width = 128,
-        height = 128;
+    int width = 256,
+        height = 256;
     int numPoints = 100000;
     int iterations = 1000;
     float learningRate = 0.01;
@@ -66,16 +64,36 @@ int main(int argc, char **argv){
 #endif
     torch::manual_seed(0);
 
+    // TODO: remove
     // Random points, scales and colors
-    torch::Tensor means = 2.0 * (torch::rand({numPoints, 3}, device) - 0.5); // Positions [-1, 1]
-    torch::Tensor scales = torch::rand({numPoints, 3}, device);
-    torch::Tensor rgbs = torch::rand({numPoints, 3}, device);
+    torch::Tensor means = 2.0 * (torch::rand({numPoints, 3}, torch::kCPU) - 0.5); // Positions [-1, 1]
+    torch::Tensor scales = torch::rand({numPoints, 3}, torch::kCPU);
+    torch::Tensor rgbs = torch::rand({numPoints, 3}, torch::kCPU);
     
     // Random rotations (quaternions)
     // quats = ( sqrt(1-u) sin(2πv), sqrt(1-u) cos(2πv), sqrt(u) sin(2πw), sqrt(u) cos(2πw))
-    torch::Tensor u = torch::rand({numPoints, 1}, device);
-    torch::Tensor v = torch::rand({numPoints, 1}, device);
-    torch::Tensor w = torch::rand({numPoints, 1}, device);
+    torch::Tensor u = torch::rand({numPoints, 1}, torch::kCPU);
+    torch::Tensor v = torch::rand({numPoints, 1}, torch::kCPU);
+    torch::Tensor w = torch::rand({numPoints, 1}, torch::kCPU);
+
+    means = means.to(device);
+    scales = scales.to(device);
+    rgbs = rgbs.to(device);
+    u = u.to(device);
+    v = v.to(device);
+    w = w.to(device);    
+
+    // TODO: uncomment
+    // // Random points, scales and colors
+    // torch::Tensor means = 2.0 * (torch::rand({numPoints, 3}, device) - 0.5); // Positions [-1, 1]
+    // torch::Tensor scales = torch::rand({numPoints, 3}, device);
+    // torch::Tensor rgbs = torch::rand({numPoints, 3}, device);
+    
+    // // Random rotations (quaternions)
+    // // quats = ( sqrt(1-u) sin(2πv), sqrt(1-u) cos(2πv), sqrt(u) sin(2πw), sqrt(u) cos(2πw))
+    // torch::Tensor u = torch::rand({numPoints, 1}, device);
+    // torch::Tensor v = torch::rand({numPoints, 1}, device);
+    // torch::Tensor w = torch::rand({numPoints, 1}, device);
     torch::Tensor quats = torch::cat({
                 torch::sqrt(1.0 - u) * torch::sin(2.0 * PI * v),
                 torch::sqrt(1.0 - u) * torch::cos(2.0 * PI * v),
@@ -103,31 +121,11 @@ int main(int argc, char **argv){
 
     torch::optim::Adam optimizer({rgbs, means, scales, opacities, quats}, learningRate);
     torch::nn::MSELoss mseLoss;
+    torch::Tensor outImg;
 
     for (size_t i = 0; i < iterations; i++){
-        // auto p = ProjectGaussians::Apply(means, scales, 1, 
-        //                         quats, viewMat, viewMat,
-        //                         focal, focal,
-        //                         width / 2,
-        //                         height / 2,
-        //                         height,
-        //                         width,
-        //                         tileBounds);
-
-        // torch::Tensor outImg = RasterizeGaussians::apply(
-        //     p[0], // xys
-        //     p[1], // depths
-        //     p[2], // radii,
-        //     p[3], // conics
-        //     p[4], // numTilesHit
-        //     torch::sigmoid(rgbs),
-        //     torch::sigmoid(opacities),
-        //     p[6], // cov2d
-        //     height,
-        //     width,
-        //     background);
-
-        auto p = ProjectGaussiansCPU::Apply(means, scales, 1, 
+        if (device == torch::kCPU){
+            auto p = ProjectGaussiansCPU::Apply(means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,
                                 width / 2,
@@ -135,18 +133,40 @@ int main(int argc, char **argv){
                                 height,
                                 width);
 
-        torch::Tensor outImg = RasterizeGaussiansCPU::apply(
-            p[0], // xys
-            p[1], // radii,
-            p[2], // conics
-            torch::sigmoid(rgbs),
-            torch::sigmoid(opacities),
-            p[3], // cov2d
-            p[4], // camDepths
-            height,
-            width,
-            background);
-        
+            torch::Tensor outImg = RasterizeGaussiansCPU::apply(
+                p[0], // xys
+                p[1], // radii,
+                p[2], // conics
+                torch::sigmoid(rgbs),
+                torch::sigmoid(opacities),
+                p[3], // cov2d
+                p[4], // camDepths
+                height,
+                width,
+                background);
+        }else{
+            auto p = ProjectGaussians::apply(means, scales, 1, 
+                                    quats, viewMat, viewMat,
+                                    focal, focal,
+                                    width / 2,
+                                    height / 2,
+                                    height,
+                                    width,
+                                    tileBounds);
+
+            torch::Tensor outImg = RasterizeGaussians::apply(
+                p[0], // xys
+                p[1], // depths
+                p[2], // radii,
+                p[3], // conics
+                p[4], // numTilesHit
+                torch::sigmoid(rgbs),
+                torch::sigmoid(opacities),
+                height,
+                width,
+                background);
+        }
+
         outImg.requires_grad_();
         torch::Tensor loss = mseLoss(outImg, gtImage);
         optimizer.zero_grad();

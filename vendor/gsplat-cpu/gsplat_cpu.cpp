@@ -37,44 +37,6 @@ torch::Tensor quatToRotMat(const torch::Tensor &quat){
     
 }
 
-std::tuple<torch::Tensor, torch::Tensor> getTileBbox(const torch::Tensor &pixCenter, const torch::Tensor &pixRadius, const std::tuple<int, int, int> &tileBounds){
-    torch::Tensor tileSize = torch::tensor({BLOCK_X, BLOCK_Y}, torch::TensorOptions().dtype(torch::kFloat32).device(pixCenter.device()));
-    torch::Tensor tileCenter = pixCenter / tileSize;
-    torch::Tensor tileRadius = pixRadius.index({"...", None}) / tileSize;
-    torch::Tensor topLeft = (tileCenter - tileRadius).to(torch::kInt32);
-    torch::Tensor bottomRight = (tileCenter + tileRadius).to(torch::kInt32) + 1;
-    torch::Tensor tileMin = torch::stack({
-        torch::clamp(topLeft.index({"...", 0}), 0, std::get<0>(tileBounds)),
-        torch::clamp(topLeft.index({"...", 1}), 0, std::get<1>(tileBounds))
-    }, -1);
-    torch::Tensor tileMax = torch::stack({
-        torch::clamp(bottomRight.index({"...", 0}), 0, std::get<0>(tileBounds)),
-        torch::clamp(bottomRight.index({"...", 1}), 0, std::get<1>(tileBounds))
-    }, -1);
-
-    return std::make_tuple(tileMin, tileMax);    
-}
-
-torch::Tensor compute_sh_forward_tensor(
-    unsigned num_points,
-    unsigned degree,
-    unsigned degrees_to_use,
-    torch::Tensor &viewdirs,
-    torch::Tensor &coeffs
-){
-    return torch::Tensor();
-}
-
-torch::Tensor compute_sh_backward_tensor(
-    unsigned num_points,
-    unsigned degree,
-    unsigned degrees_to_use,
-    torch::Tensor &viewdirs,
-    torch::Tensor &v_colors
-){
-    return torch::Tensor();
-}
-
 std::tuple<
     torch::Tensor,
     torch::Tensor,
@@ -175,116 +137,6 @@ project_gaussians_forward_tensor_cpu(
 std::tuple<
     torch::Tensor,
     torch::Tensor,
-    torch::Tensor,
-    torch::Tensor,
-    torch::Tensor>
-project_gaussians_backward_tensor(
-    const int num_points,
-    torch::Tensor &means3d,
-    torch::Tensor &scales,
-    const float glob_scale,
-    torch::Tensor &quats,
-    torch::Tensor &viewmat,
-    torch::Tensor &projmat,
-    const float fx,
-    const float fy,
-    const float cx,
-    const float cy,
-    const unsigned img_height,
-    const unsigned img_width,
-    torch::Tensor &cov3d,
-    torch::Tensor &radii,
-    torch::Tensor &conics,
-    torch::Tensor &v_xy,
-    torch::Tensor &v_depth,
-    torch::Tensor &v_conic
-){
-    return std::make_tuple(torch::Tensor(), torch::Tensor(), torch::Tensor(), torch::Tensor(), torch::Tensor());
-}
-
-
-std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
-    const int num_points,
-    const int num_intersects,
-    const torch::Tensor &xys,
-    const torch::Tensor &depths,
-    const torch::Tensor &radii,
-    const torch::Tensor &cum_tiles_hit,
-    const std::tuple<int, int, int> tile_bounds
-){
-    torch::Device device = xys.device();
-    int numIntersects = cum_tiles_hit[-1].item<int>();
-    torch::Tensor isectIds = torch::zeros(numIntersects, torch::TensorOptions().dtype(torch::kInt64).device(device));
-    torch::Tensor gaussianIds = torch::zeros(numIntersects, torch::TensorOptions().dtype(torch::kInt32).device(device));
-    for (int idx = 0; idx < num_points; idx++){
-        if (radii[idx].item<float>() <= 0.0f) break;
-
-        auto bbox = getTileBbox(xys[idx], radii[idx], tile_bounds);
-        torch::Tensor tileMin = std::get<0>(bbox);
-        torch::Tensor tileMax = std::get<1>(bbox);
-        int curIdx;
-
-        if (idx == 0){
-            curIdx = 0;
-        }else{
-            curIdx = cum_tiles_hit[idx - 1].item<int>();
-        }
-
-        float depth = depths[idx].item<float>();
-        int32_t depthIdN = *(reinterpret_cast<int32_t *>(&depth));
-
-        int iStart = tileMin[1].item<int>();
-        int iEnd = tileMax[1].item<int>();
-        int jStart = tileMin[0].item<int>();
-        int jEnd = tileMax[0].item<int>();
-        int b = std::get<0>(tile_bounds);
-
-        for (int i = iStart; i < iEnd; i++){
-            for (int j = jStart; j < jEnd; j++){
-                int64_t tileId = i * b + j;
-                isectIds[curIdx] = static_cast<int64_t>(tileId << 32) | depthIdN;
-                gaussianIds[curIdx] = idx;
-                curIdx += 1;
-            }
-        }
-    }
-
-    return std::make_tuple(isectIds, gaussianIds); 
-}
-
-torch::Tensor get_tile_bin_edges_tensor(
-    int num_intersects,
-    const torch::Tensor &isect_ids_sorted
-){
-    torch::Tensor tileBins = torch::zeros({num_intersects, 2}, torch::TensorOptions().dtype(torch::kInt32).device(isect_ids_sorted.device()));
-
-    for (int idx = 0; idx < num_intersects; idx++){
-        int32_t curTileIdx = static_cast<int32_t>(isect_ids_sorted[idx].item<int64_t>() >> 32);
-
-        if (idx == 0){
-            tileBins[curTileIdx][0] = 0;
-            continue;
-        }
-
-        if (idx == num_intersects - 1){
-            tileBins[curTileIdx][1] = num_intersects;
-            break;
-        }
-
-        int32_t prevTileIdx = static_cast<int32_t>(isect_ids_sorted[idx - 1].item<int64_t>() >> 32);
-
-        if (curTileIdx != prevTileIdx){
-            tileBins[prevTileIdx][1] = idx;
-            tileBins[curTileIdx][0] = idx;
-        }
-    }
-
-    return tileBins;
-}
-
-std::tuple<
-    torch::Tensor,
-    torch::Tensor,
     torch::Tensor
 > rasterize_forward_tensor_cpu(
     const int width,
@@ -308,10 +160,6 @@ std::tuple<
     std::sort(gIndices.begin(), gIndices.end(), [&pDepths](int a, int b){
         return pDepths[a] < pDepths[b];
     });
-
-    std::cout << pDepths[0] << std::endl;
-
-    std::cout << pDepths[100];
 
     torch::Device device = xys.device();
 
@@ -389,121 +237,6 @@ std::tuple<
     }
 
     return std::make_tuple(outImg, finalTs, finalIdx);
-
-
-/*
-    int minx = 99999;
-    int miny = 99999;
-    int maxx = 0;
-    int maxy = 0;
-    for (int i = 0; i < width; i++){
-        std::cout << i << std::endl;
-        for (int j = 0; j < height; j++){
-            float T = 1.0f;
-            torch::Tensor ji = torch::tensor({j, i}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
-            
-            int idx = 0;
-            for (; idx < 1; idx++){
-                torch::Tensor gaussianId = gaussian_ids_sorted[idx];
-                torch::Tensor conic = conics[gaussianId];
-                torch::Tensor center = xys[gaussianId];
-                torch::Tensor delta = center - ji;
-
-                torch::Tensor sigma = (
-                    0.5f
-                    * (conic[0] * delta[0] * delta[0] + conic[2] * delta[1] * delta[1])
-                    + conic[1] * delta[0] * delta[1]
-                );
-
-                if (sigma.item<float>() < 0.0f) continue;
-
-                float alpha = (std::min)(0.999f, (opacities[gaussianId] * torch::exp(-sigma)).item<float>());
-
-                if (alpha < 1.0f / 255.0f) continue;
-
-                float nextT = T * (1.0f - alpha);
-
-                if (nextT <= 1e-4f){
-                    idx -= 1;
-                    break;
-                }
-
-                float vis = alpha * T;
-                // outImg[i][j] = torch::tensor({1.0f, 1.0f, 1.0f}); 
-                outImg[i][j] += vis * colors[gaussianId];
-
-                maxx = (std::max)(i, maxx);
-                maxy = (std::max)(j, maxy);
-                minx = (std::min)(i, minx);
-                miny = (std::min)(j, miny);               
-                
-
-                T = nextT;
-            }
-
-            finalTs[i][j] = T;
-            finalIdx[i][j] = idx;
-            outImg[i][j] += T * background;
-        }
-    }
-
-    std::cout << "[" << minx << ", " << miny << "], [" << maxx << ", " << maxy << "]" << std::endl;
-
-    return std::make_tuple(outImg, finalTs, finalIdx);
-
-*/
-/*
-    int blockX = std::get<0>(block);
-    int blockY = std::get<1>(block);
-    int tileBoundsX = std::get<0>(tile_bounds);
-    
-    for (int i = 0; i < width; i++){
-        for (int j = 0; j < height; j++){
-            int tileId = (i / blockX) * tileBoundsX + (j / blockY);
-            int tileBinStart = tile_bins[tileId][0].item<int>();
-            int tileBinEnd = tile_bins[tileId][1].item<int>();
-            float T = 1.0f;
-            torch::Tensor ji = torch::tensor({j, i}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
-            
-            int idx = tileBinStart;
-            for (; idx < tileBinEnd; idx++){
-                torch::Tensor gaussianId = gaussian_ids_sorted[idx];
-                torch::Tensor conic = conics[gaussianId];
-                torch::Tensor center = xys[gaussianId];
-                torch::Tensor delta = center - ji;
-pGaussianIds
-                torch::Tensor sigma = (
-                    0.5f
-                    * (conic[0] * delta[0] * delta[0] + conic[2] * delta[1] * delta[1])
-                    + conic[1] * delta[0] * delta[1]
-                );
-
-                if (sigma.item<float>() < 0.0f) continue;
-
-                float alpha = (std::min)(0.999f, (opacities[gaussianId] * torch::exp(-sigma)).item<float>());
-
-                if (alpha < 1.0f / 255.0f) continue;
-
-                float nextT = T * (1.0f - alpha);
-
-                if (nextT <= 1e-4f){
-                    idx -= 1;
-                    break;
-                }
-
-                float vis = alpha * T;
-                outImg[i][j] += vis * colors[gaussianId];
-                T = nextT;
-            }
-
-            finalTs[i][j] = T;
-            finalIdx[i][j] = idx;
-            outImg[i][j] += T * background;
-        }
-    }
-
-    return std::make_tuple(outImg, finalTs, finalIdx);
-*/
 }
 
 
@@ -514,7 +247,7 @@ std::
         torch::Tensor, // dL_dcolors
         torch::Tensor  // dL_dopacity
         >
-    rasterize_backward_tensor(
+    rasterize_backward_tensor_cpu(
         const unsigned img_height,
         const unsigned img_width,
         const torch::Tensor &gaussians_ids_sorted,
