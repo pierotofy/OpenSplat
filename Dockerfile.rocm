@@ -7,7 +7,7 @@ ARG TORCH_VERSION=2.2.1
 ARG CUDA_VERSION=12.1.1
 ARG ROCM_VERSION=5.7.1
 ARG LLVM_VERSION=16
-ARG PYTORCH_ROCM_ARCH=gfx906
+ARG PYTORCH_ROCM_ARCH=gfx900;gfx906;gfx908;gfx90a;gfx1030;gfx1100;gfx1101;gfx940;gfx941;gfx942
 ARG CMAKE_BUILD_TYPE=Release
 
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
@@ -66,7 +66,17 @@ RUN ROCM_VER_FULL=${ROCM_VERSION} && \
     unzip -q libtorch.zip -d . && \
     rm ./libtorch.zip
 
-# Configure and build \
+# Configure and build
 RUN source .github/workflows/cuda/Linux-env.sh cu"${CUDA_VERSION%%.*}"$(echo $CUDA_VERSION | cut -d'.' -f2) && \
     export PATH=$PATH:/opt/rocm/bin && \
-    ln -s -f /opt/rocm/llvm/lib/clang/${LLVM_VERSION}.0.0 /opt/rocm/llvm/lib/clang/${LLVM_VERSION}
+    ln -s -f /opt/rocm/llvm/lib/clang/${LLVM_VERSION}.0.0 /opt/rocm/llvm/lib/clang/${LLVM_VERSION} && \
+    mkdir build && \
+    cd build && \
+    cmake .. \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DGPU_RUNTIME=HIP \
+    -DHIP_ROOT_DIR=/opt/rocm \
+    -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON \
+    -DCMAKE_PREFIX_PATH=/code/libtorch \
+    -DCMAKE_INSTALL_PREFIX=/code/install && \
+    make

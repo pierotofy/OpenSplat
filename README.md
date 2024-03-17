@@ -73,7 +73,9 @@ docker build \
 ## Docker Build (ROCm via HIP)
 Navigate to the root directory of OpenSplat repo that has Dockerfile and run the following command to build the Docker image:
 ```bash
-docker build -t opensplat -f Dockerfile.rocm .
+docker build \
+  -t opensplat \
+  -f Dockerfile.rocm .
 ```
 
 The `-t` flag and other `--build-arg` let you tag and further customize your image across different ubuntu versions, CUDA/libtorch stacks, and hardware accelerators.
@@ -89,7 +91,12 @@ docker build \
   --build-arg PYTORCH_ROCM_ARCH="gfx906" \
   --build-arg CMAKE_BUILD_TYPE=Release .
 ```
-
+Note: If you want to use ROCm 6.x, you need to switch to AMD version of pytorch docker as a base layer to build:
+```bash
+docker build \
+  -t opensplat:ubuntu-22.04-libtorch-2.1.2-rocm-6.0.2 \
+  -f Dockerfile.rocm6 .
+```
 
 ## Run
 
@@ -109,10 +116,23 @@ To run on your own data, choose the path to an existing [COLMAP](https://colmap.
 
 There's several parameters you can tune. To view the full list:
 
+
 ```bash
 ./opensplat --help
 ```
 
+To train a model with AMD GPU using docker container, you can use the following command as a reference:
+1. Launch the docker container with the following command:
+```bash
+docker run -it -v ~/data:/data --device=/dev/kfd --device=/dev/dri opensplat:ubuntu-22.04-libtorch-2.1.2-rocm-6.0.2 bash
+```
+2. Inside the docker container, run the following command to train the model:
+```bash
+export HIP_VISIBLE_DEVICES=0
+export HSA_OVERRIDE_GFX_VERSION=10.3.0  # AMD RX 6700 XT workaround 
+cd /code/build
+./opensplat /data/banana -n 2000
+```
 ## Project Goals
 
 We recently released OpenSplat, so there's lots of work to do.

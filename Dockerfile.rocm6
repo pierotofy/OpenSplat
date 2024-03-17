@@ -1,0 +1,39 @@
+ARG UBUNTU_VERSION=22.04
+ARG TORCH_VERSION=2.1.2
+ARG ROCM_VERSION=6.0.2
+FROM rocm/pytorch:rocm${ROCM_VERSION}_ubuntu22.04_py3.10_pytorch_${TORCH_VERSION}
+
+ARG LLVM_VERSION=17
+ARG CMAKE_BUILD_TYPE=Release
+
+SHELL ["/bin/bash", "-c"]
+
+# Env variables
+ENV DEBIAN_FRONTEND noninteractive
+
+# Prepare directories
+WORKDIR /code
+
+# Copy everything
+COPY . ./
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    libopencv-dev && \
+    apt-get autoremove -y --purge && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configure and build \
+RUN source activate py_3.10 && \
+    mkdir build && \
+    cd build && \
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+      -DGPU_RUNTIME=HIP \
+      -DHIP_ROOT_DIR=/opt/rocm \
+      -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON \
+      -DCMAKE_PREFIX_PATH=/opt/conda/envs/py_3.10/lib/python3.10/site-packages/torch \
+      -DCMAKE_INSTALL_PREFIX=/code/install && \
+    make
