@@ -2,13 +2,13 @@
 #include <hip/hip_cooperative_groups.h>
 
 #define MAX_INIT 0.0
-#define WARP_SIZE 32
+#define WARP_SIZE 64
 
 namespace cg = cooperative_groups;
 
 __inline__ __device__ float warp_reduce_sum(float val, const int tile) {
     for ( int offset = tile / 2; offset > 0; offset /= 2 )
-        val += __shfl_down(0xffffffff, val, offset);
+        val += __shfl_down(val, offset);
 
     return val;
 }
@@ -39,7 +39,7 @@ __inline__ __device__ float block_reduce_sum(float val, const int tile) {
 
 __inline__ __device__ float warp_reduce_max(float val, const int tile) {
     for (int offset = tile / 2; offset > 0; offset /= 2)
-        val = max(val, __shfl_xor(0xffffffff, val, offset));
+        val = max(val, __shfl_xor(val, offset));
     return val;
 }
 
