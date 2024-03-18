@@ -1,5 +1,5 @@
-// Originally based on https://github.dev/nerfstudio-project/gsplat
-// This implementation is licensed under the AGPLv3
+// Originally started from https://github.dev/nerfstudio-project/gsplat
+// This implementation has been substantially changed and is licensed under the AGPLv3
 
 #include "bindings.h"
 #include "../gsplat/config.h"
@@ -248,19 +248,139 @@ std::
         torch::Tensor  // dL_dopacity
         >
     rasterize_backward_tensor_cpu(
-        const unsigned img_height,
-        const unsigned img_width,
-        const torch::Tensor &gaussians_ids_sorted,
-        const torch::Tensor &tile_bins,
+        const int height,
+        const int width,
         const torch::Tensor &xys,
         const torch::Tensor &conics,
         const torch::Tensor &colors,
         const torch::Tensor &opacities,
         const torch::Tensor &background,
+        const torch::Tensor &cov2d,
+        const torch::Tensor &camDepths,        
         const torch::Tensor &final_Ts,
         const torch::Tensor &final_idx,
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     ){
-        return std::make_tuple(torch::Tensor(), torch::Tensor(), torch::Tensor(), torch::Tensor());
+    int numPoints = xys.size(0);
+    int channels = colors.size(1);
+    torch::Device device = xys.device();
+
+    torch::Tensor v_xy = torch::zeros({numPoints, 2}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
+    torch::Tensor v_conic = torch::zeros({numPoints, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+    torch::Tensor v_colors = torch::zeros({numPoints, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+    torch::Tensor v_opacity = torch::zeros({numPoints, 1}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+
+    float *pv_xy = static_cast<float *>(v_xy.data_ptr());
+    float *pv_conic = static_cast<float *>(v_conic.data_ptr());
+    float *pv_colors = static_cast<float *>(v_colors.data_ptr());
+    float *pv_opacity = static_cast<float *>(v_opacity.data_ptr());
+
+    torch::Tensor buffer = torch::zeros({width, height, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
+
+    std::vector< size_t > gIndices( numPoints );
+
+    float *pDepths = static_cast<float *>(camDepths.data_ptr());
+    std::iota( gIndices.begin(), gIndices.end(), 0 );
+    std::sort(gIndices.begin(), gIndices.end(), [&pDepths](int a, int b){
+        return pDepths[a] < pDepths[b];
+    });
+
+    torch::Tensor sqCov2dX = 3.0f * torch::sqrt(cov2d.index({"...", 0, 0}));
+    torch::Tensor sqCov2dY = 3.0f * torch::sqrt(cov2d.index({"...", 1, 1}));
+    
+    float *pConics = static_cast<float *>(conics.data_ptr());
+    float *pCenters = static_cast<float *>(xys.data_ptr());
+    float *pSqCov2dX = static_cast<float *>(sqCov2dX.data_ptr());
+    float *pSqCov2dY = static_cast<float *>(sqCov2dY.data_ptr());
+    float *pOpacities = static_cast<float *>(opacities.data_ptr());
+
+    float *pColors = static_cast<float *>(colors.data_ptr());
+    float *pBuffer = static_cast<float *>(buffer.data_ptr());
+    float *pv_output = static_cast<float *>(v_output.data_ptr());
+    float *pv_outputAlpha = static_cast<float *>(v_output_alpha.data_ptr());
+    
+    float bgX = background[0].item<float>();
+    float bgY = background[1].item<float>();
+    float bgZ = background[2].item<float>();
+
+    torch::Tensor T = final_Ts.clone();
+    float *pT = static_cast<float *>(T.data_ptr());
+    float *pFinalTs = static_cast<float *>(final_Ts.data_ptr());
+
+    const float alphaThresh = 1.0f / 255.0f;
+    int idx = numPoints - 1;
+    for (; idx >= 0; idx--){
+        int32_t gaussianId = gIndices[idx];
+
+        float A = pConics[gaussianId * 3 + 0];
+        float B = pConics[gaussianId * 3 + 1];
+        float C = pConics[gaussianId * 3 + 2];
+
+        float gX = pCenters[gaussianId * 2 + 0];
+        float gY = pCenters[gaussianId * 2 + 1];
+
+        float sqx = pSqCov2dX[gaussianId];
+        float sqy = pSqCov2dY[gaussianId];
+
+        int minx = (std::max)(0, static_cast<int>(std::floor(gY - sqy)) - 2);
+        int maxx = (std::min)(width, static_cast<int>(std::ceil(gY + sqy)) + 2);
+        int miny = (std::max)(0, static_cast<int>(std::floor(gX - sqx)) - 2);
+        int maxy = (std::min)(height, static_cast<int>(std::ceil(gX + sqx)) + 2);
+
+        for (int i = minx; i < maxx; i++){
+            for (int j = miny; j < maxy; j++){
+                float xCam = gX - j;
+                float yCam = gY - i;
+                float sigma = (
+                    0.5f
+                    * (A * xCam * xCam + C * yCam * yCam)
+                    + B * xCam * yCam
+                );
+
+                if (sigma < 0.0f) continue;
+                float vis = std::exp(-sigma);
+                float alpha = (std::min)(0.999f, pOpacities[gaussianId] * vis);
+                if (alpha < alphaThresh) continue;
+
+                size_t pixIdx = (i * height + j);
+
+                float ra = 1.0f / (1.0f - alpha);
+                pT[pixIdx] *= ra;
+                float T = pT[pixIdx];
+                float TFinal = pFinalTs[pixIdx];
+
+                float fac = alpha * T;
+                float v_alpha = 0.0f;
+                pv_colors[gaussianId * 3 + 0] += fac * pv_output[pixIdx * 3 + 0];
+                pv_colors[gaussianId * 3 + 1] += fac * pv_output[pixIdx * 3 + 1];
+                pv_colors[gaussianId * 3 + 2] += fac * pv_output[pixIdx * 3 + 2];
+
+                v_alpha += (pColors[gaussianId * 3 + 0] * T - pBuffer[pixIdx * 3 + 0] * ra) * pv_output[pixIdx * 3 + 0];
+                v_alpha += (pColors[gaussianId * 3 + 1] * T - pBuffer[pixIdx * 3 + 1] * ra) * pv_output[pixIdx * 3 + 1];
+                v_alpha += (pColors[gaussianId * 3 + 2] * T - pBuffer[pixIdx * 3 + 2] * ra) * pv_output[pixIdx * 3 + 2];
+                v_alpha += (TFinal * ra * pv_outputAlpha[pixIdx]);
+
+                v_alpha += -TFinal * ra * bgX * pv_output[pixIdx * 3 + 0];
+                v_alpha += -TFinal * ra * bgY * pv_output[pixIdx * 3 + 1];
+                v_alpha += -TFinal * ra * bgZ * pv_output[pixIdx * 3 + 2];
+
+                pBuffer[pixIdx * 3 + 0] += pColors[gaussianId * 3 + 0] * fac;
+                pBuffer[pixIdx * 3 + 1] += pColors[gaussianId * 3 + 1] * fac;
+                pBuffer[pixIdx * 3 + 2] += pColors[gaussianId * 3 + 2] * fac;
+                
+                float v_sigma = -pOpacities[gaussianId] * vis * v_alpha;
+                pv_conic[gaussianId * 3 + 0] += 0.5f * v_sigma * xCam * xCam;
+                pv_conic[gaussianId * 3 + 1] += 0.5f * v_sigma * xCam * yCam;
+                pv_conic[gaussianId * 3 + 2] += 0.5f * v_sigma * yCam * yCam;
+
+                pv_xy[gaussianId * 2 + 0] += v_sigma * (A * xCam + B * yCam);
+                pv_xy[gaussianId * 2 + 1] += v_sigma * (B * xCam + C * yCam);
+
+                pv_opacity[gaussianId] += vis * v_alpha;
+            }
+        }
+    }
+
+    return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
 }

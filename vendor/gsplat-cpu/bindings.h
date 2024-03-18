@@ -53,15 +53,15 @@ std::
         torch::Tensor  // dL_dopacity
         >
     rasterize_backward_tensor_cpu(
-        const unsigned img_height,
-        const unsigned img_width,
-        const torch::Tensor &gaussians_ids_sorted,
-        const torch::Tensor &tile_bins,
+        const int height,
+        const int width,
         const torch::Tensor &xys,
         const torch::Tensor &conics,
         const torch::Tensor &colors,
         const torch::Tensor &opacities,
         const torch::Tensor &background,
+        const torch::Tensor &cov2d,
+        const torch::Tensor &camDepths,
         const torch::Tensor &final_Ts,
         const torch::Tensor &final_idx,
         const torch::Tensor &v_output, // dL_dout_color

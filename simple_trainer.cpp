@@ -24,7 +24,7 @@ using namespace torch::indexing;
 int main(int argc, char **argv){
     int width = 256,
         height = 256;
-    int numPoints = 100000;
+    int numPoints = 32; //100000;
     int iterations = 1000;
     float learningRate = 0.01;
 
@@ -133,7 +133,7 @@ int main(int argc, char **argv){
                                 height,
                                 width);
 
-            torch::Tensor outImg = RasterizeGaussiansCPU::apply(
+            outImg = RasterizeGaussiansCPU::apply(
                 p[0], // xys
                 p[1], // radii,
                 p[2], // conics
@@ -154,7 +154,7 @@ int main(int argc, char **argv){
                                     width,
                                     tileBounds);
 
-            torch::Tensor outImg = RasterizeGaussians::apply(
+            outImg = RasterizeGaussians::apply(
                 p[0], // xys
                 p[1], // depths
                 p[2], // radii,

@@ -78,11 +78,11 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
     // Final image
     torch::Tensor outImg = std::get<0>(t);
     
-    cv::Mat image = tensorToImage(outImg.detach().cpu());
-    cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-    cv::imwrite("testcuda.png", image);
-    std::cout << "WROTE! " << imgWidth << "x" << imgHeight;
-    exit(1);
+    // cv::Mat image = tensorToImage(outImg.detach().cpu());
+    // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+    // cv::imwrite("testcuda.png", image);
+    // std::cout << "WROTE! " << imgWidth << "x" << imgHeight;
+    // exit(1);
 
     // Map of alpha-inverse (1 - finalTs = alpha)
     torch::Tensor finalTs = std::get<1>(t);
@@ -135,6 +135,9 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     torch::Tensor v_opacity = std::get<3>(t);
     torch::Tensor none;
 
+    std::cout << "CUDA " << v_xy[0] << v_conic[0] << v_colors[0] << v_opacity[0] << std::endl;
+    exit(1);
+
     return { v_xy,
             none, // depths
             none, // radii
@@ -176,11 +179,11 @@ torch::Tensor RasterizeGaussiansCPU::forward(AutogradContext *ctx,
     // Final image
     torch::Tensor outImg = std::get<0>(t);
 
-    cv::Mat image = tensorToImage(outImg.detach().cpu());
-    cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-    cv::imwrite("test.png", image);
-    std::cout << "WROTE " << imgWidth << "x" << imgHeight;
-    exit(1);
+    // cv::Mat image = tensorToImage(outImg.detach().cpu());
+    // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+    // cv::imwrite("test.png", image);
+    // std::cout << "WROTE " << imgWidth << "x" << imgHeight;
+    // exit(1);
 
     // Map of alpha-inverse (1 - finalTs = alpha)
     torch::Tensor finalTs = std::get<1>(t);
@@ -190,60 +193,63 @@ torch::Tensor RasterizeGaussiansCPU::forward(AutogradContext *ctx,
 
     ctx->saved_data["imgWidth"] = imgWidth;
     ctx->saved_data["imgHeight"] = imgHeight;
-    ctx->save_for_backward({ xys, conics, colors, opacity, background, finalTs, finalIdx });
+    ctx->save_for_backward({ xys, conics, colors, opacity, background, cov2d, camDepths, finalTs, finalIdx });
     
     return outImg;
 }
 
 tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list grad_outputs) {
-    // torch::Tensor v_outImg = grad_outputs[0];
-    // int imgHeight = ctx->saved_data["imgHeight"].toInt();
-    // int imgWidth = ctx->saved_data["imgWidth"].toInt();
+    torch::Tensor v_outImg = grad_outputs[0];
+    int imgHeight = ctx->saved_data["imgHeight"].toInt();
+    int imgWidth = ctx->saved_data["imgWidth"].toInt();
 
-    // variable_list saved = ctx->get_saved_variables();
-    // torch::Tensor gaussianIdsSorted = saved[0];
-    // torch::Tensor tileBins = saved[1];
-    // torch::Tensor xys = saved[2];
-    // torch::Tensor conics = saved[3];
-    // torch::Tensor colors = saved[4];
-    // torch::Tensor opacity = saved[5];
-    // torch::Tensor background = saved[6];
-    // torch::Tensor finalTs = saved[7];
-    // torch::Tensor finalIdx = saved[8];
+    variable_list saved = ctx->get_saved_variables();
+    torch::Tensor xys = saved[0];
+    torch::Tensor conics = saved[1];
+    torch::Tensor colors = saved[2];
+    torch::Tensor opacity = saved[3];
+    torch::Tensor background = saved[4];
+    torch::Tensor cov2d = saved[5];
+    torch::Tensor camDepths = saved[6];
+    torch::Tensor finalTs = saved[7];
+    torch::Tensor finalIdx = saved[8];
 
-    // // torch::Tensor v_outAlpha = torch::zeros({imgHeight, imgWidth}, torch::TensorOptions().device(v_outImg.get_device());
-    // torch::Tensor v_outAlpha = torch::zeros_like(v_outImg.index({"...", 0}));
+    // torch::Tensor v_outAlpha = torch::zeros({imgHeight, imgWidth}, torch::TensorOptions().device(v_outImg.get_device());
+    torch::Tensor v_outAlpha = torch::zeros_like(v_outImg.index({"...", 0}));
     
-    // auto t = rasterize_backward_tensor(imgHeight, imgWidth, 
-    //                         gaussianIdsSorted,
-    //                         tileBins,
-    //                         xys,
-    //                         conics,
-    //                         colors,
-    //                         opacity,
-    //                         background,
-    //                         finalTs,
-    //                         finalIdx,
-    //                         v_outImg,
-    //                         v_outAlpha);
+    auto t = rasterize_backward_tensor_cpu(imgHeight, imgWidth, 
+                            xys,
+                            conics,
+                            colors,
+                            opacity,
+                            background,
+                            cov2d,
+                            camDepths,
+                            finalTs,
+                            finalIdx,
+                            v_outImg,
+                            v_outAlpha);
 
-    // torch::Tensor v_xy = std::get<0>(t);
-    // torch::Tensor v_conic = std::get<1>(t);
-    // torch::Tensor v_colors = std::get<2>(t);
-    // torch::Tensor v_opacity = std::get<3>(t);
-    // torch::Tensor none;
+    torch::Tensor v_xy = std::get<0>(t);
+    torch::Tensor v_conic = std::get<1>(t);
+    torch::Tensor v_colors = std::get<2>(t);
+    torch::Tensor v_opacity = std::get<3>(t);
+    torch::Tensor none;
 
-    // return { v_xy,
-    //         none, // depths
-    //         none, // radii
-    //         v_conic,
-    //         none, // numTilesHit
-    //         v_colors,
-    //         v_opacity,
-    //         none, // imgHeight
-    //         none, // imgWidth
-    //         none // background
-    // };
+    std::cout << "CPU " << v_xy[0] << v_conic[0] << v_colors[0] << v_opacity[0] << std::endl;
+    exit(1);
+
+    return { v_xy,
+            none, // depths
+            none, // radii
+            v_conic,
+            none, // numTilesHit
+            v_colors,
+            v_opacity,
+            none, // imgHeight
+            none, // imgWidth
+            none // background
+    };
 }
 
 
