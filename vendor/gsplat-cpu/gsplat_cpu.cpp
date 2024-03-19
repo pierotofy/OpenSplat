@@ -6,7 +6,7 @@
 
 #include <cstdio>
 #include <iostream>
-#include <math.h>
+#include <cmath>
 #include <tuple>
 
 using namespace torch::indexing;
@@ -59,8 +59,8 @@ project_gaussians_forward_tensor_cpu(
     const unsigned img_width,
     const float clip_thresh
 ){
-    float fovx = 0.5f * static_cast<float>(img_width) / fx;
-    float fovy = 0.5f * static_cast<float>(img_height) / fy;
+    float fovx = 0.5f * static_cast<float>(img_height) / fx;
+    float fovy = 0.5f * static_cast<float>(img_width) / fy;
     
     // TODO: no need to recompute W,p,t below (they are the same)
 
@@ -124,8 +124,8 @@ project_gaussians_forward_tensor_cpu(
     pHom = torch::einsum("...ij,...j->...i", {projmat, pHom});
     torch::Tensor rw = 1.0f / torch::clamp_min(pHom.index({"...", 3}), eps);
     torch::Tensor pProj = pHom.index({"...", Slice(None, 3)}) * rw.index({"...", None});
-    torch::Tensor u = 0.5f * ((pProj.index({"...", 0}) + 1.0f) * static_cast<float>(img_height) - 1.0f);
-    torch::Tensor v = 0.5f * ((pProj.index({"...", 1}) + 1.0f) * static_cast<float>(img_width) - 1.0f);
+    torch::Tensor u = 0.5f * ((pProj.index({"...", 0}) + 1.0f) * static_cast<float>(img_width) - 1.0f);
+    torch::Tensor v = 0.5f * ((pProj.index({"...", 1}) + 1.0f) * static_cast<float>(img_height) - 1.0f);
     torch::Tensor xys = torch::stack({u, v}, -1); // center
 
     torch::Tensor radii = radius.to(torch::kInt32);
@@ -163,9 +163,9 @@ std::tuple<
 
     torch::Device device = xys.device();
 
-    torch::Tensor outImg = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
-    torch::Tensor finalTs = torch::ones({width, height, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
-    torch::Tensor finalIdx = torch::zeros({width, height, channels}, torch::TensorOptions().dtype(torch::kInt32).device(device));   
+    torch::Tensor outImg = torch::zeros({height, width, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
+    torch::Tensor finalTs = torch::ones({height, width}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
+    torch::Tensor finalIdx = torch::zeros({height, width}, torch::TensorOptions().dtype(torch::kInt32).device(device));   
 
     torch::Tensor sqCov2dX = 3.0f * torch::sqrt(cov2d.index({"...", 0, 0}));
     torch::Tensor sqCov2dY = 3.0f * torch::sqrt(cov2d.index({"...", 1, 1}));
@@ -178,6 +178,7 @@ std::tuple<
 
     float *pOutImg = static_cast<float *>(outImg.data_ptr());
     float *pFinalTs = static_cast<float *>(finalTs.data_ptr());
+    
     int32_t *pFinalIdx = static_cast<int32_t *>(finalIdx.data_ptr());
     float *pColors = static_cast<float *>(colors.data_ptr());
     
@@ -186,9 +187,8 @@ std::tuple<
     float bgZ = background[2].item<float>();
 
     const float alphaThresh = 1.0f / 255.0f;
-    float T = 1.0f;
-    int idx = 0;
-    for (; idx < numPoints; idx++){
+
+    for (int idx = 0; idx < numPoints; idx++){
         int32_t gaussianId = gIndices[idx];
 
         float A = pConics[gaussianId * 3 + 0];
@@ -202,9 +202,9 @@ std::tuple<
         float sqy = pSqCov2dY[gaussianId];
         
         int minx = (std::max)(0, static_cast<int>(std::floor(gY - sqy)) - 2);
-        int maxx = (std::min)(width, static_cast<int>(std::ceil(gY + sqy)) + 2);
+        int maxx = (std::min)(height, static_cast<int>(std::ceil(gY + sqy)) + 2);
         int miny = (std::max)(0, static_cast<int>(std::floor(gX - sqx)) - 2);
-        int maxy = (std::min)(height, static_cast<int>(std::ceil(gX + sqx)) + 2);
+        int maxy = (std::min)(width, static_cast<int>(std::ceil(gX + sqx)) + 2);
 
         for (int i = minx; i < maxx; i++){
             for (int j = miny; j < maxy; j++){
@@ -220,19 +220,34 @@ std::tuple<
                 float alpha = (std::min)(0.999f, (pOpacities[gaussianId] * std::exp(-sigma)));
                 if (alpha < alphaThresh) continue;
 
-                size_t pixIdx = (i * height + j);
+                size_t pixIdx = (i * width + j);
                 float T = pFinalTs[pixIdx];
                 float nextT = T * (1.0f - alpha);
+                if (nextT <= 1e-4f) { // this pixel is done
+                    continue;
+                }
 
-                float alphaT = alpha * T;
+                float vis = alpha * T;
 
-                pOutImg[pixIdx * 3 + 0] += alphaT * (pColors[gaussianId * 3 + 0] + bgX);
-                pOutImg[pixIdx * 3 + 1] += alphaT * (pColors[gaussianId * 3 + 1] + bgY);
-                pOutImg[pixIdx * 3 + 2] += alphaT * (pColors[gaussianId * 3 + 2] + bgZ);
+                pOutImg[pixIdx * 3 + 0] += vis * pColors[gaussianId * 3 + 0];
+                pOutImg[pixIdx * 3 + 1] += vis * pColors[gaussianId * 3 + 1];
+                pOutImg[pixIdx * 3 + 2] += vis * pColors[gaussianId * 3 + 2];
                 
                 pFinalTs[pixIdx] = nextT;
                 pFinalIdx[pixIdx] = idx;
             }
+        }
+    }
+
+    // Background
+    for (int i = 0; i < width; i++){
+        for (int j = 0; j < height; j++){
+            size_t pixIdx = (i * width + j);
+            float T = pFinalTs[pixIdx];
+
+            pOutImg[pixIdx * 3 + 0] += T * bgX;
+            pOutImg[pixIdx * 3 + 1] += T * bgY;
+            pOutImg[pixIdx * 3 + 2] += T * bgZ;
         }
     }
 
@@ -262,6 +277,8 @@ std::
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     ){
+    torch::NoGradGuard noGrad;
+
     int numPoints = xys.size(0);
     int channels = colors.size(1);
     torch::Device device = xys.device();
@@ -276,7 +293,7 @@ std::
     float *pv_colors = static_cast<float *>(v_colors.data_ptr());
     float *pv_opacity = static_cast<float *>(v_opacity.data_ptr());
 
-    torch::Tensor buffer = torch::zeros({width, height, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
+    torch::Tensor buffer = torch::zeros({height, width, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
 
     std::vector< size_t > gIndices( numPoints );
 
@@ -309,8 +326,7 @@ std::
     float *pFinalTs = static_cast<float *>(final_Ts.data_ptr());
 
     const float alphaThresh = 1.0f / 255.0f;
-    int idx = numPoints - 1;
-    for (; idx >= 0; idx--){
+    for (int idx = numPoints - 1; idx >= 0; idx--){
         int32_t gaussianId = gIndices[idx];
 
         float A = pConics[gaussianId * 3 + 0];
@@ -343,7 +359,7 @@ std::
                 float alpha = (std::min)(0.999f, pOpacities[gaussianId] * vis);
                 if (alpha < alphaThresh) continue;
 
-                size_t pixIdx = (i * height + j);
+                size_t pixIdx = (i * width + j); // TODO!!! CHECK!!!
 
                 float ra = 1.0f / (1.0f - alpha);
                 pT[pixIdx] *= ra;

@@ -77,15 +77,17 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
                             background);
     // Final image
     torch::Tensor outImg = std::get<0>(t);
-    
-    // cv::Mat image = tensorToImage(outImg.detach().cpu());
-    // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-    // cv::imwrite("testcuda.png", image);
-    // std::cout << "WROTE! " << imgWidth << "x" << imgHeight;
-    // exit(1);
 
+    cv::Mat image = tensorToImage(outImg.detach().cpu());
+    cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+    cv::imwrite("cudatest.png", image);
+    std::cout << "WROTE " << imgWidth << "x" << imgHeight;
+    
     // Map of alpha-inverse (1 - finalTs = alpha)
     torch::Tensor finalTs = std::get<1>(t);
+
+    std::cout << finalTs << std::endl;
+    exit(1);
 
     // Map of tile bin IDs
     torch::Tensor finalIdx = std::get<2>(t);
@@ -116,6 +118,9 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     // torch::Tensor v_outAlpha = torch::zeros({imgHeight, imgWidth}, torch::TensorOptions().device(v_outImg.get_device());
     torch::Tensor v_outAlpha = torch::zeros_like(v_outImg.index({"...", 0}));
     
+    // std::cout << xys[0] << finalTs[0] << std::endl;
+    // exit(1);
+
     auto t = rasterize_backward_tensor(imgHeight, imgWidth, 
                             gaussianIdsSorted,
                             tileBins,
@@ -135,8 +140,12 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     torch::Tensor v_opacity = std::get<3>(t);
     torch::Tensor none;
 
-    std::cout << "CUDA " << v_xy[0] << v_conic[0] << v_colors[0] << v_opacity[0] << std::endl;
-    exit(1);
+    // for (size_t i = 0; i < v_xy.size(0); i++){
+    //     if (v_xy[i][0].item<float>() != 0){
+    //         std::cout << "CUDA " << i << " " << v_xy[i] << v_conic[i] << v_colors[i] << v_opacity[i] << std::endl;
+    //         exit(1);
+    //     }
+    // }
 
     return { v_xy,
             none, // depths
@@ -179,16 +188,19 @@ torch::Tensor RasterizeGaussiansCPU::forward(AutogradContext *ctx,
     // Final image
     torch::Tensor outImg = std::get<0>(t);
 
-    // cv::Mat image = tensorToImage(outImg.detach().cpu());
-    // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-    // cv::imwrite("test.png", image);
-    // std::cout << "WROTE " << imgWidth << "x" << imgHeight;
-    // exit(1);
+    cv::Mat image = tensorToImage(outImg.detach().cpu());
+    cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+    cv::imwrite("test.png", image);
+    std::cout << "WROTE " << imgWidth << "x" << imgHeight;
 
     // Map of alpha-inverse (1 - finalTs = alpha)
     torch::Tensor finalTs = std::get<1>(t);
 
+    std::cout << finalTs << std::endl;
+    exit(1);
+
     // Map of gaussian IDs
+    // TODO: remove finalIdx (not needed)
     torch::Tensor finalIdx = std::get<2>(t);
 
     ctx->saved_data["imgWidth"] = imgWidth;
@@ -217,6 +229,9 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
     // torch::Tensor v_outAlpha = torch::zeros({imgHeight, imgWidth}, torch::TensorOptions().device(v_outImg.get_device());
     torch::Tensor v_outAlpha = torch::zeros_like(v_outImg.index({"...", 0}));
     
+    //   std::cout << xys[0] << finalTs[0] << std::endl;
+    // exit(1);
+
     auto t = rasterize_backward_tensor_cpu(imgHeight, imgWidth, 
                             xys,
                             conics,
@@ -230,22 +245,28 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
                             v_outImg,
                             v_outAlpha);
 
+
     torch::Tensor v_xy = std::get<0>(t);
     torch::Tensor v_conic = std::get<1>(t);
     torch::Tensor v_colors = std::get<2>(t);
     torch::Tensor v_opacity = std::get<3>(t);
     torch::Tensor none;
 
-    std::cout << "CPU " << v_xy[0] << v_conic[0] << v_colors[0] << v_opacity[0] << std::endl;
-    exit(1);
+    // for (size_t i = 0; i < v_xy.size(0); i++){
+    //     if (v_xy[i][0].item<float>() != 0){
+        // size_t i = 11;
+            // std::cout << "CPU " << i << " " << v_xy[i] << v_conic[i] << v_colors[i] << v_opacity[i] << std::endl;
+            // exit(1);
+        // }
+    // }exit(1);
 
     return { v_xy,
-            none, // depths
             none, // radii
             v_conic,
-            none, // numTilesHit
             v_colors,
             v_opacity,
+            none, // cov2d
+            none, // camDepths
             none, // imgHeight
             none, // imgWidth
             none // background

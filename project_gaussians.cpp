@@ -29,7 +29,7 @@ variable_list ProjectGaussians::forward(AutogradContext *ctx,
     torch::Tensor radii = std::get<3>(t);
     torch::Tensor conics = std::get<4>(t);
     torch::Tensor numTilesHit = std::get<5>(t);
-    
+
     ctx->saved_data["imgHeight"] = imgHeight;
     ctx->saved_data["imgWidth"] = imgWidth;
     ctx->saved_data["numPoints"] = numPoints;
@@ -115,6 +115,6 @@ variable_list ProjectGaussiansCPU::Apply(
     torch::Tensor conics = std::get<2>(t);
     torch::Tensor cov2d = std::get<3>(t);
     torch::Tensor camDepths = std::get<4>(t);
-    
+
     return { xys, radii, conics, cov2d, camDepths };
 }
