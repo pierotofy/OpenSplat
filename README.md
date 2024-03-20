@@ -6,15 +6,37 @@ A free and open source implementation of 3D gaussian splatting written in C++, f
 
 OpenSplat takes camera poses + sparse points in [COLMAP](https://colmap.github.io/) or [nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html) project format and computes a [scene file](https://drive.google.com/file/d/1w-CBxyWNXF3omA8B_IeOsRmSJel3iwyr/view?usp=sharing) (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
+Graphics card recommended, but not required! OpenSplat runs the fastest on NVIDIA and AMD GPUs, but can also run entirely on CPU power (~100x slower).
+
 Commercial use allowed and encouraged under the terms of the [AGPLv3](https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0). ✅
 
-## Build (CUDA)
+## Build
 
 Requirements:
 
- * **CUDA**: Make sure you have the CUDA compiler (`nvcc`) in your PATH and that `nvidia-smi` is working. https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html 
- * **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of CUDA if you want to leverage GPU support in libtorch.
  * **OpenCV**: `sudo apt install libopencv-dev` should do it.
+ * **libtorch**: See instructions below
+
+### CPU
+
+ **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". For compute platform you can select "CPU".
+
+ Then:
+
+ ```bash
+ git clone https://github.com/pierotofy/OpenSplat OpenSplat
+ cd OpenSplat
+ mkdir build && cd build
+ cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
+ ```
+
+### CUDA
+
+Additional requirement:
+
+ * **CUDA**: Make sure you have the CUDA compiler (`nvcc`) in your PATH and that `nvidia-smi` is working. https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html 
+ 
+ **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of CUDA if you want to leverage GPU support in libtorch.
  
  Then:
 
@@ -27,12 +49,13 @@ Requirements:
 
  The software has been tested on Ubuntu 20.04 and Windows. With some changes it could run on macOS (help us by opening a PR?).
 
-## Build (ROCm via HIP)
-Requirements:
+### ROCm via HIP
+
+Additional requirement:
 
 * **ROCm**: Make sure you have the ROCm installed at /opt/rocm. https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/quick-start.html
-* **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of ROCm (5.7) if you want to leverage AMD GPU support in libtorch.
-* **OpenCV**: `sudo apt install libopencv-dev` should do it.
+
+**libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of ROCm (5.7) if you want to leverage AMD GPU support in libtorch.
 
 Then:
 
@@ -44,13 +67,18 @@ Then:
  cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ -DGPU_RUNTIME="HIP" -DHIP_ROOT_DIR=/opt/rocm -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON ..
  make
  ```
-In addition, you can leverage Jinja to build the project
- ```
- cmake -GNinja -DCMAKE_PREFIX_PATH=/path/to/libtorch/ -DGPU_RUNTIME="HIP" -DHIP_ROOT_DIR=/opt/rocm -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON ..
- jinja
- ```
 
-## Docker Build (CUDA)
+In addition, you can leverage Jinja to build the project
+
+```bash
+cmake -GNinja -DCMAKE_PREFIX_PATH=/path/to/libtorch/ -DGPU_RUNTIME="HIP" -DHIP_ROOT_DIR=/opt/rocm -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON ..
+jinja
+```
+
+## Docker Build
+
+### CUDA
+
 Navigate to the root directory of OpenSplat repo that has Dockerfile and run the following command to build the Docker image:
 
 ```bash
@@ -70,7 +98,8 @@ docker build \
   --build-arg CMAKE_BUILD_TYPE=Release .
 ```
 
-## Docker Build (ROCm via HIP)
+### ROCm via HIP
+
 Navigate to the root directory of OpenSplat repo that has Dockerfile and run the following command to build the Docker image:
 ```bash
 docker build \
@@ -138,11 +167,11 @@ cd /code/build
 We recently released OpenSplat, so there's lots of work to do.
 
  * Support for running on AMD cards (more testing needed)
- * Support for running on CPU-only
  * Improve speed / reduce memory usage
  * Distributed computation using multiple machines
  * Real-time training viewer output
  * Compressed scene outputs
+ * Automatic filtering
  * Your ideas?
 
  https://github.com/pierotofy/OpenSplat/issues?q=is%3Aopen+is%3Aissue+label%3Aenhancement
