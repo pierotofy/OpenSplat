@@ -82,7 +82,6 @@ int main(int argc, char *argv[]){
     torch::Device device = torch::kCPU;
     int displayStep = 1;
 
-    
     if (torch::cuda::is_available() && result.count("cpu") == 0) {
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
@@ -137,7 +136,7 @@ int main(int argc, char *argv[]){
                 model.savePlySplat((p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string()));
             }
 
-            if (!valRender.empty() && step % displayStep == 0){
+            if (!valRender.empty() && step % 10 == 0){
                 torch::Tensor rgb = model.forward(*valCam, step);
                 cv::Mat image = tensorToImage(rgb.detach().cpu());
                 cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
