@@ -1,20 +1,4 @@
 #include "spherical_harmonics.hpp"
-#include "gsplat.hpp"
-
-int numShBases(int degree){
-    switch(degree){
-        case 0:
-            return 1;
-        case 1:
-            return 4;
-        case 2:
-            return 9;
-        case 3:
-            return 16;
-        default:
-            return 25;
-    }
-}
 
 int degFromSh(int numBases){
     switch(numBases){
@@ -36,6 +20,8 @@ torch::Tensor rgb2sh(const torch::Tensor &rgb){
     const double C0 = 0.28209479177387814;
     return (rgb - 0.5) / C0;
 }
+
+#if defined(USE_HIP) || defined(USE_CUDA)
 
 torch::Tensor SphericalHarmonics::forward(AutogradContext *ctx, 
             int degreesToUse, 
@@ -67,5 +53,15 @@ tensor_list SphericalHarmonics::backward(AutogradContext *ctx, tensor_list grad_
         none,
         compute_sh_backward_tensor(numPoints, degree, degreesToUse, viewDirs, v_colors)
     };
-    
+}
+
+#endif
+
+torch::Tensor SphericalHarmonicsCPU::apply(int degreesToUse, 
+            torch::Tensor viewDirs, 
+            torch::Tensor coeffs){
+    long long numPoints = coeffs.size(0);
+    int degree = degFromSh(coeffs.size(-2)); 
+
+    return compute_sh_forward_tensor_cpu(numPoints, degree, degreesToUse, viewDirs, coeffs);
 }

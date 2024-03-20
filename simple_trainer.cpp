@@ -54,7 +54,7 @@ int main(int argc, char **argv){
     int iterations = result["iters"].as<int>();
     float learningRate = result["lr"].as<float>();
     std::string render = result["render"].as<std::string>();
-    if (!fs::exists(render)) fs::create_directories(render);
+    if (!render.empty() && !fs::exists(render)) fs::create_directories(render);
 
     torch::Device device = torch::kCPU;
     if (torch::cuda::is_available() && result.count("cpu") == 0){
@@ -140,7 +140,7 @@ int main(int argc, char **argv){
 
     for (size_t i = 0; i < iterations; i++){
         if (device == torch::kCPU){
-            auto p = ProjectGaussiansCPU::Apply(means, scales, 1, 
+            auto p = ProjectGaussiansCPU::apply(means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,
                                 width / 2,

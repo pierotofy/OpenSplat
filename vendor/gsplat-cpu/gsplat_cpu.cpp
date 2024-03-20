@@ -374,3 +374,110 @@ std::
 
     return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
 }
+
+
+const float SH_C0 = 0.28209479177387814f;
+const float SH_C1 = 0.4886025119029199f;
+const float SH_C2[] = {
+    1.0925484305920792f,
+    -1.0925484305920792f,
+    0.31539156525252005f,
+    -1.0925484305920792f,
+    0.5462742152960396f
+};
+const float SH_C3[] = {
+    -0.5900435899266435f,
+    2.890611442640554f,
+    -0.4570457994644658f,
+    0.3731763325901154f,
+    -0.4570457994644658f,
+    1.445305721320277f,
+    -0.5900435899266435f
+};
+const float SH_C4[] = {
+    2.5033429417967046f,
+    -1.7701307697799304f,
+    0.9461746957575601f,
+    -0.6690465435572892f,
+    0.10578554691520431f,
+    -0.6690465435572892f,
+    0.47308734787878004f,
+    -1.7701307697799304f,
+    0.6258357354491761f
+};
+
+int numShBases(int degree){
+    switch(degree){
+        case 0:
+            return 1;
+        case 1:
+            return 4;
+        case 2:
+            return 9;
+        case 3:
+            return 16;
+        default:
+            return 25;
+    }
+}
+
+torch::Tensor compute_sh_forward_tensor_cpu(
+    const int num_points,
+    const int degree,
+    const int degrees_to_use,
+    const torch::Tensor &viewdirs,
+    const torch::Tensor &coeffs
+) {
+    const int numChannels = 3;
+    unsigned numBases = numShBases(degrees_to_use);
+
+    torch::Tensor result = torch::zeros({viewdirs.size(0), numBases}, torch::TensorOptions().dtype(torch::kFloat32).device(viewdirs.device()));   
+    
+    result.index_put_({"...", 0}, SH_C0);
+    if (numBases > 1){
+        std::vector<torch::Tensor> xyz = viewdirs.unbind(-1); 
+        torch::Tensor x = xyz[0];
+        torch::Tensor y = xyz[1];
+        torch::Tensor z = xyz[2];
+
+        if (numBases > 4){
+            torch::Tensor xx = x * x;
+            torch::Tensor yy = y * y;
+            torch::Tensor zz = z * z;
+            torch::Tensor xy = x * y;
+            torch::Tensor yz = y * z;
+            torch::Tensor xz = x * z;
+
+            result.index_put_({"...", 4}, SH_C2[0] * xy);
+            result.index_put_({"...", 5}, SH_C2[1] * yz);
+            result.index_put_({"...", 6}, SH_C2[2] * (2.0f * zz - xx - yy));
+            result.index_put_({"...", 7}, SH_C2[3] * xz);
+            result.index_put_({"...", 8}, SH_C2[4] * (xx - yy));
+
+            if (numBases > 9){
+                result.index_put_({"...", 9},  SH_C3[0] * y * (3 * xx - yy));
+                result.index_put_({"...", 10}, SH_C3[1] * xy * z);
+                result.index_put_({"...", 11}, SH_C3[2] * y * (4 * zz - xx - yy));
+                result.index_put_({"...", 12}, SH_C3[3] * z * (2 * zz - 3 * xx - 3 * yy));
+                result.index_put_({"...", 13}, SH_C3[4] * x * (4 * zz - xx - yy) );
+                result.index_put_({"...", 14}, SH_C3[5] * z * (xx - yy));
+                result.index_put_({"...", 15}, SH_C3[6] * x * (xx - 3 * yy));
+                
+                if (numBases > 16){
+                    result.index_put_({"...", 16}, SH_C4[0] * xy * (xx - yy));
+                    result.index_put_({"...", 17}, SH_C4[1] * yz * (3 * xx - yy));
+                    result.index_put_({"...", 18}, SH_C4[2] * xy * (7 * zz - 1));
+                    result.index_put_({"...", 19}, SH_C4[3] * yz * (7 * zz - 3));
+                    result.index_put_({"...", 20}, SH_C4[4] * (zz * (35 * zz - 30) + 3));
+                    result.index_put_({"...", 21}, SH_C4[5] * xz * (7 * zz - 3));
+                    result.index_put_({"...", 22}, SH_C4[6] * (xx - yy) * (7 * zz - 1));
+                    result.index_put_({"...", 23}, SH_C4[7] * xz * (xx - 3 * yy));
+                    result.index_put_({"...", 24}, SH_C4[8] * (xx * (xx - 3 * yy) - yy * (3 * xx - yy)));
+                        
+                }
+            }
+        }             
+    }
+
+    return (result.index({"...", None}) * coeffs).sum(-2);
+}

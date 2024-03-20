@@ -17,6 +17,7 @@ int main(int argc, char *argv[]){
         ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
         ("val", "Withhold a camera shot for validating the scene loss")
         ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
+        ("cpu", "Force CPU execution")
         
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
         ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("1"))
@@ -77,7 +78,7 @@ int main(int argc, char *argv[]){
 
     torch::Device device = torch::kCPU;
 
-    if (torch::cuda::is_available()) {
+    if (torch::cuda::is_available() && result.count("cpu") == 0) {
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
     }else{

@@ -3,8 +3,11 @@
 
 #include <torch/torch.h>
 #include "tile_bounds.hpp"
+#include "gsplat.hpp"
 
 using namespace torch::autograd;
+
+#if defined(USE_HIP) || defined(USE_CUDA)
 
 class ProjectGaussians : public Function<ProjectGaussians>{
 public:
@@ -26,9 +29,11 @@ public:
     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs);
 };
 
+#endif
+
 class ProjectGaussiansCPU{
 public:
-    static variable_list Apply( 
+    static variable_list apply( 
             torch::Tensor means,
             torch::Tensor scales,
             float globScale,

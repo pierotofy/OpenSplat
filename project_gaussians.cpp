@@ -1,5 +1,6 @@
 #include "project_gaussians.hpp"
-#include "gsplat.hpp"
+
+#if defined(USE_HIP) || defined(USE_CUDA)
 
 variable_list ProjectGaussians::forward(AutogradContext *ctx, 
                 torch::Tensor means,
@@ -88,7 +89,9 @@ tensor_list ProjectGaussians::backward(AutogradContext *ctx, tensor_list grad_ou
         };
 }
 
-variable_list ProjectGaussiansCPU::Apply(
+#endif
+
+variable_list ProjectGaussiansCPU::apply(
                 torch::Tensor means,
                 torch::Tensor scales,
                 float globScale,

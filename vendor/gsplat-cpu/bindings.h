@@ -71,3 +71,13 @@ std::
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     );
+
+int numShBases(int degree);
+
+torch::Tensor compute_sh_forward_tensor_cpu(
+    const int num_points,
+    const int degree,
+    const int degrees_to_use,
+    const torch::Tensor &viewdirs,
+    const torch::Tensor &coeffs
+);

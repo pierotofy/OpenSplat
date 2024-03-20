@@ -34,6 +34,8 @@ std::tuple<torch::Tensor,
     return std::make_tuple(isectIds, gaussianIds, isectIdsSorted, gaussianIdsSorted, tileBins);
 }
 
+#if defined(USE_HIP) || defined(USE_CUDA)
+
 torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx, 
             torch::Tensor xys,
             torch::Tensor depths,
@@ -137,6 +139,7 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     };
 }
 
+#endif
 
 torch::Tensor RasterizeGaussiansCPU::forward(AutogradContext *ctx, 
             torch::Tensor xys,

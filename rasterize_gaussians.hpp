@@ -17,6 +17,8 @@ std::tuple<torch::Tensor,
                                             torch::Tensor cumTilesHit,
                                             TileBounds tileBounds);
 
+#if defined(USE_HIP) || defined(USE_CUDA)
+
 class RasterizeGaussians : public Function<RasterizeGaussians>{
 public:
     static torch::Tensor forward(AutogradContext *ctx, 
@@ -32,6 +34,8 @@ public:
             torch::Tensor background);
     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs);
 };
+
+#endif
 
 class RasterizeGaussiansCPU : public Function<RasterizeGaussiansCPU>{
 public:
