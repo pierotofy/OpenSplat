@@ -147,7 +147,7 @@ int main(int argc, char **argv){
                                 height / 2,
                                 height,
                                 width);
-
+            
             outImg = RasterizeGaussiansCPU::apply(
                 p[0], // xys
                 p[1], // radii,
@@ -182,7 +182,7 @@ int main(int argc, char **argv){
                     width,
                     background);
             #else
-                throw std::runtime_error("GPU support not built");
+                throw std::runtime_error("GPU support not built, use --cpu");
             #endif
         }
 

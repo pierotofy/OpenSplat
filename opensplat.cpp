@@ -77,10 +77,12 @@ int main(int argc, char *argv[]){
     const float splitScreenSize = result["split-screen-size"].as<float>();
 
     torch::Device device = torch::kCPU;
+    int displayStep = 1;
 
     if (torch::cuda::is_available() && result.count("cpu") == 0) {
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
+        displayStep = 10;
     }else{
         std::cout << "Using CPU" << std::endl;
     }
@@ -120,7 +122,7 @@ int main(int argc, char *argv[]){
             torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);
             mainLoss.backward();
             
-            if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
+            if (step % displayStep == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
 
             model.optimizersStep();
             model.schedulersStep(step);

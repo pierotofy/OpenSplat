@@ -127,7 +127,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
         conics = p[3];
         numTilesHit = p[4];
         #else
-            throw std::runtime_error("GPU support not built");
+            throw std::runtime_error("GPU support not built, use --cpu");
         #endif
     }
     
@@ -143,7 +143,6 @@ torch::Tensor Model::forward(Camera& cam, int step){
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
     torch::Tensor rgbs;
     
-    std::cerr << "HERE";
     if (device == torch::kCPU){
         rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
@@ -152,7 +151,6 @@ torch::Tensor Model::forward(Camera& cam, int step){
         #endif
     }
     
-    std::cerr << "THERE" << camDepths;
     rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f);
 
 
