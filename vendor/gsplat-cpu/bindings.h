@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include <vector>
 #include <math.h>
 #include <tuple>
 #include <torch/all.h>
@@ -32,7 +33,8 @@ project_gaussians_forward_tensor_cpu(
 std::tuple<
     torch::Tensor,
     torch::Tensor,
-    torch::Tensor
+    torch::Tensor,
+    std::vector<int32_t> *
 > rasterize_forward_tensor_cpu(
     const int width,
     const int height,
@@ -64,6 +66,7 @@ std::
         const torch::Tensor &camDepths,
         const torch::Tensor &final_Ts,
         const torch::Tensor &final_idx,
+        const std::vector<int32_t> *pxgid,
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     );

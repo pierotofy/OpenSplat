@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <filesystem>
 
 #include <torch/torch.h>
 #ifdef USE_HIP
@@ -19,6 +20,7 @@
 #include "vendor/cxxopts.hpp"
 
 using namespace torch::indexing;
+namespace fs = std::filesystem;
 
 int main(int argc, char **argv){
     cxxopts::Options options("simple_trainer", "Test program for gsplat execution");
@@ -53,6 +55,7 @@ int main(int argc, char **argv){
     int iterations = result["iters"].as<int>();
     float learningRate = result["lr"].as<float>();
     std::string render = result["render"].as<std::string>();
+    if (!fs::exists(render)) fs::create_directories(render);
 
     torch::Device device = torch::kCPU;
     if (torch::cuda::is_available() && result.count("cpu") == 0){
@@ -90,6 +93,8 @@ int main(int argc, char **argv){
     // Random points, scales and colors
     torch::Tensor means = 2.0 * (torch::rand({numPoints, 3}, torch::kCPU) - 0.5); // Positions [-1, 1]
     torch::Tensor scales = torch::rand({numPoints, 3}, torch::kCPU);
+    // torch::Tensor means = torch::tensor({{0.5f, 0.5f, -5.0f}, {0.5f, 0.5f, -6.0f}, {0.25f, 0.25f, -4.0f}}, torch::kCPU);
+    // torch::Tensor scales = torch::tensor({{0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}, torch::kCPU);
     torch::Tensor rgbs = torch::rand({numPoints, 3}, torch::kCPU);
     
     // Random rotations (quaternions)
@@ -189,7 +194,7 @@ int main(int argc, char **argv){
         if (!render.empty()){
             cv::Mat image = tensorToImage(outImg.detach().cpu());
             cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-            cv::imwrite(render + "/" + std::to_string(i + 1) + ".png", image);
+            cv::imwrite((fs::path(render) / (std::to_string(i + 1) + ".png")).string(), image);
         }
     }
 }

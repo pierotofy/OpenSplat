@@ -137,7 +137,8 @@ project_gaussians_forward_tensor_cpu(
 std::tuple<
     torch::Tensor,
     torch::Tensor,
-    torch::Tensor
+    torch::Tensor,
+    std::vector<int32_t> *
 > rasterize_forward_tensor_cpu(
     const int width,
     const int height,
@@ -154,6 +155,7 @@ std::tuple<
     int channels = colors.size(1);
     int numPoints = xys.size(0);
     float *pDepths = static_cast<float *>(camDepths.data_ptr());
+    std::vector<int32_t> *pxgid = new std::vector<int32_t>[width * height];
 
     std::vector< size_t > gIndices( numPoints );
     std::iota( gIndices.begin(), gIndices.end(), 0 );
@@ -166,6 +168,7 @@ std::tuple<
     torch::Tensor outImg = torch::zeros({height, width, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
     torch::Tensor finalTs = torch::ones({height, width}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
     torch::Tensor finalIdx = torch::zeros({height, width}, torch::TensorOptions().dtype(torch::kInt32).device(device));   
+    torch::Tensor done = torch::zeros({height, width}, torch::TensorOptions().dtype(torch::kBool).device(device));   
 
     torch::Tensor sqCov2dX = 3.0f * torch::sqrt(cov2d.index({"...", 0, 0}));
     torch::Tensor sqCov2dY = 3.0f * torch::sqrt(cov2d.index({"...", 1, 1}));
@@ -178,7 +181,8 @@ std::tuple<
 
     float *pOutImg = static_cast<float *>(outImg.data_ptr());
     float *pFinalTs = static_cast<float *>(finalTs.data_ptr());
-    
+    bool *pDone = static_cast<bool *>(done.data_ptr());
+
     int32_t *pFinalIdx = static_cast<int32_t *>(finalIdx.data_ptr());
     float *pColors = static_cast<float *>(colors.data_ptr());
     
@@ -208,6 +212,9 @@ std::tuple<
 
         for (int i = minx; i < maxx; i++){
             for (int j = miny; j < maxy; j++){
+                size_t pixIdx = (i * width + j);
+                if (pDone[pixIdx]) continue;
+
                 float xCam = gX - j;
                 float yCam = gY - i;
                 float sigma = (
@@ -220,10 +227,10 @@ std::tuple<
                 float alpha = (std::min)(0.999f, (pOpacities[gaussianId] * std::exp(-sigma)));
                 if (alpha < alphaThresh) continue;
 
-                size_t pixIdx = (i * width + j);
                 float T = pFinalTs[pixIdx];
                 float nextT = T * (1.0f - alpha);
                 if (nextT <= 1e-4f) { // this pixel is done
+                    pDone[pixIdx] = true;
                     continue;
                 }
 
@@ -234,7 +241,8 @@ std::tuple<
                 pOutImg[pixIdx * 3 + 2] += vis * pColors[gaussianId * 3 + 2];
                 
                 pFinalTs[pixIdx] = nextT;
-                pFinalIdx[pixIdx] = idx;
+                pFinalIdx[pixIdx] = gaussianId;
+                pxgid[pixIdx].push_back(gaussianId);
             }
         }
     }
@@ -248,10 +256,12 @@ std::tuple<
             pOutImg[pixIdx * 3 + 0] += T * bgX;
             pOutImg[pixIdx * 3 + 1] += T * bgY;
             pOutImg[pixIdx * 3 + 2] += T * bgZ;
+
+            std::reverse(pxgid[pixIdx].begin(), pxgid[pixIdx].end());
         }
     }
 
-    return std::make_tuple(outImg, finalTs, finalIdx);
+    return std::make_tuple(outImg, finalTs, finalIdx, pxgid);
 }
 
 
@@ -274,6 +284,7 @@ std::
         const torch::Tensor &camDepths,        
         const torch::Tensor &final_Ts,
         const torch::Tensor &final_idx,
+        const std::vector<int32_t> *pxgid,
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     ){
@@ -292,9 +303,27 @@ std::
     float *pv_conic = static_cast<float *>(v_conic.data_ptr());
     float *pv_colors = static_cast<float *>(v_colors.data_ptr());
     float *pv_opacity = static_cast<float *>(v_opacity.data_ptr());
+    
+    // torch::Tensor buffer = torch::zeros({height, width, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
 
-    torch::Tensor buffer = torch::zeros({height, width, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
+    float *pColors = static_cast<float *>(colors.data_ptr());
+    // float *pBuffer = static_cast<float *>(buffer.data_ptr());
+    float *pv_output = static_cast<float *>(v_output.data_ptr());
+    float *pv_outputAlpha = static_cast<float *>(v_output_alpha.data_ptr());
+    float *pConics = static_cast<float *>(conics.data_ptr());
+    float *pCenters = static_cast<float *>(xys.data_ptr());
+    float *pOpacities = static_cast<float *>(opacities.data_ptr());
 
+    float bgX = background[0].item<float>();
+    float bgY = background[1].item<float>();
+    float bgZ = background[2].item<float>();
+
+    // torch::Tensor Ts = final_Ts.clone();
+    // float *pTs = static_cast<float *>(Ts.data_ptr());
+    float *pFinalTs = static_cast<float *>(final_Ts.data_ptr());
+
+    const float alphaThresh = 1.0f / 255.0f;
+/*
     std::vector< size_t > gIndices( numPoints );
 
     float *pDepths = static_cast<float *>(camDepths.data_ptr());
@@ -306,24 +335,9 @@ std::
     torch::Tensor sqCov2dX = 3.0f * torch::sqrt(cov2d.index({"...", 0, 0}));
     torch::Tensor sqCov2dY = 3.0f * torch::sqrt(cov2d.index({"...", 1, 1}));
     
-    float *pConics = static_cast<float *>(conics.data_ptr());
-    float *pCenters = static_cast<float *>(xys.data_ptr());
+
     float *pSqCov2dX = static_cast<float *>(sqCov2dX.data_ptr());
     float *pSqCov2dY = static_cast<float *>(sqCov2dY.data_ptr());
-    float *pOpacities = static_cast<float *>(opacities.data_ptr());
-
-    float *pColors = static_cast<float *>(colors.data_ptr());
-    float *pBuffer = static_cast<float *>(buffer.data_ptr());
-    float *pv_output = static_cast<float *>(v_output.data_ptr());
-    float *pv_outputAlpha = static_cast<float *>(v_output_alpha.data_ptr());
-    
-    float bgX = background[0].item<float>();
-    float bgY = background[1].item<float>();
-    float bgZ = background[2].item<float>();
-
-    torch::Tensor T = final_Ts.clone();
-    float *pT = static_cast<float *>(T.data_ptr());
-    float *pFinalTs = static_cast<float *>(final_Ts.data_ptr());
 
     const float alphaThresh = 1.0f / 255.0f;
     for (int idx = numPoints - 1; idx >= 0; idx--){
@@ -340,12 +354,14 @@ std::
         float sqy = pSqCov2dY[gaussianId];
 
         int minx = (std::max)(0, static_cast<int>(std::floor(gY - sqy)) - 2);
-        int maxx = (std::min)(width, static_cast<int>(std::ceil(gY + sqy)) + 2);
+        int maxx = (std::min)(height, static_cast<int>(std::ceil(gY + sqy)) + 2);
         int miny = (std::max)(0, static_cast<int>(std::floor(gX - sqx)) - 2);
-        int maxy = (std::min)(height, static_cast<int>(std::ceil(gX + sqx)) + 2);
+        int maxy = (std::min)(width, static_cast<int>(std::ceil(gX + sqx)) + 2);
 
         for (int i = minx; i < maxx; i++){
             for (int j = miny; j < maxy; j++){
+                size_t pixIdx = (i * width + j);
+
                 float xCam = gX - j;
                 float yCam = gY - i;
                 float sigma = (
@@ -356,30 +372,31 @@ std::
 
                 if (sigma < 0.0f) continue;
                 float vis = std::exp(-sigma);
-                float alpha = (std::min)(0.999f, pOpacities[gaussianId] * vis);
+                float alpha = (std::min)(0.99f, pOpacities[gaussianId] * vis);
                 if (alpha < alphaThresh) continue;
 
-                size_t pixIdx = (i * width + j); // TODO!!! CHECK!!!
 
                 float ra = 1.0f / (1.0f - alpha);
-                pT[pixIdx] *= ra;
-                float T = pT[pixIdx];
-                float TFinal = pFinalTs[pixIdx];
+                float T = pTs[pixIdx];
+                T *= ra;
+                pTs[pixIdx] = T;
+
+                float Tfinal = pFinalTs[pixIdx];
 
                 float fac = alpha * T;
-                float v_alpha = 0.0f;
+
                 pv_colors[gaussianId * 3 + 0] += fac * pv_output[pixIdx * 3 + 0];
                 pv_colors[gaussianId * 3 + 1] += fac * pv_output[pixIdx * 3 + 1];
                 pv_colors[gaussianId * 3 + 2] += fac * pv_output[pixIdx * 3 + 2];
 
-                v_alpha += (pColors[gaussianId * 3 + 0] * T - pBuffer[pixIdx * 3 + 0] * ra) * pv_output[pixIdx * 3 + 0];
-                v_alpha += (pColors[gaussianId * 3 + 1] * T - pBuffer[pixIdx * 3 + 1] * ra) * pv_output[pixIdx * 3 + 1];
-                v_alpha += (pColors[gaussianId * 3 + 2] * T - pBuffer[pixIdx * 3 + 2] * ra) * pv_output[pixIdx * 3 + 2];
-                v_alpha += (TFinal * ra * pv_outputAlpha[pixIdx]);
+                float v_alpha = ((pColors[gaussianId * 3 + 0] * T - pBuffer[pixIdx * 3 + 0] * ra) * pv_output[pixIdx * 3 + 0]) +
+                                ((pColors[gaussianId * 3 + 1] * T - pBuffer[pixIdx * 3 + 1] * ra) * pv_output[pixIdx * 3 + 1]) +
+                                ((pColors[gaussianId * 3 + 2] * T - pBuffer[pixIdx * 3 + 2] * ra) * pv_output[pixIdx * 3 + 2]) +
+                                (Tfinal * ra * pv_outputAlpha[pixIdx]) +
 
-                v_alpha += -TFinal * ra * bgX * pv_output[pixIdx * 3 + 0];
-                v_alpha += -TFinal * ra * bgY * pv_output[pixIdx * 3 + 1];
-                v_alpha += -TFinal * ra * bgZ * pv_output[pixIdx * 3 + 2];
+                                (-Tfinal * ra * bgX * pv_output[pixIdx * 3 + 0]) +
+                                (-Tfinal * ra * bgY * pv_output[pixIdx * 3 + 1]) +
+                                (-Tfinal * ra * bgZ * pv_output[pixIdx * 3 + 2]);
 
                 pBuffer[pixIdx * 3 + 0] += pColors[gaussianId * 3 + 0] * fac;
                 pBuffer[pixIdx * 3 + 1] += pColors[gaussianId * 3 + 1] * fac;
@@ -389,6 +406,70 @@ std::
                 pv_conic[gaussianId * 3 + 0] += 0.5f * v_sigma * xCam * xCam;
                 pv_conic[gaussianId * 3 + 1] += 0.5f * v_sigma * xCam * yCam;
                 pv_conic[gaussianId * 3 + 2] += 0.5f * v_sigma * yCam * yCam;
+
+                pv_xy[gaussianId * 2 + 0] += v_sigma * (A * xCam + B * yCam);
+                pv_xy[gaussianId * 2 + 1] += v_sigma * (B * xCam + C * yCam);
+
+                pv_opacity[gaussianId] += vis * v_alpha;
+            }
+        }
+    }*/
+
+    for (int j = 0; j < width; j++){
+        for (int i = 0; i < height; i++){
+            size_t pixIdx = (i * width + j);
+            float Tfinal = pFinalTs[pixIdx];
+            float T = Tfinal;
+            float buffer[3] = {0.0f, 0.0f, 0.0f};
+
+            for (const int32_t &gaussianId : pxgid[pixIdx]){
+                float A = pConics[gaussianId * 3 + 0];
+                float B = pConics[gaussianId * 3 + 1];
+                float C = pConics[gaussianId * 3 + 2];
+
+                float gX = pCenters[gaussianId * 2 + 0];
+                float gY = pCenters[gaussianId * 2 + 1];
+
+                float xCam = gX - j;
+                float yCam = gY - i;
+                float sigma = (
+                    0.5f
+                    * (A * xCam * xCam + C * yCam * yCam)
+                    + B * xCam * yCam
+                );
+
+                if (sigma < 0.0f) continue;
+                float vis = std::exp(-sigma);
+                float alpha = (std::min)(0.99f, pOpacities[gaussianId] * vis);
+                if (alpha < alphaThresh) continue;
+
+                float ra = 1.0f / (1.0f - alpha);
+                T *= ra;
+                float fac = alpha * T;
+
+                pv_colors[gaussianId * 3 + 0] += fac * pv_output[pixIdx * 3 + 0];
+                pv_colors[gaussianId * 3 + 1] += fac * pv_output[pixIdx * 3 + 1];
+                pv_colors[gaussianId * 3 + 2] += fac * pv_output[pixIdx * 3 + 2];
+
+                float v_alpha = ((pColors[gaussianId * 3 + 0] * T - buffer[0] * ra) * pv_output[pixIdx * 3 + 0]) +
+                                ((pColors[gaussianId * 3 + 1] * T - buffer[1] * ra) * pv_output[pixIdx * 3 + 1]) +
+                                ((pColors[gaussianId * 3 + 2] * T - buffer[2] * ra) * pv_output[pixIdx * 3 + 2]) +
+                                (Tfinal * ra * pv_outputAlpha[pixIdx]) +
+
+                                (-Tfinal * ra * bgX * pv_output[pixIdx * 3 + 0]) +
+                                (-Tfinal * ra * bgY * pv_output[pixIdx * 3 + 1]) +
+                                (-Tfinal * ra * bgZ * pv_output[pixIdx * 3 + 2]);
+
+                buffer[0] += pColors[gaussianId * 3 + 0] * fac;
+                buffer[1] += pColors[gaussianId * 3 + 1] * fac;
+                buffer[2] += pColors[gaussianId * 3 + 2] * fac;
+                
+                float v_sigma = -pOpacities[gaussianId] * vis * v_alpha;
+                pv_conic[gaussianId * 3 + 0] += 0.5f * v_sigma * xCam * xCam;
+                pv_conic[gaussianId * 3 + 1] += 0.5f * v_sigma * xCam * yCam;
+                pv_conic[gaussianId * 3 + 2] += 0.5f * v_sigma * yCam * yCam;
+
+                // std::cout << v_sigma << std::endl;
 
                 pv_xy[gaussianId * 2 + 0] += v_sigma * (A * xCam + B * yCam);
                 pv_xy[gaussianId * 2 + 1] += v_sigma * (B * xCam + C * yCam);

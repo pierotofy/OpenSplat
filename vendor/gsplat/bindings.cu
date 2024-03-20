@@ -628,6 +628,7 @@ std::
         (float3 *)v_colors.contiguous().data_ptr<float>(),
         v_opacity.contiguous().data_ptr<float>()
     );
+    cudaDeviceSynchronize(); // TODO REMOVE
 
     return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
 }
