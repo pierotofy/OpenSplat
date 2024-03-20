@@ -6,20 +6,22 @@ A free and open source implementation of 3D gaussian splatting written in C++, f
 
 OpenSplat takes camera poses + sparse points in [COLMAP](https://colmap.github.io/) or [nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html) project format and computes a [scene file](https://drive.google.com/file/d/1w-CBxyWNXF3omA8B_IeOsRmSJel3iwyr/view?usp=sharing) (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
-Graphics card recommended, but not required! OpenSplat runs the fastest on NVIDIA and AMD GPUs, but can also run entirely on CPU power (~100x slower).
+Graphics card recommended, but not required! OpenSplat runs the fastest on NVIDIA and AMD GPUs, but can also run entirely on the CPU (~100x slower).
 
 Commercial use allowed and encouraged under the terms of the [AGPLv3](https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0). ✅
 
 ## Build
 
-Requirements:
+You can build OpenSplat with or without GPU support.
+
+Requirements for all builds:
 
  * **OpenCV**: `sudo apt install libopencv-dev` should do it.
- * **libtorch**: See instructions below
+ * **libtorch**: See instructions below.
 
 ### CPU
 
- **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". For compute platform you can select "CPU".
+For libtorch visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". For compute platform you can select "CPU".
 
  Then:
 
@@ -36,7 +38,7 @@ Additional requirement:
 
  * **CUDA**: Make sure you have the CUDA compiler (`nvcc`) in your PATH and that `nvidia-smi` is working. https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html 
  
- **libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of CUDA if you want to leverage GPU support in libtorch.
+ For libtorch visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of CUDA if you want to leverage GPU support in libtorch.
  
  Then:
 
@@ -55,7 +57,7 @@ Additional requirement:
 
 * **ROCm**: Make sure you have the ROCm installed at /opt/rocm. https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/quick-start.html
 
-**libtorch**: Visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of ROCm (5.7) if you want to leverage AMD GPU support in libtorch.
+For libtorch visit https://pytorch.org/get-started/locally/ and select your OS, for package select "LibTorch". Make sure to match your version of ROCm (5.7) if you want to leverage AMD GPU support in libtorch.
 
 Then:
 
