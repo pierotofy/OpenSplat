@@ -10,8 +10,6 @@
 #include <cooperative_groups/reduce.h>
 #endif
 
-#include <stdio.h> // TODO REMOVE
-
 namespace cg = cooperative_groups;
 
 __global__ void nd_rasterize_backward_kernel(
@@ -301,9 +299,6 @@ __global__ void rasterize_backward_kernel(
                 // compute the current T for this gaussian
                 float ra = 1.f / (1.f - alpha);
                 T *= ra;
-        // if (pix_id == 4999){
-        //     printf("%f \n", T);
-        // }
 
                 // update v_rgb for this gaussian
                 const float fac = alpha * T;

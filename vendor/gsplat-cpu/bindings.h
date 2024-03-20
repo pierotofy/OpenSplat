@@ -1,4 +1,7 @@
-// Originally based on https://github.dev/nerfstudio-project/gsplat
+// Originally based on https://github.com/nerfstudio-project/gsplat
+// This implementation has been substantially changed and optimized 
+// Licensed under the AGPLv3
+// Piero Toffanin - 2024
 
 #include <cstdio>
 #include <iostream>
@@ -33,7 +36,6 @@ project_gaussians_forward_tensor_cpu(
 std::tuple<
     torch::Tensor,
     torch::Tensor,
-    torch::Tensor,
     std::vector<int32_t> *
 > rasterize_forward_tensor_cpu(
     const int width,
@@ -65,8 +67,7 @@ std::
         const torch::Tensor &cov2d,
         const torch::Tensor &camDepths,
         const torch::Tensor &final_Ts,
-        const torch::Tensor &final_idx,
-        const std::vector<int32_t> *pxgid,
+        const std::vector<int32_t> *px2gid,
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     );

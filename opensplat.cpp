@@ -90,8 +90,6 @@ int main(int argc, char *argv[]){
             cam.loadImage(downScaleFactor);
         }
 
-        
-
         // Withhold a validation camera if necessary
         auto t = inputData.getCameras(validate, valImage);
         std::vector<Camera> cams = std::get<0>(t);

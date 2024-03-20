@@ -1,8 +1,5 @@
 #include "rasterize_gaussians.hpp"
 #include "gsplat.hpp"
-#include "vendor/gsplat/config.h"
-
-#include "cv_utils.hpp" // TODO REMOVE
 
 std::tuple<torch::Tensor,
         torch::Tensor,
@@ -78,11 +75,6 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
     // Final image
     torch::Tensor outImg = std::get<0>(t);
 
-    cv::Mat image = tensorToImage(outImg.detach().cpu());
-    cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-    cv::imwrite("cudatest.png", image);
-    std::cout << "WROTE " << imgWidth << "x" << imgHeight;
-    
     torch::Tensor finalTs = std::get<1>(t);
 
     // Map of tile bin IDs
@@ -111,7 +103,6 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     torch::Tensor finalTs = saved[7];
     torch::Tensor finalIdx = saved[8];
 
-    // torch::Tensor v_outAlpha = torch::zeros({imgHeight, imgWidth}, torch::TensorOptions().device(v_outImg.get_device());
     torch::Tensor v_outAlpha = torch::zeros_like(v_outImg.index({"...", 0}));
     
     auto t = rasterize_backward_tensor(imgHeight, imgWidth, 
@@ -132,9 +123,6 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     torch::Tensor v_colors = std::get<2>(t);
     torch::Tensor v_opacity = std::get<3>(t);
     torch::Tensor none;
-
-    std::cout << v_colors << v_xy;
-    exit(1);
 
     return { v_xy,
             none, // depths
@@ -177,23 +165,13 @@ torch::Tensor RasterizeGaussiansCPU::forward(AutogradContext *ctx,
     // Final image
     torch::Tensor outImg = std::get<0>(t);
 
-    // cv::Mat image = tensorToImage(outImg.detach().cpu());
-    // cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-    // cv::imwrite("test.png", image);
-    // std::cout << "WROTE " << imgWidth << "x" << imgHeight;
-
     torch::Tensor finalTs = std::get<1>(t);
-
-    // Map of gaussian IDs
-    // TODO: remove finalIdx (not needed)
-    torch::Tensor finalIdx = std::get<2>(t);
-
-    std::vector<int32_t> *pxgid = std::get<3>(t);
+    std::vector<int32_t> *px2gid = std::get<2>(t);
 
     ctx->saved_data["imgWidth"] = imgWidth;
     ctx->saved_data["imgHeight"] = imgHeight;
-    ctx->saved_data["pxgid"] = reinterpret_cast<int64_t>(pxgid);
-    ctx->save_for_backward({ xys, conics, colors, opacity, background, cov2d, camDepths, finalTs, finalIdx });
+    ctx->saved_data["px2gid"] = reinterpret_cast<int64_t>(px2gid);
+    ctx->save_for_backward({ xys, conics, colors, opacity, background, cov2d, camDepths, finalTs });
     
     return outImg;
 }
@@ -202,7 +180,7 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
     torch::Tensor v_outImg = grad_outputs[0];
     int imgHeight = ctx->saved_data["imgHeight"].toInt();
     int imgWidth = ctx->saved_data["imgWidth"].toInt();
-    const std::vector<int32_t> *pxgid = reinterpret_cast<const std::vector<int32_t> *>(ctx->saved_data["pxgid"].toInt());
+    const std::vector<int32_t> *px2gid = reinterpret_cast<const std::vector<int32_t> *>(ctx->saved_data["px2gid"].toInt());
 
     variable_list saved = ctx->get_saved_variables();
     torch::Tensor xys = saved[0];
@@ -213,9 +191,7 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
     torch::Tensor cov2d = saved[5];
     torch::Tensor camDepths = saved[6];
     torch::Tensor finalTs = saved[7];
-    torch::Tensor finalIdx = saved[8];
 
-    // torch::Tensor v_outAlpha = torch::zeros({imgHeight, imgWidth}, torch::TensorOptions().device(v_outImg.get_device());
     torch::Tensor v_outAlpha = torch::zeros_like(v_outImg.index({"...", 0}));
     
     auto t = rasterize_backward_tensor_cpu(imgHeight, imgWidth, 
@@ -227,10 +203,11 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
                             cov2d,
                             camDepths,
                             finalTs,
-                            finalIdx,
-                            pxgid,
+                            px2gid,
                             v_outImg,
                             v_outAlpha);
+
+    delete[] px2gid;
 
 
     torch::Tensor v_xy = std::get<0>(t);
@@ -238,9 +215,6 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
     torch::Tensor v_colors = std::get<2>(t);
     torch::Tensor v_opacity = std::get<3>(t);
     torch::Tensor none;
-
-    // std::cout << v_colors << v_xy;
-    // exit(1);
 
     return { v_xy,
             none, // radii

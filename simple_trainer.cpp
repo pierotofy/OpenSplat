@@ -12,7 +12,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include "vendor/gsplat/config.h"
 #include "project_gaussians.hpp"
 #include "rasterize_gaussians.hpp"
 #include "constants.hpp"
@@ -161,26 +160,30 @@ int main(int argc, char **argv){
                 width,
                 background);
         }else{
-            auto p = ProjectGaussians::apply(means, scales, 1, 
-                                    quats, viewMat, viewMat,
-                                    focal, focal,
-                                    width / 2,
-                                    height / 2,
-                                    height,
-                                    width,
-                                    tileBounds);
+            #if defined(USE_HIP) || defined(USE_CUDA)
+                auto p = ProjectGaussians::apply(means, scales, 1, 
+                                        quats, viewMat, viewMat,
+                                        focal, focal,
+                                        width / 2,
+                                        height / 2,
+                                        height,
+                                        width,
+                                        tileBounds);
 
-            outImg = RasterizeGaussians::apply(
-                p[0], // xys
-                p[1], // depths
-                p[2], // radii,
-                p[3], // conics
-                p[4], // numTilesHit
-                torch::sigmoid(rgbs),
-                torch::sigmoid(opacities),
-                height,
-                width,
-                background);
+                outImg = RasterizeGaussians::apply(
+                    p[0], // xys
+                    p[1], // depths
+                    p[2], // radii,
+                    p[3], // conics
+                    p[4], // numTilesHit
+                    torch::sigmoid(rgbs),
+                    torch::sigmoid(opacities),
+                    height,
+                    width,
+                    background);
+            #else
+                throw std::runtime_error("GPU support not built");
+            #endif
         }
 
         outImg.requires_grad_();

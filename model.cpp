@@ -74,31 +74,62 @@ torch::Tensor Model::forward(Camera& cam, int step){
     float fovY = 2.0f * std::atan(height / (2.0f * fy));
 
     torch::Tensor projMat = projectionMatrix(0.001f, 1000.0f, fovX, fovY, device);
-
-    TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
-                      (height + BLOCK_Y - 1) / BLOCK_Y,
-                      1);
-
     torch::Tensor colors =  torch::cat({featuresDc.index({Slice(), None, Slice()}), featuresRest}, 1);
 
-    auto p = ProjectGaussians::apply(means, 
-                    torch::exp(scales), 
-                    1, 
-                    quats / quats.norm(2, {-1}, true), 
-                    viewMat, 
-                    torch::matmul(projMat, viewMat),
-                    fx, 
-                    fy,
-                    cx,
-                    cy,
-                    height,
-                    width,
-                    tileBounds);
-    xys = p[0];
-    torch::Tensor depths = p[1];
-    radii = p[2];
-    torch::Tensor conics = p[3];
-    torch::Tensor numTilesHit = p[4];
+    torch::Tensor conics;
+    torch::Tensor depths; // GPU-only
+    torch::Tensor numTilesHit; // GPU-only
+    torch::Tensor cov2d; // CPU-only
+    torch::Tensor camDepths; // CPU-only
+    torch::Tensor rgb;
+
+    if (device == torch::kCPU){
+        auto p = ProjectGaussiansCPU::Apply(means, 
+                                torch::exp(scales), 
+                                1, 
+                                quats / quats.norm(2, {-1}, true), 
+                                viewMat, 
+                                torch::matmul(projMat, viewMat),
+                                fx, 
+                                fy,
+                                cx,
+                                cy,
+                                height,
+                                width);
+        xys = p[0];
+        radii = p[1];
+        conics = p[2];
+        cov2d = p[3];
+        camDepths = p[4];
+    }else{
+        #if defined(USE_HIP) || defined(USE_CUDA)
+
+        TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
+                        (height + BLOCK_Y - 1) / BLOCK_Y,
+                        1);
+        auto p = ProjectGaussians::apply(means, 
+                        torch::exp(scales), 
+                        1, 
+                        quats / quats.norm(2, {-1}, true), 
+                        viewMat, 
+                        torch::matmul(projMat, viewMat),
+                        fx, 
+                        fy,
+                        cx,
+                        cy,
+                        height,
+                        width,
+                        tileBounds);
+
+        xys = p[0];
+        depths = p[1];
+        radii = p[2];
+        conics = p[3];
+        numTilesHit = p[4];
+        #else
+            throw std::runtime_error("GPU support not built");
+        #endif
+    }
     
 
     if (radii.sum().item<float>() == 0.0f)
@@ -110,22 +141,39 @@ torch::Tensor Model::forward(Camera& cam, int step){
     torch::Tensor viewDirs = means.detach() - T.transpose(0, 1).to(device);
     viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
+    std::cout << degreesToUse;
+    exit(1);
     torch::Tensor rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
-    rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f); 
+    rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f);
 
-    
-    torch::Tensor rgb = RasterizeGaussians::apply(
-            xys,
-            depths,
-            radii,
-            conics,
-            numTilesHit,
-            rgbs, // TODO: why not sigmod?
-            torch::sigmoid(opacities),
-            height,
-            width,
-            backgroundColor);
-    
+    if (device == torch::kCPU){
+        rgb = RasterizeGaussiansCPU::apply(
+                xys,
+                radii,
+                conics,
+                rgbs,
+                torch::sigmoid(opacities),
+                cov2d,
+                camDepths,
+                height,
+                width,
+                backgroundColor);
+    }else{  
+        #if defined(USE_HIP) || defined(USE_CUDA)
+        rgb = RasterizeGaussians::apply(
+                xys,
+                depths,
+                radii,
+                conics,
+                numTilesHit,
+                rgbs,
+                torch::sigmoid(opacities),
+                height,
+                width,
+                backgroundColor);
+        #endif
+    }
+
     rgb = torch::clamp_max(rgb, 1.0f);
 
     return rgb;
