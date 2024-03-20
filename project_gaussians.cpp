@@ -1,5 +1,6 @@
 #include "project_gaussians.hpp"
-#include "vendor/gsplat/bindings.h"
+
+#if defined(USE_HIP) || defined(USE_CUDA)
 
 variable_list ProjectGaussians::forward(AutogradContext *ctx, 
                 torch::Tensor means,
@@ -38,8 +39,8 @@ variable_list ProjectGaussians::forward(AutogradContext *ctx,
     ctx->saved_data["fy"] = fy;
     ctx->saved_data["cx"] = cx;
     ctx->saved_data["cy"] = cy;
-
     ctx->save_for_backward({ means, scales, quats, viewMat, projMat, cov3d, radii, conics });
+
     return { xys, depths, radii, conics, numTilesHit, cov3d };
 }
 
@@ -86,4 +87,37 @@ tensor_list ProjectGaussians::backward(AutogradContext *ctx, tensor_list grad_ou
             none, // tileBounds
             none // clipThresh
         };
+}
+
+#endif
+
+variable_list ProjectGaussiansCPU::apply(
+                torch::Tensor means,
+                torch::Tensor scales,
+                float globScale,
+                torch::Tensor quats,
+                torch::Tensor viewMat,
+                torch::Tensor projMat,
+                float fx,
+                float fy,
+                float cx,
+                float cy,
+                int imgHeight,
+                int imgWidth,
+                float clipThresh
+            ){
+    
+    int numPoints = means.size(0);
+
+    auto t = project_gaussians_forward_tensor_cpu(numPoints, means, scales, globScale,
+                                              quats, viewMat, projMat, fx, fy,
+                                              cx, cy, imgHeight, imgWidth, clipThresh);
+                                              
+    torch::Tensor xys = std::get<0>(t);
+    torch::Tensor radii = std::get<1>(t);
+    torch::Tensor conics = std::get<2>(t);
+    torch::Tensor cov2d = std::get<3>(t);
+    torch::Tensor camDepths = std::get<4>(t);
+
+    return { xys, radii, conics, cov2d, camDepths };
 }

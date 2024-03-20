@@ -17,6 +17,7 @@ int main(int argc, char *argv[]){
         ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
         ("val", "Withhold a camera shot for validating the scene loss")
         ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
+        ("cpu", "Force CPU execution")
         
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
         ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("1"))
@@ -37,7 +38,7 @@ int main(int argc, char *argv[]){
         ("h,help", "Print usage")
         ;
     options.parse_positional({ "input" });
-    options.positional_help("[nerfstudio project path]");
+    options.positional_help("[colmap or nerfstudio project path]");
     cxxopts::ParseResult result;
     try {
         result = options.parse(argc, argv);
@@ -76,10 +77,12 @@ int main(int argc, char *argv[]){
     const float splitScreenSize = result["split-screen-size"].as<float>();
 
     torch::Device device = torch::kCPU;
+    int displayStep = 1;
 
-    if (torch::cuda::is_available()) {
+    if (torch::cuda::is_available() && result.count("cpu") == 0) {
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
+        displayStep = 10;
     }else{
         std::cout << "Using CPU" << std::endl;
     }
@@ -89,8 +92,6 @@ int main(int argc, char *argv[]){
         for (Camera &cam : inputData.cameras){
             cam.loadImage(downScaleFactor);
         }
-
-        
 
         // Withhold a validation camera if necessary
         auto t = inputData.getCameras(validate, valImage);
@@ -121,7 +122,7 @@ int main(int argc, char *argv[]){
             torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);
             mainLoss.backward();
             
-            if (step % 10 == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
+            if (step % displayStep == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
 
             model.optimizersStep();
             model.schedulersStep(step);
