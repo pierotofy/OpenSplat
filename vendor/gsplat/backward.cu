@@ -299,7 +299,6 @@ __global__ void rasterize_backward_kernel(
                 // compute the current T for this gaussian
                 float ra = 1.f / (1.f - alpha);
                 T *= ra;
-
                 // update v_rgb for this gaussian
                 const float fac = alpha * T;
                 float v_alpha = 0.f;

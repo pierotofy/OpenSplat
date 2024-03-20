@@ -448,11 +448,14 @@ void Model::afterTrain(int step){
         xysGradNorm = torch::Tensor();
         visCounts = torch::Tensor();
         max2DSize = torch::Tensor();
-#ifdef USE_HIP
-        c10::hip::HIPCachingAllocator::emptyCache();
-#elif defined(USE_CUDA)
-        c10::cuda::CUDACachingAllocator::emptyCache();
-#endif
+
+        if (device != torch::kCPU){
+            #ifdef USE_HIP
+                    c10::hip::HIPCachingAllocator::emptyCache();
+            #elif defined(USE_CUDA)
+                    c10::cuda::CUDACachingAllocator::emptyCache();
+            #endif
+        }
     }
 }
 
