@@ -2,8 +2,8 @@
 
 A free and open source implementation of 3D gaussian splatting written in C++, focused on being portable, lean and fast.
 
-![OpenSplat](https://github.com/pierotofy/OpenSplat/assets/1951843/ecdc7849-0b2c-4007-9a6f-736e416e2c73)
-![screenshot](https://github.com/pierotofy/OpenSplat/assets/1951843/eba4ae75-2c88-4c9e-a66b-608b574d085f)
+<img src="https://github.com/pierotofy/OpenSplat/assets/1951843/ecdc7849-0b2c-4007-9a6f-736e416e2c73" width="49%" />
+<img src="https://github.com/pierotofy/OpenSplat/assets/1951843/eba4ae75-2c88-4c9e-a66b-608b574d085f" width="49%" />
 
 OpenSplat takes camera poses + sparse points in [COLMAP](https://colmap.github.io/) or [nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html) project format and computes a [scene file](https://drive.google.com/file/d/1w-CBxyWNXF3omA8B_IeOsRmSJel3iwyr/view?usp=sharing) (.ply) that can be later imported for viewing, editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
