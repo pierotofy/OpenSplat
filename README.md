@@ -50,8 +50,6 @@ Additional requirement:
  cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
  ```
 
- The software has been tested on Ubuntu 20.04 and Windows. With some changes it could run on macOS (help us by opening a PR?).
-
 ### ROCm via HIP
 
 Additional requirement:
