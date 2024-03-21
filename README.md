@@ -104,6 +104,28 @@ Optional: Edit cuda target (only if required) before `cmake --build .`
 C:/path_to/OpenSplat/build/gsplat.vcxproj
 for example: arch=compute_75,code=sm_75
 
+### macOS
+
+Support for macOS is very experimental.
+
+If you're using [brew], you can install OpenCV by running:
+
+```bash
+brew install opencv
+```
+
+Then run:
+
+```
+git clone https://github.com/pierotofy/OpenSplat OpenSplat
+cd OpenSplat
+mkdir build && cd build
+cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
+./opensplat
+```
+
+:warning: You will probably get a *libc10.dylib can’t be opened because apple cannot check it for malicious software* error message on first run. Open System Settings and go to Privacy & Security and find the "Allow" button. You might need to repeat this several times until all torch libraries are loaded.
+
 ## Docker Build
 
 ### CUDA

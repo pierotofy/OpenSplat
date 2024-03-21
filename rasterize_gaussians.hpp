@@ -6,6 +6,8 @@
 
 using namespace torch::autograd;
 
+#if defined(USE_HIP) || defined(USE_CUDA)
+
 std::tuple<torch::Tensor,
         torch::Tensor,
         torch::Tensor,
@@ -17,7 +19,6 @@ std::tuple<torch::Tensor,
                                             torch::Tensor cumTilesHit,
                                             TileBounds tileBounds);
 
-#if defined(USE_HIP) || defined(USE_CUDA)
 
 class RasterizeGaussians : public Function<RasterizeGaussians>{
 public:
