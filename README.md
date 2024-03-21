@@ -215,6 +215,7 @@ We recently released OpenSplat, so there's lots of work to do.
 
  * Support for running on AMD cards (more testing needed)
  * Improve speed / reduce memory usage
+ * Add Metal support on macOS
  * Distributed computation using multiple machines
  * Real-time training viewer output
  * Compressed scene outputs
