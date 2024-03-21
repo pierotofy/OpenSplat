@@ -78,6 +78,32 @@ cmake -GNinja -DCMAKE_PREFIX_PATH=/path/to/libtorch/ -DGPU_RUNTIME="HIP" -DHIP_R
 jinja
 ```
 
+### Windows
+
+There's several ways to build on Windows, but this particular configuration has been confirmed to work:
+
+* Visual Studio 2022 C++
+* https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-windows-x86_64.msi
+* https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
+* https://download.pytorch.org/libtorch/cu118/libtorch-win-shared-with-deps-2.1.2%2Bcu118.zip
+* https://github.com/opencv/opencv/releases/download/4.9.0/opencv-4.9.0-windows.exe
+
+Then run:
+
+```console
+"C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat"
+git clone https://github.com/pierotofy/OpenSplat OpenSplat
+cd OpenSplat
+mkdir build && cd build
+cmake -DCMAKE_PREFIX_PATH=C:/path_to/libtorch_2.1.2_cu11.8 -DOPENCV_DIR=C:/path_to/OpenCV_4.9.0/build -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
+```
+
+Optional: Edit cuda target (only if required) before `cmake --build .`
+
+C:/path_to/OpenSplat/build/gsplat.vcxproj
+for example: arch=compute_75,code=sm_75
+
 ## Docker Build
 
 ### CUDA
