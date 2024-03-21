@@ -104,10 +104,12 @@ for example: arch=compute_75,code=sm_75
 
 ### macOS
 
-If you're using [Homebrew](https://brew.sh), you can install OpenCV by running:
+If you're using [Homebrew](https://brew.sh), you can install Cmake/OpenCV/Pytorch by running:
 
 ```bash
+brew install cmake
 brew install opencv
+brew install pytorch
 ```
 
 Then run:
