@@ -159,7 +159,6 @@ torch::Tensor Model::forward(Camera& cam, int step){
     
     rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f);
 
-
     if (device == torch::kCPU){
         rgb = RasterizeGaussiansCPU::apply(
                 xys,
