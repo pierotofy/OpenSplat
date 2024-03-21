@@ -50,8 +50,6 @@ Additional requirement:
  cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
  ```
 
- The software has been tested on Ubuntu 20.04 and Windows. With some changes it could run on macOS (help us by opening a PR?).
-
 ### ROCm via HIP
 
 Additional requirement:
@@ -106,9 +104,7 @@ for example: arch=compute_75,code=sm_75
 
 ### macOS
 
-Support for macOS is very experimental.
-
-If you're using [brew], you can install OpenCV by running:
+If you're using [Homebrew](https://brew.sh), you can install OpenCV by running:
 
 ```bash
 brew install opencv
@@ -124,7 +120,7 @@ cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
 ./opensplat
 ```
 
-:warning: You will probably get a *libc10.dylib can’t be opened because apple cannot check it for malicious software* error message on first run. Open System Settings and go to Privacy & Security and find the "Allow" button. You might need to repeat this several times until all torch libraries are loaded.
+:warning: You will probably get a *libc10.dylib can’t be opened because Apple cannot check it for malicious software* error on first run. Open **System Settings** and go to **Privacy & Security** and find the **Allow** button. You might need to repeat this several times until all torch libraries are loaded.
 
 ## Docker Build
 

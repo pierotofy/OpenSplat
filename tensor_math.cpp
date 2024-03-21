@@ -46,7 +46,7 @@ torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b){
     // Rotation matrix that rotates vector a to vector b
     torch::Tensor a1 = a / a.norm();
     torch::Tensor b1 = b / b.norm();
-    torch::Tensor v = torch::cross(a1, b1);
+    torch::Tensor v = torch::linalg_cross(a1, b1);
     torch::Tensor c = torch::dot(a1, b1);
     const float EPS = 1e-8;
     if (c.item<float>() < -1 + EPS){

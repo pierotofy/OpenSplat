@@ -17,7 +17,7 @@ cv::Mat floatNxNtensorToMat(const torch::Tensor &t){
 }
 
 torch::Tensor floatNxNMatToTensor(const cv::Mat &m){
-    return torch::from_blob(m.data, { m.rows, m.cols }, torch::kFloat32);
+    return torch::from_blob(m.data, { m.rows, m.cols }, torch::kFloat32).clone();
 }
 
 cv::Mat tensorToImage(const torch::Tensor &t){
