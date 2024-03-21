@@ -1,6 +1,6 @@
 # 💦 OpenSplat 
 
-A free and open source implementation of 3D gaussian splatting written in C++, focused on being portable, lean and fast.
+A free and open source implementation of 3D [gaussian splatting](https://www.youtube.com/watch?v=HVv_IQKlafQ) written in C++, focused on being portable, lean and fast.
 
 <img src="https://github.com/pierotofy/OpenSplat/assets/1951843/ecdc7849-0b2c-4007-9a6f-736e416e2c73" width="49%" />
 <img src="https://github.com/pierotofy/OpenSplat/assets/1951843/eba4ae75-2c88-4c9e-a66b-608b574d085f" width="49%" />
