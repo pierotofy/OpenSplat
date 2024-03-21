@@ -431,7 +431,7 @@ torch::Tensor compute_sh_forward_tensor_cpu(
     const int numChannels = 3;
     unsigned numBases = numShBases(degrees_to_use);
 
-    torch::Tensor result = torch::zeros({viewdirs.size(0), numBases}, torch::TensorOptions().dtype(torch::kFloat32).device(viewdirs.device()));   
+    torch::Tensor result = torch::zeros({viewdirs.size(0), numShBases(degree)}, torch::TensorOptions().dtype(torch::kFloat32).device(viewdirs.device()));   
     
     result.index_put_({"...", 0}, SH_C0);
     if (numBases > 1){
@@ -478,6 +478,6 @@ torch::Tensor compute_sh_forward_tensor_cpu(
             }
         }             
     }
-
+    
     return (result.index({"...", None}) * coeffs).sum(-2);
 }
