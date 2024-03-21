@@ -106,8 +106,6 @@ for example: arch=compute_75,code=sm_75
 
 ### macOS
 
-Support for macOS is very experimental.
-
 If you're using [Homebrew](https://brew.sh), you can install OpenCV by running:
 
 ```bash
