@@ -23,7 +23,7 @@ torch::Tensor rgb2sh(const torch::Tensor &rgb){
 }
 
 torch::Tensor sh2rgb(const torch::Tensor &sh){
-    // Converts from 0th 0th spherical harmonic coefficients to RGB values [0,1]
+    // Converts from 0th spherical harmonic coefficients to RGB values [0,1]
     return (sh * C0) + 0.5;
 }
 
