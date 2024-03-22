@@ -101,12 +101,12 @@ int main(int argc, char *argv[]){
         std::vector<Camera> cams = std::get<0>(t);
         Camera *valCam = std::get<1>(t);
 
-        Model model(inputData.points, 
-                        cams.size(),
-                        numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-                        refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
-                        numIters,
-                        device);
+        Model model(inputData,
+                    cams.size(),
+                    numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
+                    refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
+                    numIters,
+                    device);
 
         std::vector< size_t > camIndices( cams.size() );
         std::iota( camIndices.begin(), camIndices.end(), 0 );
@@ -145,6 +145,7 @@ int main(int argc, char *argv[]){
         }
 
         model.savePlySplat(outputScene);
+        // model.saveDebugPly("debug.ply");
 
         // Validate
         if (valCam != nullptr){

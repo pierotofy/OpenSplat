@@ -28,17 +28,20 @@ torch::Tensor quatToRotMat(const torch::Tensor &quat){
     
 }
 
-std::tuple<torch::Tensor, torch::Tensor> autoOrientAndCenterPoses(const torch::Tensor &poses){
-    // Center at mean and orient up
+std::tuple<torch::Tensor, torch::Tensor, float> autoScaleAndCenterPoses(const torch::Tensor &poses){
+    // Center at mean
     torch::Tensor origins = poses.index({"...", Slice(None, 3), 3});
-    torch::Tensor translation = torch::mean(origins, 0);
-    torch::Tensor up = torch::mean(poses.index({Slice(), Slice(None, 3), 1}), 0);
-    up = up / up.norm();
+    torch::Tensor center = torch::mean(origins, 0);
+    origins -= center;
+
+    // Scale
+    float f = 1.0f / torch::max(torch::abs(origins)).item<float>();
+    origins *= f;
     
-    torch::Tensor rotation = rotationMatrix(up, torch::tensor({0, 0, 1}, torch::kFloat32));
-    torch::Tensor transform = torch::cat({rotation, torch::matmul(rotation, -translation.index({"...", None}))}, -1);
-    torch::Tensor orientedPoses = torch::matmul(transform, poses);
-    return std::make_tuple(orientedPoses, transform);
+    torch::Tensor transformedPoses = poses.clone();
+    transformedPoses.index_put_({"...", Slice(None, 3), 3}, origins);
+
+    return std::make_tuple(transformedPoses, center, f);
 }
 
 

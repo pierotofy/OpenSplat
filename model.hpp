@@ -20,7 +20,7 @@ torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 
 struct Model{
-  Model(const Points &points, int numCameras,
+  Model(const InputData &inputData, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
         int refineEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
         int maxSteps,
@@ -30,17 +30,21 @@ struct Model{
     refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(stopSplitAt), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
     maxSteps(maxSteps),
     device(device), ssim(11, 3){
-    long long numPoints = points.xyz.size(0); 
+
+    long long numPoints = inputData.points.xyz.size(0);
+    scale = inputData.scale;
+    translation = inputData.translation;
+
     torch::manual_seed(42);
 
-    means = points.xyz.to(device).requires_grad_();
-    scales = PointsTensor(points.xyz).scales().repeat({1, 3}).log().to(device).requires_grad_();
+    means = inputData.points.xyz.to(device).requires_grad_();
+    scales = PointsTensor(inputData.points.xyz).scales().repeat({1, 3}).log().to(device).requires_grad_();
     quats = randomQuatTensor(numPoints).to(device).requires_grad_();
 
     int dimSh = numShBases(shDegree);
     torch::Tensor shs = torch::zeros({numPoints, dimSh, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
 
-    shs.index({Slice(), 0, Slice(None, 3)}) = rgb2sh(points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32);
+    shs.index({Slice(), 0, Slice(None, 3)}) = rgb2sh(inputData.points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32);
     shs.index({Slice(), Slice(1, None), Slice(3, None)}) = 0.0f;
 
     featuresDc = shs.index({Slice(), 0, Slice()}).to(device).requires_grad_();
@@ -78,6 +82,7 @@ struct Model{
   int getDownscaleFactor(int step);
   void afterTrain(int step);
   void savePlySplat(const std::string &filename);
+  void saveDebugPly(const std::string &filename);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
@@ -126,6 +131,9 @@ struct Model{
   int stopScreenSizeAt;
   float splitScreenSize;
   int maxSteps;
+
+  float scale;
+  torch::Tensor translation;
 };
 
 

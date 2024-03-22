@@ -15,10 +15,16 @@ int degFromSh(int numBases){
     }
 }
 
+const double C0 = 0.28209479177387814;
+
 torch::Tensor rgb2sh(const torch::Tensor &rgb){
     // Converts from RGB values [0,1] to the 0th spherical harmonic coefficient
-    const double C0 = 0.28209479177387814;
     return (rgb - 0.5) / C0;
+}
+
+torch::Tensor sh2rgb(const torch::Tensor &sh){
+    // Converts from 0th spherical harmonic coefficients to RGB values [0,1]
+    return (sh * C0) + 0.5;
 }
 
 #if defined(USE_HIP) || defined(USE_CUDA)

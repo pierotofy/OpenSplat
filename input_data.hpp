@@ -52,8 +52,8 @@ struct Points{
 };
 struct InputData{
     std::vector<Camera> cameras;
-    float scaleFactor;
-    torch::Tensor transformMatrix;
+    float scale;
+    torch::Tensor translation;
     Points points;
 
     std::tuple<std::vector<Camera>, Camera *> getCameras(bool validate, const std::string &valImage = "random");

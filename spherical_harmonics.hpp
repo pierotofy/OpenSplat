@@ -8,6 +8,7 @@ using namespace torch::autograd;
 
 int degFromSh(int numBases);
 torch::Tensor rgb2sh(const torch::Tensor &rgb);
+torch::Tensor sh2rgb(const torch::Tensor &sh);
 
 #if defined(USE_HIP) || defined(USE_CUDA)
 
