@@ -1,4 +1,4 @@
-name: OpenSplat (Windows)
+name: OpenSplat (Windows CUDA)
 
 on:
   push:
