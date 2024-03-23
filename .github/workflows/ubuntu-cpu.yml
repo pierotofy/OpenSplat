@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    name: ${{ matrix.os }}-cpu-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -64,7 +64,7 @@ jobs:
       - name: Install LibTorch
         if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
         run: |
-          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-${{ matrix.torch-version }}%2B$cpu.zip -O libtorch.zip
+          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${{ matrix.torch-version }}%2Bcpu.zip -O libtorch.zip
           unzip -q ${{ github.workspace }}/libtorch.zip -d ${{ github.workspace }}/
           rm ${{ github.workspace }}/libtorch.zip
 
