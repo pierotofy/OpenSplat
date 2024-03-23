@@ -1,4 +1,4 @@
-name: OpenSplat (Docker)
+name: OpenSplat (Docker CUDA)
 
 on:
   push:
