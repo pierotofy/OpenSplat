@@ -57,7 +57,7 @@ jobs:
         uses: actions/cache@v4
         id: libtorch-cache
         with:
-          key: libtorch-${{ matrix.torch-version }}-${{env.CUDA_VER_SHORT}}-ubuntu
+          key: libtorch-${{ matrix.torch-version }}-cpu-ubuntu
           path: |
             ${{ github.workspace }}/libtorch
 
