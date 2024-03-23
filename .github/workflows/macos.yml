@@ -1,0 +1,107 @@
+name: OpenSplat (MacOS X86 and ARM)
+
+on:
+  push:
+    branches:
+      - macos-build
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-${{ matrix.arch }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14] # [macos-14, macos-13, macos-12, macos-11]
+        arch: [arm64] # [arm64, x86_64]
+        torch-version: [2.2.1] # [2.2.1, 2.2.0, 2.1.2, 2.1.1, 2.1.0, 2.0.0, 1.13.0, 1.12.0]
+        cmake-build-type: [Release] # [Debug, ClangTidy]
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CL: /MP
+      CMAKE_GENERATOR: Ninja
+      CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MacOS
+        run: |
+          brew install \
+            cmake \
+            ninja \
+            opencv
+          wget -nv https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-darwin.tar.gz
+          sudo tar xzf ccache-4.9.1-darwin.tar.gz -C /usr/bin --strip-components=1 --no-same-owner ccache-4.9.1-darwin/ccache
+          rm -f ccache-*-darwin.tar.gz
+          ccache --version
+
+      - name: Sudo Tar Wrapper
+        run: |
+          # Workaround: https://github.com/containers/podman/discussions/17868
+          sudo mv -fv /usr/bin/tar /usr/bin/tar.orig
+          echo -e '#!/bin/sh\n\nsudo /usr/bin/tar.orig "$@"' | sudo tee -a /usr/bin/tar
+          sudo chmod +x /usr/bin/tar
+
+      - name: Restore LibTorch Cache
+        uses: actions/cache@v4
+        id: libtorch-cache
+        with:
+          key: libtorch-${{ matrix.torch-version }}-macos-${{ matrix.arch }}
+          path: |
+            ${{ github.workspace }}/libtorch
+
+      - name: Install LibTorch
+        if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
+        run: |
+          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-macos-${{ matrix.arch }}-${{ matrix.torch-version }}.zip -O libtorch.zip
+          unzip -q ${{ github.workspace }}/libtorch.zip -d ${{ github.workspace }}/
+          rm ${{ github.workspace }}/libtorch.zip
+
+      - name: Cache Build
+        uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: ${{ matrix.os }}-${{ matrix.arch }}-torch-${{ matrix.cmake-build-type }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ matrix.os }}-cpu-torch-${{ matrix.cmake-build-type }}-ccache-
+          path: ${{ env.CCACHE_DIR }}
+
+      - name: Configure And Build
+        run: |
+          set -x
+          mkdir build
+          cd build
+          cmake .. \
+            -G${CMAKE_GENERATOR} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
+            -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
+          ninja
+          ls -l .
+
+      - name: Save Artifacts
+        if: ${{ matrix.os == 'macos-14' && matrix.arch == 'arm64' && matrix.torch-version == '2.2.1' && matrix.cmake-build-type == 'Release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            build/libgsplat.a
+            build/opensplat
+            build/simple_trainer
+
+      - name: Clean Compiler Cache
+        run: |
+          set -x
+          ccache --show-stats
+          ccache --evict-older-than 7d
+          ccache -s
+          ccache --show-stats
