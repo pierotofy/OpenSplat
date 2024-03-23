@@ -3,7 +3,7 @@ name: OpenSplat (MacOS X86 and ARM)
 on:
   push:
     branches:
-      - macos-build
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -89,7 +89,6 @@ jobs:
           else
             wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-macos-${{ matrix.torch-version }}.zip -O libtorch.zip
           fi
-          wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-macos-${{ matrix.arch }}-${{ matrix.torch-version }}.zip -O libtorch.zip
           unzip -q ${{ github.workspace }}/libtorch.zip -d ${{ github.workspace }}/
           rm ${{ github.workspace }}/libtorch.zip
 
