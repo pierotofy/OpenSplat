@@ -16,10 +16,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14] # [macos-14, macos-13, macos-12, macos-11]
-        arch: [arm64] # [arm64, x86_64]
-        torch-version: [2.2.1] # [2.2.1, 2.2.0, 2.1.2, 2.1.1, 2.1.0, 2.0.0, 1.13.0, 1.12.0]
+        os: [macos-14, macos-13] # [macos-14, macos-13, macos-12, macos-11]
+        arch: [arm64, x86_64] # [arm64, x86_64]
+        torch-version: [2.2.1, 2.1.2] # [2.2.1, 2.2.0, 2.1.2, 2.1.1, 2.1.0, 2.0.0, 1.13.0, 1.12.0]
         cmake-build-type: [Release] # [Debug, ClangTidy]
+        exclude:
+          - os: macos-14
+            arch: x86_64
+          - os: macos-14
+            arch: arm64
+            torch-version: 2.1.2
+          - os: macos-13
+            arch: arm64
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -34,6 +42,8 @@ jobs:
 
       - name: Setup MacOS
         run: |
+          brew update || brew update-reset &&
+          brew upgrade &&
           brew install \
             ccache \
             cmake \
@@ -51,6 +61,14 @@ jobs:
       - name: Install LibTorch
         if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
         run: |
+          TORCH_VER_FULL=${{ matrix.torch-version }}
+          TORCH_VER_ARR=($(echo ${TORCH_VER_FULL} | tr "." " "))
+          TORCH_VER="${TORCH_VER_ARR[0]}.${TORCH_VER_ARR[1]}"
+          if [[ "${TORCH_VER}" == "2.2" ]]; then
+            wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-macos-${{ matrix.arch }}-${{ matrix.torch-version }}.zip -O libtorch.zip
+          else
+            wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-macos-${{ matrix.torch-version }}.zip -O libtorch.zip
+          fi
           wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cpu/libtorch-macos-${{ matrix.arch }}-${{ matrix.torch-version }}.zip -O libtorch.zip
           unzip -q ${{ github.workspace }}/libtorch.zip -d ${{ github.workspace }}/
           rm ${{ github.workspace }}/libtorch.zip
@@ -84,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: |
-            build/libgsplat.a
+            build/libgsplat_cpu.a
             build/opensplat
             build/simple_trainer
 
