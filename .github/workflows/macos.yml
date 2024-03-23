@@ -34,6 +34,7 @@ jobs:
       CL: /MP
       CMAKE_GENERATOR: Ninja
       CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -42,8 +43,27 @@ jobs:
 
       - name: Setup MacOS
         run: |
-          brew update || brew update-reset &&
-          brew upgrade &&
+          if [[ "${{ matrix.os }}" == "macos-13" ]]; then
+            # brew install in macos-13 runner image is broken
+            # https://github.com/actions/runner-images/issues/9471
+            brew unlink python@3.11
+            brew unlink python@3.12
+            brew uninstall --force azure-cli
+            brew uninstall --force aws-sam-cli
+            brew uninstall --force pipx
+            brew uninstall --force python@3.11
+            brew uninstall --force python@3.12
+            rm -f '/usr/local/bin/2to3'
+            rm -f '/usr/local/bin/2to3-3.12'
+            rm -f '/usr/local/bin/idle3'
+            rm -f '/usr/local/bin/idle3.12'
+            rm -f '/usr/local/bin/pydoc3'
+            rm -f '/usr/local/bin/pydoc3.12'
+            rm -f '/usr/local/bin/python3'
+            rm -f '/usr/local/bin/python3-config'
+            rm -f '/usr/local/bin/python3.12'
+            rm -f '/usr/local/bin/python3.12-config'
+          fi
           brew install \
             ccache \
             cmake \
