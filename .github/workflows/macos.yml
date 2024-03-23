@@ -40,13 +40,6 @@ jobs:
             ninja \
             opencv
 
-      - name: Sudo Tar Wrapper
-        run: |
-          # Workaround: https://github.com/containers/podman/discussions/17868
-          sudo mv -fv /usr/bin/tar /usr/bin/tar.orig
-          echo -e '#!/bin/sh\n\nsudo /usr/bin/tar.orig "$@"' | sudo tee -a /usr/bin/tar
-          sudo chmod +x /usr/bin/tar
-
       - name: Restore LibTorch Cache
         uses: actions/cache@v4
         id: libtorch-cache
