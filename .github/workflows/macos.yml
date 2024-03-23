@@ -35,13 +35,10 @@ jobs:
       - name: Setup MacOS
         run: |
           brew install \
+            ccache \
             cmake \
             ninja \
             opencv
-          wget -nv https://github.com/ccache/ccache/releases/download/v4.9.1/ccache-4.9.1-darwin.tar.gz
-          sudo tar xzf ccache-4.9.1-darwin.tar.gz -C /usr/bin --strip-components=1 --no-same-owner ccache-4.9.1-darwin/ccache
-          rm -f ccache-*-darwin.tar.gz
-          ccache --version
 
       - name: Sudo Tar Wrapper
         run: |
