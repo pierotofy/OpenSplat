@@ -90,12 +90,14 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
             -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           ninja
+          ls -l .
 
       - name: Save Artifacts
+        if: ${{ matrix.os == 'ubuntu-22.04' && matrix.torch-version == '2.2.1' && matrix.cmake-build-type == 'Release' }}
         uses: actions/upload-artifact@v4
         with:
           path: |
-            build/libgsplat.a
+            build/libgsplat_cpu.a
             build/opensplat
             build/simple_trainer
 

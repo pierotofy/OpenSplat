@@ -122,8 +122,18 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
             -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
-            -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME
+            -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME \
+            -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           ninja
+
+      - name: Save Artifacts
+        if: ${{ matrix.os == 'ubuntu-22.04' && matrix.cuda-version == '12.1.1' && matrix.torch-version == '2.2.1' && matrix.cmake-build-type == 'Release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            build/libgsplat.a
+            build/opensplat
+            build/simple_trainer
 
       - name: Clean Compiler Cache
         run: |
