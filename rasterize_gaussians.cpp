@@ -210,7 +210,7 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
                             v_outImg,
                             v_outAlpha);
 
-    delete[] px2gid;
+    // delete[] px2gid;
 
 
     torch::Tensor v_xy = std::get<0>(t);

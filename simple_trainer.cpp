@@ -139,7 +139,7 @@ int main(int argc, char **argv){
     torch::Tensor outImg;
 
     for (size_t i = 0; i < iterations; i++){
-        if (device == torch::kCPU){
+        if (device == torch::kMPS){
             auto p = ProjectGaussiansCPU::apply(means, scales, 1, 
                                 quats, viewMat, viewMat,
                                 focal, focal,

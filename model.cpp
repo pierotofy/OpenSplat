@@ -89,7 +89,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
     torch::Tensor camDepths; // CPU-only
     torch::Tensor rgb;
 
-    if (device == torch::kCPU){
+    if (device == torch::kMPS){
         auto p = ProjectGaussiansCPU::apply(means, 
                                 torch::exp(scales), 
                                 1, 
@@ -149,7 +149,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
     torch::Tensor rgbs;
     
-    if (device == torch::kCPU){
+    if (device == torch::kMPS){
         rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
         #if defined(USE_HIP) || defined(USE_CUDA)
@@ -159,7 +159,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
     
     rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f);
 
-    if (device == torch::kCPU){
+    if (device == torch::kMPS){
         rgb = RasterizeGaussiansCPU::apply(
                 xys,
                 radii,
