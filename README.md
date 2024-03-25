@@ -94,7 +94,7 @@ git clone https://github.com/pierotofy/OpenSplat OpenSplat
 cd OpenSplat
 md build
 cd build
-cmake -DCMAKE_PREFIX_PATH=C:/path_to/libtorch_2.1.2_cu11.8 -DOPENCV_DIR=C:/path_to/OpenCV_4.9.0/build -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_PREFIX_PATH=C:/path_to/libtorch_2.1.2_cu11.8/libtorch -DOPENCV_DIR=C:/path_to/OpenCV_4.9.0/build -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release
 ```
 
