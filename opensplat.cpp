@@ -92,6 +92,12 @@ int main(int argc, char *argv[]){
 
     try{
         InputData inputData = inputDataFromX(projectRoot);
+
+        // TODO REMOVE
+        PointsTensor pt(inputData.points.xyz);
+        pt.outliers(2.0, 8);
+        exit(1);
+
         for (Camera &cam : inputData.cameras){
             cam.loadImage(downScaleFactor);
         }
