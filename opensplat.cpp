@@ -111,10 +111,14 @@ int main(int argc, char *argv[]){
         std::vector< size_t > camIndices( cams.size() );
         std::iota( camIndices.begin(), camIndices.end(), 0 );
         InfiniteRandomIterator<size_t> camsIter( camIndices );
+        PriorityQueue<size_t> camsQueue;
 
         int imageSize = -1;
         for (size_t step = 1; step <= numIters; step++){
-            Camera& cam = cams[ camsIter.next() ];
+            size_t camIdx = camsQueue.size() < camIndices.size() ? 
+                            camsIter.next() :
+                            camsQueue.pop();
+            Camera& cam = cams[camIdx];
 
             model.optimizersZeroGrad();
 
@@ -126,7 +130,7 @@ int main(int argc, char *argv[]){
             mainLoss.backward();
             
             if (step % displayStep == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
-
+            camsQueue.push(camIdx, mainLoss.item<float>());
             model.optimizersStep();
             model.schedulersStep(step);
             model.afterTrain(step);
