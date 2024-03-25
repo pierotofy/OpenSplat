@@ -174,7 +174,8 @@ jobs:
             -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           ninja
 
-      - name: Save Converted Artifacts
+      - name: Save Artifacts
+        if: ${{ matrix.os == 'ubuntu-22.04' && matrix.rocm-version == '5.7.1' && matrix.torch-version == '2.2.1' && matrix.cmake-build-type == 'Release' }}
         uses: actions/upload-artifact@v4
         with:
           path: |
