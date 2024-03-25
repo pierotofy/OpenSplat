@@ -11,6 +11,12 @@ Graphics card recommended, but not required! OpenSplat runs the fastest on NVIDI
 
 Commercial use allowed and encouraged under the terms of the [AGPLv3](https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0). ✅
 
+## Getting Started
+
+✨ If you're on Windows, you can save yourself some time by [purchasing](http://sites.fastspring.com/masseranolabs/product/opensplatforwindows) authentic, digitally signed binaries, which are delivered instantly to your e-mail in a few clicks! Skip the hassle of compiling the code yourself and support our project by enabling us to continue working full-time on OpenSplat. Then jump directly to the [run](#run) section. As an alternative, you can always [build](#build) the program from sources entirely free of charge.
+
+👇 If you're on macOS or Linux check the [build](#build) section below. 
+
 ## Build
 
 You can build OpenSplat with or without GPU support.
@@ -181,15 +187,23 @@ docker build \
 
 To get started, download a dataset and extract it to a folder: [ [banana](https://drive.google.com/file/d/1mUUZFDo2swd6CE5vwPPkjN63Hyf4XyEv/view?usp=sharing) ]  [ [train](https://drive.google.com/file/d/1-X741ecDczTRoMc3YenJLSFC9ulWXeNc/view?usp=sharing) ]  [ [truck](https://drive.google.com/file/d/1WWXo-GKo6d-yf-K1T1CswIdkdZrBNZ_e/view?usp=sharing) ] 
 
-Then run:
+Then run from a command line prompt:
+
+### Windows
 
 ```bash
-./opensplat /path/to/banana -n 2000
-[...]
-Wrote splat.ply
+cd c:\path\to\opensplat
+opensplat.exe c:\path\to\banana -n 2000
 ```
 
-The output `splat.ply` can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer. You can also edit/cleanup the scene using https://playcanvas.com/supersplat/editor
+### macOS / Linux
+
+```bash
+cd build
+./opensplat /path/to/banana -n 2000
+```
+
+The program will generate an output `splat.ply` file which can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer. You can also edit/cleanup the scene using https://playcanvas.com/supersplat/editor
 
 To run on your own data, choose the path to an existing [COLMAP](https://colmap.github.io/) or [nerfstudio](https://docs.nerf.studio/) project. The project must have sparse points included (random initialization is not supported, see https://github.com/pierotofy/OpenSplat/issues/7).
 
