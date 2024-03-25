@@ -45,7 +45,7 @@ struct PointsTensor {
     ~PointsTensor();
 
     torch::Tensor scales();
-    torch::Tensor outliers(double stdDev, int meanK);
+    torch::Tensor outliers(double stdDev = 2.0, int meanK = 8);
 };
 
 using KdTreeTensor = nanoflann::KDTreeSingleIndexAdaptor<

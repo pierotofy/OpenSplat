@@ -29,7 +29,7 @@ torch::Tensor PointsTensor::outliers(double multiplier, int meanK){
     const auto index = getIndex<KdTreeTensor>();
 
     size_t numPoints = tensor.size(0);
-    torch::Tensor outliers = torch::zeros({static_cast<long int>(numPoints), 1}, torch::TensorOptions().dtype(torch::kBool));
+    torch::Tensor outliers = torch::zeros({static_cast<long int>(numPoints)}, torch::TensorOptions().dtype(torch::kBool));
     bool *pOutliers = static_cast<bool *>(outliers.data_ptr());
 
     size_t count = meanK + 1;
@@ -69,19 +69,9 @@ torch::Tensor PointsTensor::outliers(double multiplier, int meanK){
 
     double threshold = mean + multiplier * stdev;
 
-    int pIn = 0;
-    int pOut = 0;
     for (size_t i = 0; i < numPoints; i++){
-        pOutliers[i] = distances[i] < threshold;
-
-        if (distances[i] < threshold){
-            pIn++;
-        }else{
-            pOut++;
-        }
+        pOutliers[i] = distances[i] > threshold;
     }
-
-    std::cout << pIn << " " << pOut  << std::endl;
 
     freeIndex<KdTreeTensor>();
 

@@ -406,24 +406,8 @@ void Model::afterTrain(int step){
                 culls |= huge;
             }
 
-            int cullCount = torch::sum(culls).item<int>();
-            if (cullCount > 0){
-                means = means.index({~culls}).detach().requires_grad_();
-                scales = scales.index({~culls}).detach().requires_grad_();
-                quats = quats.index({~culls}).detach().requires_grad_();
-                featuresDc = featuresDc.index({~culls}).detach().requires_grad_();
-                featuresRest = featuresRest.index({~culls}).detach().requires_grad_();
-                opacities = opacities.index({~culls}).detach().requires_grad_();
-
-                removeFromOptimizer(meansOpt, means, culls);
-                removeFromOptimizer(scalesOpt, scales, culls);
-                removeFromOptimizer(quatsOpt, quats, culls);
-                removeFromOptimizer(featuresDcOpt, featuresDc, culls);
-                removeFromOptimizer(featuresRestOpt, featuresRest, culls);
-                removeFromOptimizer(opacitiesOpt, opacities, culls);
-                
-                std::cout << "Culled " << (numPointsBefore - means.size(0)) << " gaussians, remaining " << means.size(0) << std::endl;
-            }
+            cull(culls);
+            std::cout << "Culled " << (numPointsBefore - means.size(0)) << " gaussians, remaining " << means.size(0) << std::endl;
         }
 
         if (step < stopSplitAt && step % resetInterval == refineEvery){
@@ -455,6 +439,36 @@ void Model::afterTrain(int step){
                     c10::cuda::CUDACachingAllocator::emptyCache();
             #endif
         }
+    }
+
+    if (step % filterEvery == 0 && step > warmupLength){
+        int numPointsBefore = means.size(0);
+        torch::Tensor outliers = PointsTensor(means.cpu()).outliers();
+        cull(outliers);
+        std::cout << "Filtered " << (numPointsBefore - means.size(0)) << " gaussians, remaining " << means.size(0) << std::endl;
+
+        xysGradNorm = torch::Tensor();
+        visCounts = torch::Tensor();
+        max2DSize = torch::Tensor();
+    }
+}
+
+void Model::cull(const torch::Tensor &mask){
+    int cullCount = torch::sum(mask).item<int>();
+    if (cullCount > 0){
+        means = means.index({~mask}).detach().requires_grad_();
+        scales = scales.index({~mask}).detach().requires_grad_();
+        quats = quats.index({~mask}).detach().requires_grad_();
+        featuresDc = featuresDc.index({~mask}).detach().requires_grad_();
+        featuresRest = featuresRest.index({~mask}).detach().requires_grad_();
+        opacities = opacities.index({~mask}).detach().requires_grad_();
+
+        removeFromOptimizer(meansOpt, means, mask);
+        removeFromOptimizer(scalesOpt, scales, mask);
+        removeFromOptimizer(quatsOpt, quats, mask);
+        removeFromOptimizer(featuresDcOpt, featuresDc, mask);
+        removeFromOptimizer(featuresRestOpt, featuresRest, mask);
+        removeFromOptimizer(opacitiesOpt, opacities, mask);        
     }
 }
 

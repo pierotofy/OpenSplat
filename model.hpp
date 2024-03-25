@@ -22,12 +22,12 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 struct Model{
   Model(const InputData &inputData, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
-        int refineEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
+        int refineEvery, int filterEvery, int warmupLength, int resetAlphaEvery, int stopSplitAt, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
         int maxSteps,
         const torch::Device &device) :
     numCameras(numCameras),
     numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
-    refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(stopSplitAt), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
+    refineEvery(refineEvery), filterEvery(filterEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(stopSplitAt), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
     maxSteps(maxSteps),
     device(device), ssim(11, 3){
 
@@ -81,6 +81,7 @@ struct Model{
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
   void afterTrain(int step);
+  void cull(const torch::Tensor &mask);
   void savePlySplat(const std::string &filename);
   void saveDebugPly(const std::string &filename);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
@@ -123,6 +124,7 @@ struct Model{
   int shDegree;
   int shDegreeInterval;
   int refineEvery;
+  int filterEvery;
   int warmupLength;
   int resetAlphaEvery;
   int stopSplitAt;

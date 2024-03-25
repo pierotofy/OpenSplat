@@ -27,8 +27,9 @@ int main(int argc, char *argv[]){
         ("sh-degree", "Maximum spherical harmonics degree (must be > 0)", cxxopts::value<int>()->default_value("3"))
         ("sh-degree-interval", "Increase the number of spherical harmonics degree after these many steps (will not exceed [sh-degree])", cxxopts::value<int>()->default_value("1000"))
         ("ssim-weight", "Weight to apply to the structural similarity loss. Set to zero to use least absolute deviation (L1) loss only", cxxopts::value<float>()->default_value("0.2"))
-        ("refine-every", "Split/duplicate/prune gaussians every these many steps", cxxopts::value<int>()->default_value("100"))
-        ("warmup-length", "Split/duplicate/prune gaussians only after these many steps", cxxopts::value<int>()->default_value("500"))
+        ("refine-every", "Split/duplicate/prune gaussians every these many steps.", cxxopts::value<int>()->default_value("100"))
+        ("filter-every", "Filter floaters (gaussian outliers) every these many steps.", cxxopts::value<int>()->default_value("500"))
+        ("warmup-length", "Filter/split/duplicate/prune gaussians only after these many steps", cxxopts::value<int>()->default_value("500"))
         ("reset-alpha-every", "Reset the opacity values of gaussians after these many refinements (not steps)", cxxopts::value<int>()->default_value("30"))
         ("stop-split-at", "Stop splitting/duplicating gaussians after these many steps", cxxopts::value<int>()->default_value("15000"))
         ("densify-grad-thresh", "Threshold of the positional gradient norm (magnitude of the loss function) which when exceeded leads to a gaussian split/duplication", cxxopts::value<float>()->default_value("0.0002"))
@@ -71,6 +72,7 @@ int main(int argc, char *argv[]){
     const int shDegreeInterval = result["sh-degree-interval"].as<int>();
     const float ssimWeight = result["ssim-weight"].as<float>();
     const int refineEvery = result["refine-every"].as<int>();
+    const int filterEvery = result["filter-every"].as<int>();
     const int warmupLength = result["warmup-length"].as<int>();
     const int resetAlphaEvery = result["reset-alpha-every"].as<int>();
     const int stopSplitAt = result["stop-split-at"].as<int>();
@@ -93,11 +95,6 @@ int main(int argc, char *argv[]){
     try{
         InputData inputData = inputDataFromX(projectRoot);
 
-        // TODO REMOVE
-        PointsTensor pt(inputData.points.xyz);
-        pt.outliers(2.0, 8);
-        exit(1);
-
         for (Camera &cam : inputData.cameras){
             cam.loadImage(downScaleFactor);
         }
@@ -110,7 +107,7 @@ int main(int argc, char *argv[]){
         Model model(inputData,
                     cams.size(),
                     numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-                    refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
+                    refineEvery, filterEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
                     numIters,
                     device);
 
