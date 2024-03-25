@@ -4,17 +4,57 @@ project(opensplat)
 set(OPENSPLAT_BUILD_SIMPLE_TRAINER OFF CACHE BOOL "Build simple trainer applications")
 set(GPU_RUNTIME "CUDA" CACHE STRING "HIP or CUDA")
 set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation directory")
+set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
 
 if(GPU_RUNTIME STREQUAL "CUDA")
-    set(CMAKE_CUDA_ARCHITECTURES 70 75)
     find_package(CUDAToolkit)
     if (NOT CUDAToolkit_FOUND)
         message(WARNING "CUDA toolkit not found, building with CPU support only")
         set(GPU_RUNTIME "CPU")
+    else()
+        execute_process(COMMAND "${CUDAToolkit_NVCC_EXECUTABLE}" --list-gpu-arch 
+                OUTPUT_VARIABLE LIST_GPU_ARCH 
+                ERROR_QUIET)
+        if(NOT LIST_GPU_ARCH AND OPENSPLAT_MAX_CUDA_COMPATIBILITY)
+            message(WARNING "Cannot compile for max CUDA compatibility, nvcc does not support --list-gpu-arch")
+            SET(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF)
+        endif()
+        if(NOT OPENSPLAT_MAX_CUDA_COMPATIBILITY)
+            if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+                SET(CMAKE_CUDA_ARCHITECTURES 70 75)
+            endif()
+        else()
+            # Build for maximum compatibility
+            # https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+            set(CMAKE_CUDA_ARCHITECTURES "")
+
+            # Extract list of arch and gencodes
+            string(REPLACE "\r" "" LIST_GPU_ARCH ${LIST_GPU_ARCH})
+            string(REPLACE "\n" ";" LIST_GPU_ARCH ${LIST_GPU_ARCH})
+
+            execute_process(COMMAND "${CUDAToolkit_NVCC_EXECUTABLE}" --list-gpu-code 
+                OUTPUT_VARIABLE LIST_GPU_CODE 
+                ERROR_QUIET)
+            string(REPLACE "\r" "" LIST_GPU_CODE ${LIST_GPU_CODE})
+            string(REPLACE "\n" ";" LIST_GPU_CODE ${LIST_GPU_CODE})
+
+            list(GET LIST_GPU_CODE 0 TARGET_GPU_CODE)
+            set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=${TARGET_GPU_CODE}")
+
+            set(IDX 0)
+            foreach(GPU_ARCH ${LIST_GPU_ARCH})
+                string(REGEX MATCH "compute_([0-9]+)" GPU_ARCH_VERSION "${GPU_ARCH}")
+                list(APPEND CMAKE_CUDA_ARCHITECTURES "${CMAKE_MATCH_1}")
+                list(GET LIST_GPU_CODE ${IDX} GPU_CODE)
+                set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=${GPU_ARCH},code=${GPU_CODE}")
+                math(EXPR IDX "${IDX}+1")
+            endforeach()
+            message("Set CUDA flags: " ${CMAKE_CUDA_FLAGS})
+        endif()
     endif()
 elseif(GPU_RUNTIME STREQUAL "HIP")
     set(USE_HIP ON CACHE BOOL "Use HIP for GPU acceleration")
@@ -66,7 +106,6 @@ if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     if(GPU_RUNTIME STREQUAL "CUDA")
         set(GPU_LIBRARIES "cuda")
         target_link_libraries(gsplat PUBLIC cuda)
-        set_target_properties(gsplat PROPERTIES CUDA_ARCHITECTURES "70;75")
     else(GPU_RUNTIME STREQUAL "HIP")
         set(GPU_INCLUDE_DIRS "${ROCM_ROOT}/include")
         target_compile_definitions(gsplat PRIVATE USE_HIP __HIP_PLATFORM_AMD__)
