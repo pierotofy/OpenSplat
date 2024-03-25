@@ -387,7 +387,7 @@ void Model::afterTrain(int step){
             std::cout << "Added " << (means.size(0) - numPointsBefore) << " gaussians, new count " << means.size(0) << std::endl;
         }
 
-        if (doDensification || step >= stopSplitAt){
+        if (doDensification){
             // Cull
             int numPointsBefore = means.size(0);
 

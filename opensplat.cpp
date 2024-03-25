@@ -30,7 +30,6 @@ int main(int argc, char *argv[]){
         ("refine-every", "Split/duplicate/prune gaussians every these many steps", cxxopts::value<int>()->default_value("100"))
         ("warmup-length", "Split/duplicate/prune gaussians only after these many steps", cxxopts::value<int>()->default_value("500"))
         ("reset-alpha-every", "Reset the opacity values of gaussians after these many refinements (not steps)", cxxopts::value<int>()->default_value("30"))
-        ("stop-split-at", "Stop splitting/duplicating gaussians after these many steps", cxxopts::value<int>()->default_value("15000"))
         ("densify-grad-thresh", "Threshold of the positional gradient norm (magnitude of the loss function) which when exceeded leads to a gaussian split/duplication", cxxopts::value<float>()->default_value("0.0002"))
         ("densify-size-thresh", "Gaussians' scales below this threshold are duplicated, otherwise split", cxxopts::value<float>()->default_value("0.01"))
         ("stop-screen-size-at", "Stop splitting gaussians that are larger than [split-screen-size] after these many steps", cxxopts::value<int>()->default_value("4000"))
@@ -73,7 +72,6 @@ int main(int argc, char *argv[]){
     const int refineEvery = result["refine-every"].as<int>();
     const int warmupLength = result["warmup-length"].as<int>();
     const int resetAlphaEvery = result["reset-alpha-every"].as<int>();
-    const int stopSplitAt = result["stop-split-at"].as<int>();
     const float densifyGradThresh = result["densify-grad-thresh"].as<float>();
     const float densifySizeThresh = result["densify-size-thresh"].as<float>();
     const int stopScreenSizeAt = result["stop-screen-size-at"].as<int>();
@@ -104,7 +102,7 @@ int main(int argc, char *argv[]){
         Model model(inputData,
                     cams.size(),
                     numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-                    refineEvery, warmupLength, resetAlphaEvery, stopSplitAt, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
+                    refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
                     numIters,
                     device);
 
