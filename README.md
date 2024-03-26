@@ -13,7 +13,7 @@ Commercial use allowed and encouraged under the terms of the [AGPLv3](https://ww
 
 ## Getting Started
 
-✨ If you're on Windows, you can save yourself some time by [purchasing](http://sites.fastspring.com/masseranolabs/product/opensplatforwindows) authentic, digitally signed binaries, which are delivered instantly to your e-mail in a few clicks! Skip the hassle of compiling the code yourself and support our project by enabling us to continue working full-time on OpenSplat. Then jump directly to the [run](#run) section. As an alternative, you can always [build](#build) the program from sources entirely free of charge.
+✨ If you're on Windows, you can save yourself some time by [purchasing](http://sites.fastspring.com/masseranolabs/product/opensplatforwindows) digitally signed binaries, which are delivered instantly to your e-mail in a few clicks! Skip the hassle of compiling the code yourself and support our project by enabling us to continue working full-time on OpenSplat. Then jump directly to the [run](#run) section. As an alternative, you can always [build](#build) the program from sources entirely free of charge.
 
 👇 If you're on macOS or Linux check the [build](#build) section below. 
 
