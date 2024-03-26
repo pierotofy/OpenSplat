@@ -16,15 +16,18 @@ if(GPU_RUNTIME STREQUAL "CUDA")
         message(WARNING "CUDA toolkit not found, building with CPU support only")
         set(GPU_RUNTIME "CPU")
     else()
-        execute_process(COMMAND "${CUDAToolkit_NVCC_EXECUTABLE}" --list-gpu-arch 
-                OUTPUT_VARIABLE LIST_GPU_ARCH 
-                ERROR_QUIET)
+        if (OPENSPLAT_MAX_CUDA_COMPATIBILITY)
+            execute_process(COMMAND "${CUDAToolkit_NVCC_EXECUTABLE}" --list-gpu-arch 
+                    OUTPUT_VARIABLE LIST_GPU_ARCH 
+                    ERROR_QUIET)
+        endif()
+
         if(NOT LIST_GPU_ARCH AND OPENSPLAT_MAX_CUDA_COMPATIBILITY)
             message(WARNING "Cannot compile for max CUDA compatibility, nvcc does not support --list-gpu-arch")
             SET(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF)
         endif()
         if(NOT OPENSPLAT_MAX_CUDA_COMPATIBILITY)
-            if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+            if(NOT CMAKE_CUDA_ARCHITECTURES)
                 SET(CMAKE_CUDA_ARCHITECTURES 70 75)
             endif()
         else()
