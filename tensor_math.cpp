@@ -25,7 +25,6 @@ torch::Tensor quatToRotMat(const torch::Tensor &quat){
             1.0 - 2.0 * (x.pow(2) + y.pow(2))
         }, -1)
     }, -2);
-    
 }
 
 std::tuple<torch::Tensor, torch::Tensor, float> autoScaleAndCenterPoses(const torch::Tensor &poses){
@@ -66,4 +65,29 @@ torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b){
     skew[2][1] = v[0];
 
     return torch::eye(3) + skew + torch::matmul(skew, skew * ((1 - c) / (s.pow(2) + EPS)));
+}
+
+torch::Tensor rodriguesToRotation(const torch::Tensor &rodrigues){
+    float theta = torch::linalg::vector_norm(rodrigues, 2, { -1 }, true, torch::kFloat32).item<float>();
+    if (theta < FLOAT_EPS){
+        return torch::eye(3, torch::kFloat32);
+    }
+    torch::Tensor r = rodrigues / theta;
+    torch::Tensor ident = torch::eye(3, torch::kFloat32);
+    float a = r[0].item<float>();
+    float b = r[1].item<float>();
+    float c = r[2].item<float>();
+    torch::Tensor rrT = torch::tensor({
+        {a * a, a * b, a * c},
+        {b * a, b * b, b * c},
+        {c * a, c * b, c * c}
+    }, torch::kFloat32);
+    torch::Tensor rCross = torch::tensor({
+        {0.0f, -c, b},
+        {c, 0.0f, -a},
+        {-b, a, 0.0f}
+    }, torch::kFloat32);
+    float cosTheta = std::cos(theta);
+
+    return cosTheta * ident + (1 - cosTheta) * rrT + std::sin(theta) * rCross;
 }
