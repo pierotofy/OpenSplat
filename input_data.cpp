@@ -18,6 +18,8 @@ InputData inputDataFromX(const std::string &projectRoot){
         return cm::inputDataFromColmap(projectRoot);
     }else if (fs::exists(root / "reconstruction.json")){
         return osfm::inputDataFromOpenSfM(projectRoot);
+    }else if (fs::exists(root / "opensfm" / "reconstruction.json")){
+        return osfm::inputDataFromOpenSfM((root / "opensfm").string());
     }else{
         throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio project folder)");
     }

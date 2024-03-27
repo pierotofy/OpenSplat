@@ -39,7 +39,7 @@ int main(int argc, char *argv[]){
         ("h,help", "Print usage")
         ;
     options.parse_positional({ "input" });
-    options.positional_help("[colmap or nerfstudio project path]");
+    options.positional_help("[colmap/nerfstudio/opensfm/odm project path]");
     cxxopts::ParseResult result;
     try {
         result = options.parse(argc, argv);
