@@ -18,6 +18,7 @@ int main(int argc, char *argv[]){
         ("val", "Withhold a camera shot for validating the scene loss")
         ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
         ("val-render", "Path of the directory where to render validation images", cxxopts::value<std::string>()->default_value(""))
+        ("keep-crs", "Retain the project input's coordinate reference system")
         ("cpu", "Force CPU execution")
         
         ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
@@ -61,7 +62,7 @@ int main(int argc, char *argv[]){
     const std::string valImage = result["val-image"].as<std::string>();
     const std::string valRender = result["val-render"].as<std::string>();
     if (!valRender.empty() && !fs::exists(valRender)) fs::create_directories(valRender);
-
+    const bool keepCrs = result.count("keep-crs") > 0;
     const float downScaleFactor = (std::max)(result["downscale-factor"].as<float>(), 1.0f);
     const int numIters = result["num-iters"].as<int>();
     const int numDownscales = result["num-downscales"].as<int>();
@@ -103,7 +104,7 @@ int main(int argc, char *argv[]){
                     cams.size(),
                     numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
                     refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
-                    numIters,
+                    numIters, keepCrs,
                     device);
 
         std::vector< size_t > camIndices( cams.size() );

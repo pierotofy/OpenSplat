@@ -23,12 +23,12 @@ struct Model{
   Model(const InputData &inputData, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
         int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
-        int maxSteps,
+        int maxSteps, bool keepCrs,
         const torch::Device &device) :
     numCameras(numCameras),
     numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
     refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(maxSteps / 2), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
-    maxSteps(maxSteps),
+    maxSteps(maxSteps), keepCrs(keepCrs),
     device(device), ssim(11, 3){
 
     long long numPoints = inputData.points.xyz.size(0);
@@ -131,6 +131,7 @@ struct Model{
   int stopScreenSizeAt;
   float splitScreenSize;
   int maxSteps;
+  bool keepCrs;
 
   float scale;
   torch::Tensor translation;
