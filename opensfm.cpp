@@ -68,8 +68,8 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
     std::string line;
     while(std::getline(f, line)){
         fs::path p(line);
-        if (p.is_absolute()) images[p.filename()] = line;
-        else images[p.filename()] = fs::absolute(nsRoot / p).string();
+        if (p.is_absolute()) images[p.filename().string()] = line;
+        else images[p.filename().string()] = fs::absolute(nsRoot / p).string();
     }
     f.close();
     auto reconstructions = data.template get<std::vector<Reconstruction>>();
