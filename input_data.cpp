@@ -7,6 +7,7 @@ using namespace torch::indexing;
 
 namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
 namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot); }
+namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot); }
 
 InputData inputDataFromX(const std::string &projectRoot){
     fs::path root(projectRoot);
@@ -15,6 +16,10 @@ InputData inputDataFromX(const std::string &projectRoot){
         return ns::inputDataFromNerfStudio(projectRoot);
     }else if (fs::exists(root / "sparse") || fs::exists(root / "cameras.bin")){
         return cm::inputDataFromColmap(projectRoot);
+    }else if (fs::exists(root / "reconstruction.json")){
+        return osfm::inputDataFromOpenSfM(projectRoot);
+    }else if (fs::exists(root / "opensfm" / "reconstruction.json")){
+        return osfm::inputDataFromOpenSfM((root / "opensfm").string());
     }else{
         throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio project folder)");
     }

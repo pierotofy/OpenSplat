@@ -498,10 +498,10 @@ void Model::savePlySplat(const std::string &filename){
 
     float zeros[] = { 0.0f, 0.0f, 0.0f };
 
-    torch::Tensor meansCpu = (means.cpu() / scale) + translation;
+    torch::Tensor meansCpu = keepCrs ? (means.cpu() / scale) + translation : means.cpu();
     torch::Tensor featuresDcCpu = featuresDc.cpu();
     torch::Tensor opacitiesCpu = opacities.cpu();
-    torch::Tensor scalesCpu = torch::log((torch::exp(scales.cpu()) / scale));
+    torch::Tensor scalesCpu = keepCrs ? torch::log((torch::exp(scales.cpu()) / scale)) : scales.cpu();
     torch::Tensor quatsCpu = quats.cpu();
 
     for (size_t i = 0; i < numPoints; i++) {
@@ -535,7 +535,7 @@ void Model::saveDebugPly(const std::string &filename){
     o << "property uchar blue" << std::endl;
     o << "end_header" << std::endl;
 
-    torch::Tensor meansCpu = (means.cpu() / scale) + translation;
+    torch::Tensor meansCpu = keepCrs ? (means.cpu() / scale) + translation : means.cpu();
     torch::Tensor rgbsCpu = (sh2rgb(featuresDc.cpu()) * 255.0f).toType(torch::kUInt8);
 
     for (size_t i = 0; i < numPoints; i++) {

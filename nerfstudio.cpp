@@ -109,6 +109,7 @@ void from_json(const json& j, Transforms &t){
 Transforms readTransforms(const std::string &filename){
     std::ifstream f(filename);
     json data = json::parse(f);
+    f.close();
     return data.template get<Transforms>();
 }
 
