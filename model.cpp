@@ -89,7 +89,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
     torch::Tensor camDepths; // CPU-only
     torch::Tensor rgb;
 
-    if (device == torch::kMPS){
+    if (device == torch::kCPU){
         auto p = ProjectGaussiansCPU::apply(means, 
                                 torch::exp(scales), 
                                 1, 
@@ -108,7 +108,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
         cov2d = p[3];
         camDepths = p[4];
     }else{
-        #if defined(USE_HIP) || defined(USE_CUDA)
+        #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
 
         TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
                         (height + BLOCK_Y - 1) / BLOCK_Y,
@@ -149,17 +149,17 @@ torch::Tensor Model::forward(Camera& cam, int step){
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
     torch::Tensor rgbs;
     
-    if (device == torch::kMPS){
+    if (device == torch::kCPU){
         rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
-        #if defined(USE_HIP) || defined(USE_CUDA)
+        #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
         rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
         #endif
     }
     
     rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f);
 
-    if (device == torch::kMPS){
+    if (device == torch::kCPU){
         rgb = RasterizeGaussiansCPU::apply(
                 xys,
                 radii,
@@ -172,7 +172,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
                 width,
                 backgroundColor);
     }else{  
-        #if defined(USE_HIP) || defined(USE_CUDA)
+        #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
         rgb = RasterizeGaussians::apply(
                 xys,
                 depths,

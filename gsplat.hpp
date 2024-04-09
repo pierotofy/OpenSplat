@@ -7,6 +7,10 @@
 #include "vendor/gsplat/bindings.h"
 #endif
 
+#if defined(USE_MPS)
+#include "vendor/gsplat-metal/bindings.h"
+#endif
+
 #include "vendor/gsplat-cpu/bindings.h"
 
 #endif

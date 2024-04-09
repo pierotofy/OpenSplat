@@ -27,7 +27,7 @@ torch::Tensor sh2rgb(const torch::Tensor &sh){
     return (sh * C0) + 0.5;
 }
 
-#if defined(USE_HIP) || defined(USE_CUDA)
+#if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
 
 torch::Tensor SphericalHarmonics::forward(AutogradContext *ctx, 
             int degreesToUse, 

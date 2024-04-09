@@ -5,6 +5,7 @@ set(OPENSPLAT_BUILD_SIMPLE_TRAINER OFF CACHE BOOL "Build simple trainer applicat
 set(GPU_RUNTIME "CUDA" CACHE STRING "HIP or CUDA or MPS")
 set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation directory")
 set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
@@ -82,6 +83,12 @@ elseif(GPU_RUNTIME STREQUAL "HIP")
     endif()
     list(APPEND CMAKE_PREFIX_PATH "${ROCM_ROOT}")
 elseif(GPU_RUNTIME STREQUAL "MPS")
+    find_library(FOUNDATION_LIBRARY Foundation REQUIRED)
+    find_library(METAL_FRAMEWORK    Metal      REQUIRED)
+    find_library(METALKIT_FRAMEWORK MetalKit   REQUIRED)
+    message(STATUS "Metal framework found")
+
+    set(XC_FLAGS -O3)
     set(USE_MPS ON CACHE BOOL "Use MPS for GPU acceleration")
 else()
     set(GPU_RUNTIME "CPU")
@@ -123,6 +130,34 @@ if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
         ${TORCH_INCLUDE_DIRS}
     )
     set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
+elseif(GPU_RUNTIME STREQUAL "MPS")    
+    add_library(gsplat vendor/gsplat-metal/gsplat_metal.mm)
+    list(APPEND GSPLAT_LIBS gsplat)
+    target_link_libraries(gsplat PRIVATE 
+        ${FOUNDATION_LIBRARY}
+        ${METAL_FRAMEWORK}
+        ${METALKIT_FRAMEWORK}
+    )
+    target_include_directories(gsplat PRIVATE
+        ${PROJECT_SOURCE_DIR}/vendor/glm        
+        ${TORCH_INCLUDE_DIRS}
+    )
+    # copy shader files to bin directory
+    configure_file(vendor/gsplat-metal/gsplat_metal.metal ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal COPYONLY)
+    add_custom_command(
+        OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/default.metallib
+        COMMAND xcrun -sdk macosx metal    ${XC_FLAGS} -c ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.air
+        COMMAND xcrun -sdk macosx metallib                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.air   -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/default.metallib
+        COMMAND rm -f ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.air
+        COMMAND rm -f ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal
+        DEPENDS vendor/gsplat-metal/gsplat_metal.metal
+        COMMENT "Compiling Metal kernels"
+    )
+
+    add_custom_target(
+        gsplat_metal ALL
+        DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/default.metallib
+    )
 endif()
 
 add_library(gsplat_cpu vendor/gsplat-cpu/gsplat_cpu.cpp)
