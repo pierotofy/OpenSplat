@@ -161,6 +161,10 @@ id<MTLBuffer> getMTLBufferStorage(const torch::Tensor& tensor) {
   return __builtin_bit_cast(id<MTLBuffer>, tensor.storage().data());
 }
 
+#define ENC_SCALAR(encoder, x, i) [encoder setBytes:&x length:sizeof(x) atIndex:i]
+#define ENC_ARRAY(encoder, x, i) [encoder setBytes:x length:sizeof(x) atIndex:i]
+#define ENC_TENSOR(encoder, x, i) [encoder setBuffer:getMTLBufferStorage(x) offset:x.storage_offset() * x.element_size() atIndex:i]
+
 std::tuple<
     torch::Tensor, // output conics
     torch::Tensor> // output radii
@@ -205,12 +209,12 @@ torch::Tensor compute_sh_forward_tensor(
         [encoder setComputePipelineState:cpso];
 
         // Set the tensor buffers
-        [encoder setBytes:&num_points length:sizeof(num_points) atIndex:0];
-        [encoder setBytes:&degree length:sizeof(degree) atIndex:1];
-        [encoder setBytes:&degrees_to_use length:sizeof(degrees_to_use) atIndex:2];
-        [encoder setBuffer:getMTLBufferStorage(viewdirs) offset:viewdirs.storage_offset() * viewdirs.element_size() atIndex:3];
-        [encoder setBuffer:getMTLBufferStorage(coeffs) offset:coeffs.storage_offset() * coeffs.element_size() atIndex:4];
-        [encoder setBuffer:getMTLBufferStorage(colors) offset:colors.storage_offset() * colors.element_size() atIndex:5];
+        ENC_SCALAR(encoder, num_points, 0);
+        ENC_SCALAR(encoder, degree, 1);
+        ENC_SCALAR(encoder, degrees_to_use, 2);
+        ENC_TENSOR(encoder, viewdirs, 3);
+        ENC_TENSOR(encoder, coeffs, 4);
+        ENC_TENSOR(encoder, colors, 5);
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
@@ -306,22 +310,22 @@ project_gaussians_forward_tensor(
         [encoder setComputePipelineState:cpso];
 
         // Set the tensor buffers
-        [encoder setBytes:&num_points length:sizeof(num_points) atIndex:0];
-        [encoder setBuffer:getMTLBufferStorage(means3d) offset:means3d.storage_offset() * means3d.element_size() atIndex:1];
-        [encoder setBuffer:getMTLBufferStorage(scales) offset:scales.storage_offset() * scales.element_size() atIndex:2];
-        [encoder setBytes:&glob_scale length:sizeof(glob_scale) atIndex:3];
-        [encoder setBuffer:getMTLBufferStorage(quats) offset:quats.storage_offset() * quats.element_size() atIndex:4];
-        [encoder setBuffer:getMTLBufferStorage(viewmat) offset:viewmat.storage_offset() * viewmat.element_size() atIndex:5];
-        [encoder setBuffer:getMTLBufferStorage(projmat) offset:projmat.storage_offset() * projmat.element_size() atIndex:6];
-        [encoder setBytes:intrins length:sizeof(intrins) atIndex:7];
-        [encoder setBytes:img_size length:sizeof(img_size) atIndex:8];
-        [encoder setBytes:&clip_thresh length:sizeof(clip_thresh) atIndex:9];
-        [encoder setBuffer:getMTLBufferStorage(cov3d_d) offset:cov3d_d.storage_offset() * cov3d_d.element_size() atIndex:10];
-        [encoder setBuffer:getMTLBufferStorage(xys_d) offset:xys_d.storage_offset() * xys_d.element_size() atIndex:11];
-        [encoder setBuffer:getMTLBufferStorage(depths_d) offset:depths_d.storage_offset() * depths_d.element_size() atIndex:12];
-        [encoder setBuffer:getMTLBufferStorage(radii_d) offset:radii_d.storage_offset() * radii_d.element_size() atIndex:13];
-        [encoder setBuffer:getMTLBufferStorage(conics_d) offset:conics_d.storage_offset() * conics_d.element_size() atIndex:14];
-        [encoder setBuffer:getMTLBufferStorage(num_tiles_hit_d) offset:num_tiles_hit_d.storage_offset() * num_tiles_hit_d.element_size() atIndex:15];
+        ENC_SCALAR(encoder, num_points, 0);
+        ENC_TENSOR(encoder, means3d, 1);
+        ENC_TENSOR(encoder, scales, 2);
+        ENC_SCALAR(encoder, glob_scale, 3);
+        ENC_TENSOR(encoder, quats, 4);
+        ENC_TENSOR(encoder, viewmat, 5);
+        ENC_TENSOR(encoder, projmat, 6);
+        ENC_ARRAY(encoder, intrins, 7);
+        ENC_ARRAY(encoder, img_size, 8);
+        ENC_SCALAR(encoder, clip_thresh, 9);
+        ENC_TENSOR(encoder, cov3d_d, 10);
+        ENC_TENSOR(encoder, xys_d, 11);
+        ENC_TENSOR(encoder, depths_d, 12);
+        ENC_TENSOR(encoder, radii_d, 13);
+        ENC_TENSOR(encoder, conics_d, 14);
+        ENC_TENSOR(encoder, num_tiles_hit_d, 15);
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
@@ -419,13 +423,13 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
         [encoder setComputePipelineState:cpso];
 
         // Set the tensor buffers
-        [encoder setBytes:&num_points length:sizeof(num_points) atIndex:0];
-        [encoder setBuffer:getMTLBufferStorage(xys) offset:xys.storage_offset() * xys.element_size() atIndex:1];
-        [encoder setBuffer:getMTLBufferStorage(depths) offset:depths.storage_offset() * depths.element_size() atIndex:2];
-        [encoder setBuffer:getMTLBufferStorage(radii) offset:radii.storage_offset() * radii.element_size() atIndex:3];
-        [encoder setBuffer:getMTLBufferStorage(cum_tiles_hit) offset:cum_tiles_hit.storage_offset() * cum_tiles_hit.element_size() atIndex:4];
-        [encoder setBuffer:getMTLBufferStorage(isect_ids_unsorted) offset:isect_ids_unsorted.storage_offset() * isect_ids_unsorted.element_size() atIndex:5];
-        [encoder setBuffer:getMTLBufferStorage(gaussian_ids_unsorted) offset:gaussian_ids_unsorted.storage_offset() * gaussian_ids_unsorted.element_size() atIndex:6];
+        ENC_SCALAR(encoder, num_points, 0);
+        ENC_TENSOR(encoder, xys, 1);
+        ENC_TENSOR(encoder, depths, 2);
+        ENC_TENSOR(encoder, radii, 3);
+        ENC_TENSOR(encoder, cum_tiles_hit, 4);
+        ENC_TENSOR(encoder, isect_ids_unsorted, 5);
+        ENC_TENSOR(encoder, gaussian_ids_unsorted, 6);
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
@@ -468,9 +472,9 @@ torch::Tensor get_tile_bin_edges_tensor(
         [encoder setComputePipelineState:cpso];
 
         // Set the tensor buffers
-        [encoder setBytes:&num_intersects length:sizeof(num_intersects) atIndex:0];
-        [encoder setBuffer:getMTLBufferStorage(isect_ids_sorted) offset:isect_ids_sorted.storage_offset() * isect_ids_sorted.element_size() atIndex:1];
-        [encoder setBuffer:getMTLBufferStorage(tile_bins) offset:tile_bins.storage_offset() * tile_bins.element_size() atIndex:2];
+        ENC_SCALAR(encoder, num_intersects, 0);
+        ENC_TENSOR(encoder, isect_ids_sorted, 1);
+        ENC_TENSOR(encoder, tile_bins, 2);
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(num_intersects, 1, 1);
@@ -494,6 +498,7 @@ std::tuple<
     torch::Tensor
 > rasterize_forward_tensor(
     const std::tuple<int, int, int> tile_bounds,
+    // TODO(achan): we should be able to remove the 3rd dimension of `block` as it is always set to 1
     const std::tuple<int, int, int> block,
     const std::tuple<int, int, int> img_size,
     const torch::Tensor &gaussian_ids_sorted,
@@ -542,27 +547,26 @@ std::tuple<
         [encoder setComputePipelineState:cpso];
 
         int32_t img_size_dim3[4] = {std::get<0>(img_size), std::get<1>(img_size), std::get<2>(img_size), 0xDEAD};
-        int32_t block_size_dim3[4] = {std::get<0>(block), std::get<1>(block), std::get<2>(block), 0xDEAD};
+        int32_t block_size_dim2[2] = {std::get<0>(block), std::get<1>(block)};
 
         // Set the tensor buffers
-        [encoder setBytes:img_size_dim3 length:sizeof(img_size_dim3) atIndex:0];
-        [encoder setBytes:&channels length:sizeof(&channels) atIndex:1];
-        [encoder setBuffer:getMTLBufferStorage(gaussian_ids_sorted) offset:gaussian_ids_sorted.storage_offset() * gaussian_ids_sorted.element_size() atIndex:2];
-        [encoder setBuffer:getMTLBufferStorage(tile_bins) offset:tile_bins.storage_offset() * tile_bins.element_size() atIndex:3];
-        [encoder setBuffer:getMTLBufferStorage(xys) offset:xys.storage_offset() * xys.element_size() atIndex:4];
-        [encoder setBuffer:getMTLBufferStorage(conics) offset:conics.storage_offset() * conics.element_size() atIndex:5];
-        [encoder setBuffer:getMTLBufferStorage(colors) offset:colors.storage_offset() * colors.element_size() atIndex:6];
-        [encoder setBuffer:getMTLBufferStorage(opacities) offset:opacities.storage_offset() * opacities.element_size() atIndex:7];
-        [encoder setBuffer:getMTLBufferStorage(final_Ts) offset:final_Ts.storage_offset() * final_Ts.element_size() atIndex:8];
-        [encoder setBuffer:getMTLBufferStorage(final_idx) offset:final_idx.storage_offset() * final_idx.element_size() atIndex:9];
-        [encoder setBuffer:getMTLBufferStorage(out_img) offset:out_img.storage_offset() * out_img.element_size() atIndex:10];
-        [encoder setBuffer:getMTLBufferStorage(background) offset:background.storage_offset() * background.element_size() atIndex:11];
-        [encoder setBytes:block_size_dim3 length:2*sizeof(int32_t) atIndex:12];
+        ENC_ARRAY(encoder, img_size_dim3, 0);
+        ENC_SCALAR(encoder, channels, 1);
+        ENC_TENSOR(encoder, gaussian_ids_sorted, 2);
+        ENC_TENSOR(encoder, tile_bins, 3);
+        ENC_TENSOR(encoder, xys, 4);
+        ENC_TENSOR(encoder, conics, 5);
+        ENC_TENSOR(encoder, colors, 6);
+        ENC_TENSOR(encoder, opacities, 7);
+        ENC_TENSOR(encoder, final_Ts, 8);
+        ENC_TENSOR(encoder, final_idx, 9);
+        ENC_TENSOR(encoder, out_img, 10);
+        ENC_TENSOR(encoder, background, 11);
+        ENC_ARRAY(encoder, block_size_dim2, 12);
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
-        // TODO(achan): we should be able to remove the 3rd dimension of `block` as it is always set to 1
-        MTLSize thread_group_size = MTLSizeMake(block_size_dim3[0], block_size_dim3[1], block_size_dim3[2]);
+        MTLSize thread_group_size = MTLSizeMake(block_size_dim2[0], block_size_dim2[1], 1);
 
         // Dispatch the compute command
         [encoder dispatchThreads:grid_size threadsPerThreadgroup:thread_group_size];
@@ -708,23 +712,23 @@ std::
         uint32_t img_size[2] = {img_height, img_width};
 
         // Set the tensor buffers
-        [encoder setBytes:img_size length:sizeof(img_size) atIndex:0];
-        [encoder setBuffer:getMTLBufferStorage(gaussians_ids_sorted) offset:gaussians_ids_sorted.storage_offset() * gaussians_ids_sorted.element_size() atIndex:1];
-        [encoder setBuffer:getMTLBufferStorage(tile_bins) offset:tile_bins.storage_offset() * tile_bins.element_size() atIndex:2];
-        [encoder setBuffer:getMTLBufferStorage(xys) offset:xys.storage_offset() * xys.element_size() atIndex:3];
-        [encoder setBuffer:getMTLBufferStorage(conics) offset:conics.storage_offset() * conics.element_size() atIndex:4];
-        [encoder setBuffer:getMTLBufferStorage(colors) offset:colors.storage_offset() * colors.element_size() atIndex:5];
-        [encoder setBuffer:getMTLBufferStorage(opacities) offset:opacities.storage_offset() * opacities.element_size() atIndex:6];
-        [encoder setBuffer:getMTLBufferStorage(background) offset:background.storage_offset() * background.element_size() atIndex:7];
-        [encoder setBuffer:getMTLBufferStorage(final_Ts) offset:final_Ts.storage_offset() * final_Ts.element_size() atIndex:8];
-        [encoder setBuffer:getMTLBufferStorage(final_idx) offset:final_idx.storage_offset() * final_idx.element_size() atIndex:9];
-        [encoder setBuffer:getMTLBufferStorage(v_output) offset:v_output.storage_offset() * v_output.element_size() atIndex:10];
-        [encoder setBuffer:getMTLBufferStorage(v_output_alpha) offset:v_output_alpha.storage_offset() * v_output_alpha.element_size() atIndex:11];
-        [encoder setBuffer:getMTLBufferStorage(v_xy) offset:v_xy.storage_offset() * v_xy.element_size() atIndex:12];
-        [encoder setBuffer:getMTLBufferStorage(v_conic) offset:v_conic.storage_offset() * v_conic.element_size() atIndex:13];
-        [encoder setBuffer:getMTLBufferStorage(v_colors) offset:v_colors.storage_offset() * v_colors.element_size() atIndex:14];
-        [encoder setBuffer:getMTLBufferStorage(v_opacity) offset:v_opacity.storage_offset() * v_opacity.element_size() atIndex:15];
-        [encoder setBuffer:getMTLBufferStorage(debug) offset:debug.storage_offset() * debug.element_size() atIndex:16];
+        ENC_ARRAY(encoder, img_size, 0);
+        ENC_TENSOR(encoder, gaussians_ids_sorted, 1);
+        ENC_TENSOR(encoder, tile_bins, 2);
+        ENC_TENSOR(encoder, xys, 3);
+        ENC_TENSOR(encoder, conics, 4);
+        ENC_TENSOR(encoder, colors, 5);
+        ENC_TENSOR(encoder, opacities, 6);
+        ENC_TENSOR(encoder, background, 7);
+        ENC_TENSOR(encoder, final_Ts, 8);
+        ENC_TENSOR(encoder, final_idx, 9);
+        ENC_TENSOR(encoder, v_output, 10);
+        ENC_TENSOR(encoder, v_output_alpha, 11);
+        ENC_TENSOR(encoder, v_xy, 12);
+        ENC_TENSOR(encoder, v_conic, 13);
+        ENC_TENSOR(encoder, v_colors, 14);
+        ENC_TENSOR(encoder, v_opacity, 15);
+        ENC_TENSOR(encoder, debug, 16);
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
