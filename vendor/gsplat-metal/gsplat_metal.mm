@@ -1,4 +1,5 @@
 #import "bindings.h"
+#import "../gsplat/config.h"
 
 #import <Foundation/Foundation.h>
 
@@ -72,7 +73,7 @@ MetalContext* init_gsplat_metal_context() {
     } else {
         printf("%s: default.metallib not found, loading from source\n", __func__);
 
-        NSString * source_path = [[@ __FILE__ stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"ggml-metal.metal"];
+        NSString * source_path = [[@ __FILE__ stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"gsplat_metal.metal"];
         printf("%s: loading '%s'\n", __func__, [source_path UTF8String]);
 
         NSString * src = [NSString stringWithContentsOfFile:source_path encoding:NSUTF8StringEncoding error:&error];
@@ -112,14 +113,14 @@ MetalContext* init_gsplat_metal_context() {
     // GSPLAT_METAL_ADD_KERNEL(nd_rasterize_forward_kernel);
     // GSPLAT_METAL_ADD_KERNEL(nd_rasterize_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(rasterize_forward_kernel);
-    // GSPLAT_METAL_ADD_KERNEL(rasterize_backward_kernel);
+    GSPLAT_METAL_ADD_KERNEL(rasterize_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(project_gaussians_forward_kernel);
     // GSPLAT_METAL_ADD_KERNEL(project_gaussians_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(compute_sh_forward_kernel);
     // GSPLAT_METAL_ADD_KERNEL(compute_sh_backward_kernel);
     // GSPLAT_METAL_ADD_KERNEL(compute_cov2d_bounds_kernel);
-    // GSPLAT_METAL_ADD_KERNEL(map_gaussian_to_intersects_kernel);
-    // GSPLAT_METAL_ADD_KERNEL(get_tile_bin_edges_kernel);
+    GSPLAT_METAL_ADD_KERNEL(map_gaussian_to_intersects_kernel);
+    GSPLAT_METAL_ADD_KERNEL(get_tile_bin_edges_kernel);
 
     [metal_library release];
 
@@ -206,9 +207,10 @@ torch::Tensor compute_sh_forward_tensor(
         // Set the tensor buffers
         [encoder setBytes:&num_points length:sizeof(num_points) atIndex:0];
         [encoder setBytes:&degree length:sizeof(degree) atIndex:1];
-        [encoder setBuffer:getMTLBufferStorage(viewdirs) offset:viewdirs.storage_offset() * viewdirs.element_size() atIndex:2];
-        [encoder setBuffer:getMTLBufferStorage(coeffs) offset:coeffs.storage_offset() * coeffs.element_size() atIndex:3];
-        [encoder setBuffer:getMTLBufferStorage(colors) offset:colors.storage_offset() * colors.element_size() atIndex:4];
+        [encoder setBytes:&degrees_to_use length:sizeof(degrees_to_use) atIndex:2];
+        [encoder setBuffer:getMTLBufferStorage(viewdirs) offset:viewdirs.storage_offset() * viewdirs.element_size() atIndex:3];
+        [encoder setBuffer:getMTLBufferStorage(coeffs) offset:coeffs.storage_offset() * coeffs.element_size() atIndex:4];
+        [encoder setBuffer:getMTLBufferStorage(colors) offset:colors.storage_offset() * colors.element_size() atIndex:5];
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
@@ -297,8 +299,7 @@ project_gaussians_forward_tensor(
         TORCH_CHECK(encoder, "Failed to create compute command encoder");
 
         float intrins[4] = {fx, fy, cx, cy};
-        int32_t img_size[3] = {(int32_t)img_width, (int32_t)img_height, 1};
-        int32_t tile_bounds_dim3[3] = {std::get<0>(tile_bounds), std::get<1>(tile_bounds), std::get<2>(tile_bounds)};
+        int32_t img_size[2] = {(int32_t)img_width, (int32_t)img_height};
 
         // Encode the pipeline state object
         id<MTLComputePipelineState> cpso = ctx->project_gaussians_forward_kernel_cpso;
@@ -314,14 +315,13 @@ project_gaussians_forward_tensor(
         [encoder setBuffer:getMTLBufferStorage(projmat) offset:projmat.storage_offset() * projmat.element_size() atIndex:6];
         [encoder setBytes:intrins length:sizeof(intrins) atIndex:7];
         [encoder setBytes:img_size length:sizeof(img_size) atIndex:8];
-        [encoder setBytes:tile_bounds_dim3 length:sizeof(tile_bounds_dim3) atIndex:9];
-        [encoder setBytes:&clip_thresh length:sizeof(clip_thresh) atIndex:10];
-        [encoder setBuffer:getMTLBufferStorage(cov3d_d) offset:cov3d_d.storage_offset() * cov3d_d.element_size() atIndex:11];
-        [encoder setBuffer:getMTLBufferStorage(xys_d) offset:xys_d.storage_offset() * xys_d.element_size() atIndex:12];
-        [encoder setBuffer:getMTLBufferStorage(depths_d) offset:depths_d.storage_offset() * depths_d.element_size() atIndex:13];
-        [encoder setBuffer:getMTLBufferStorage(radii_d) offset:radii_d.storage_offset() * radii_d.element_size() atIndex:14];
-        [encoder setBuffer:getMTLBufferStorage(conics_d) offset:conics_d.storage_offset() * conics_d.element_size() atIndex:15];
-        [encoder setBuffer:getMTLBufferStorage(num_tiles_hit_d) offset:num_tiles_hit_d.storage_offset() * num_tiles_hit_d.element_size() atIndex:16];
+        [encoder setBytes:&clip_thresh length:sizeof(clip_thresh) atIndex:9];
+        [encoder setBuffer:getMTLBufferStorage(cov3d_d) offset:cov3d_d.storage_offset() * cov3d_d.element_size() atIndex:10];
+        [encoder setBuffer:getMTLBufferStorage(xys_d) offset:xys_d.storage_offset() * xys_d.element_size() atIndex:11];
+        [encoder setBuffer:getMTLBufferStorage(depths_d) offset:depths_d.storage_offset() * depths_d.element_size() atIndex:12];
+        [encoder setBuffer:getMTLBufferStorage(radii_d) offset:radii_d.storage_offset() * radii_d.element_size() atIndex:13];
+        [encoder setBuffer:getMTLBufferStorage(conics_d) offset:conics_d.storage_offset() * conics_d.element_size() atIndex:14];
+        [encoder setBuffer:getMTLBufferStorage(num_tiles_hit_d) offset:num_tiles_hit_d.storage_offset() * num_tiles_hit_d.element_size() atIndex:15];
 
         // Set the grid threadgroup sizes
         MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
@@ -402,6 +402,43 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
         torch::zeros({num_intersects}, xys.options().dtype(torch::kInt32));
     torch::Tensor isect_ids_unsorted =
         torch::zeros({num_intersects}, xys.options().dtype(torch::kInt64));
+    
+    // Get a reference to the command buffer for the MPS stream
+    id<MTLCommandBuffer> command_buffer = torch::mps::get_command_buffer();
+    TORCH_CHECK(command_buffer, "Failed to retrieve command buffer reference");
+
+    // Dispatch the kernel
+    MetalContext* ctx = get_global_context();
+    dispatch_sync(ctx->d_queue, ^(){
+        // Start a compute pass
+        id<MTLComputeCommandEncoder> encoder = [command_buffer computeCommandEncoder];
+        TORCH_CHECK(encoder, "Failed to create compute command encoder");
+
+        // Encode the pipeline state object
+        id<MTLComputePipelineState> cpso = ctx->map_gaussian_to_intersects_kernel_cpso;
+        [encoder setComputePipelineState:cpso];
+
+        // Set the tensor buffers
+        [encoder setBytes:&num_points length:sizeof(num_points) atIndex:0];
+        [encoder setBuffer:getMTLBufferStorage(xys) offset:xys.storage_offset() * xys.element_size() atIndex:1];
+        [encoder setBuffer:getMTLBufferStorage(depths) offset:depths.storage_offset() * depths.element_size() atIndex:2];
+        [encoder setBuffer:getMTLBufferStorage(radii) offset:radii.storage_offset() * radii.element_size() atIndex:3];
+        [encoder setBuffer:getMTLBufferStorage(cum_tiles_hit) offset:cum_tiles_hit.storage_offset() * cum_tiles_hit.element_size() atIndex:4];
+        [encoder setBuffer:getMTLBufferStorage(isect_ids_unsorted) offset:isect_ids_unsorted.storage_offset() * isect_ids_unsorted.element_size() atIndex:5];
+        [encoder setBuffer:getMTLBufferStorage(gaussian_ids_unsorted) offset:gaussian_ids_unsorted.storage_offset() * gaussian_ids_unsorted.element_size() atIndex:6];
+
+        // Set the grid threadgroup sizes
+        MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
+        NSUInteger num_threads_per_group = MIN(cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
+        MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+
+        // Dispatch the compute command
+        [encoder dispatchThreads:grid_size threadsPerThreadgroup:thread_group_size];
+        [encoder endEncoding];
+
+        // Commit the work
+        torch::mps::synchronize();
+    });
 
     return std::make_tuple(isect_ids_unsorted, gaussian_ids_unsorted);
 }
@@ -414,6 +451,39 @@ torch::Tensor get_tile_bin_edges_tensor(
     torch::Tensor tile_bins = torch::zeros(
         {num_intersects, 2}, isect_ids_sorted.options().dtype(torch::kInt32)
     );
+
+    // Get a reference to the command buffer for the MPS stream
+    id<MTLCommandBuffer> command_buffer = torch::mps::get_command_buffer();
+    TORCH_CHECK(command_buffer, "Failed to retrieve command buffer reference");
+
+    // Dispatch the kernel
+    MetalContext* ctx = get_global_context();
+    dispatch_sync(ctx->d_queue, ^(){
+        // Start a compute pass
+        id<MTLComputeCommandEncoder> encoder = [command_buffer computeCommandEncoder];
+        TORCH_CHECK(encoder, "Failed to create compute command encoder");
+
+        // Encode the pipeline state object
+        id<MTLComputePipelineState> cpso = ctx->get_tile_bin_edges_kernel_cpso;
+        [encoder setComputePipelineState:cpso];
+
+        // Set the tensor buffers
+        [encoder setBytes:&num_intersects length:sizeof(num_intersects) atIndex:0];
+        [encoder setBuffer:getMTLBufferStorage(isect_ids_sorted) offset:isect_ids_sorted.storage_offset() * isect_ids_sorted.element_size() atIndex:1];
+        [encoder setBuffer:getMTLBufferStorage(tile_bins) offset:tile_bins.storage_offset() * tile_bins.element_size() atIndex:2];
+
+        // Set the grid threadgroup sizes
+        MTLSize grid_size = MTLSizeMake(num_intersects, 1, 1);
+        NSUInteger num_threads_per_group = MIN(cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_intersects);
+        MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+
+        // Dispatch the compute command
+        [encoder dispatchThreads:grid_size threadsPerThreadgroup:thread_group_size];
+        [encoder endEncoding];
+
+        // Commit the work
+        torch::mps::synchronize();
+    });
 
     return tile_bins;
 }
@@ -442,7 +512,7 @@ std::tuple<
     CHECK_INPUT(opacities);
     CHECK_INPUT(background);
 
-    const int channels = colors.size(1);
+    const uint32_t channels = colors.size(1);
     const int img_width = std::get<0>(img_size);
     const int img_height = std::get<1>(img_size);
 
@@ -471,13 +541,12 @@ std::tuple<
         id<MTLComputePipelineState> cpso = ctx->rasterize_forward_kernel_cpso;
         [encoder setComputePipelineState:cpso];
 
-        int32_t tile_bounds_dim3[3] = {std::get<0>(tile_bounds), std::get<1>(tile_bounds), std::get<2>(tile_bounds)};
-        int32_t img_size_dim3[3] = {std::get<0>(img_size), std::get<1>(img_size), std::get<2>(img_size)};
-        int32_t block_size_dim3[3] = {std::get<0>(block), std::get<1>(block), std::get<2>(block)};
+        int32_t img_size_dim3[4] = {std::get<0>(img_size), std::get<1>(img_size), std::get<2>(img_size), 0xDEAD};
+        int32_t block_size_dim3[4] = {std::get<0>(block), std::get<1>(block), std::get<2>(block), 0xDEAD};
 
         // Set the tensor buffers
-        [encoder setBytes:tile_bounds_dim3 length:sizeof(tile_bounds_dim3) atIndex:0];
-        [encoder setBytes:img_size_dim3 length:sizeof(img_size_dim3) atIndex:1];
+        [encoder setBytes:img_size_dim3 length:sizeof(img_size_dim3) atIndex:0];
+        [encoder setBytes:&channels length:sizeof(&channels) atIndex:1];
         [encoder setBuffer:getMTLBufferStorage(gaussian_ids_sorted) offset:gaussian_ids_sorted.storage_offset() * gaussian_ids_sorted.element_size() atIndex:2];
         [encoder setBuffer:getMTLBufferStorage(tile_bins) offset:tile_bins.storage_offset() * tile_bins.element_size() atIndex:3];
         [encoder setBuffer:getMTLBufferStorage(xys) offset:xys.storage_offset() * xys.element_size() atIndex:4];
@@ -618,6 +687,56 @@ std::
     torch::Tensor v_colors =
         torch::zeros({num_points, channels}, xys.options());
     torch::Tensor v_opacity = torch::zeros({num_points, 1}, xys.options());
+
+    torch::Tensor debug = torch::zeros({1}, xys.options().dtype(torch::kInt32));
+
+    // Get a reference to the command buffer for the MPS stream
+    id<MTLCommandBuffer> command_buffer = torch::mps::get_command_buffer();
+    TORCH_CHECK(command_buffer, "Failed to retrieve command buffer reference");
+
+    // Dispatch the kernel
+    MetalContext* ctx = get_global_context();
+    dispatch_sync(ctx->d_queue, ^(){
+        // Start a compute pass
+        id<MTLComputeCommandEncoder> encoder = [command_buffer computeCommandEncoder];
+        TORCH_CHECK(encoder, "Failed to create compute command encoder");
+
+        // Encode the pipeline state object
+        id<MTLComputePipelineState> cpso = ctx->rasterize_backward_kernel_cpso;
+        [encoder setComputePipelineState:cpso];
+
+        uint32_t img_size[2] = {img_height, img_width};
+
+        // Set the tensor buffers
+        [encoder setBytes:img_size length:sizeof(img_size) atIndex:0];
+        [encoder setBuffer:getMTLBufferStorage(gaussians_ids_sorted) offset:gaussians_ids_sorted.storage_offset() * gaussians_ids_sorted.element_size() atIndex:1];
+        [encoder setBuffer:getMTLBufferStorage(tile_bins) offset:tile_bins.storage_offset() * tile_bins.element_size() atIndex:2];
+        [encoder setBuffer:getMTLBufferStorage(xys) offset:xys.storage_offset() * xys.element_size() atIndex:3];
+        [encoder setBuffer:getMTLBufferStorage(conics) offset:conics.storage_offset() * conics.element_size() atIndex:4];
+        [encoder setBuffer:getMTLBufferStorage(colors) offset:colors.storage_offset() * colors.element_size() atIndex:5];
+        [encoder setBuffer:getMTLBufferStorage(opacities) offset:opacities.storage_offset() * opacities.element_size() atIndex:6];
+        [encoder setBuffer:getMTLBufferStorage(background) offset:background.storage_offset() * background.element_size() atIndex:7];
+        [encoder setBuffer:getMTLBufferStorage(final_Ts) offset:final_Ts.storage_offset() * final_Ts.element_size() atIndex:8];
+        [encoder setBuffer:getMTLBufferStorage(final_idx) offset:final_idx.storage_offset() * final_idx.element_size() atIndex:9];
+        [encoder setBuffer:getMTLBufferStorage(v_output) offset:v_output.storage_offset() * v_output.element_size() atIndex:10];
+        [encoder setBuffer:getMTLBufferStorage(v_output_alpha) offset:v_output_alpha.storage_offset() * v_output_alpha.element_size() atIndex:11];
+        [encoder setBuffer:getMTLBufferStorage(v_xy) offset:v_xy.storage_offset() * v_xy.element_size() atIndex:12];
+        [encoder setBuffer:getMTLBufferStorage(v_conic) offset:v_conic.storage_offset() * v_conic.element_size() atIndex:13];
+        [encoder setBuffer:getMTLBufferStorage(v_colors) offset:v_colors.storage_offset() * v_colors.element_size() atIndex:14];
+        [encoder setBuffer:getMTLBufferStorage(v_opacity) offset:v_opacity.storage_offset() * v_opacity.element_size() atIndex:15];
+        [encoder setBuffer:getMTLBufferStorage(debug) offset:debug.storage_offset() * debug.element_size() atIndex:16];
+
+        // Set the grid threadgroup sizes
+        MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
+        MTLSize thread_group_size = MTLSizeMake(BLOCK_X, BLOCK_Y, 1);
+
+        // Dispatch the compute command
+        [encoder dispatchThreads:grid_size threadsPerThreadgroup:thread_group_size];
+        [encoder endEncoding];
+
+        // Commit the work
+        torch::mps::synchronize();
+    });
 
     return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
 }

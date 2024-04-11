@@ -273,7 +273,7 @@ inline bool compute_cov2d_bounds(
 }
 
 inline float2 project_pix(
-    constant float *mat, const float3 p, const int3 img_size, const float2 pp
+    constant float *mat, const float3 p, const int2 img_size, const float2 pp
 ) {
     // ROW MAJOR mat
     float4 p_hom = transform_4x4(mat, p);
@@ -298,6 +298,14 @@ inline int2 read_packed_int2(constant int* arr, int idx) {
 inline void write_packed_int2(device int* arr, int idx, int2 val) {
     arr[2*idx] = val.x;
     arr[2*idx+1] = val.y;
+}
+
+inline void write_packed_int2x(device int* arr, int idx, int x) {
+    arr[2*idx] = x;
+}
+
+inline void write_packed_int2y(device int* arr, int idx, int y) {
+    arr[2*idx+1] = y;
 }
 
 inline float2 read_packed_float2(constant float* arr, int idx) {
@@ -351,8 +359,7 @@ kernel void project_gaussians_forward_kernel(
     constant float* viewmat,
     constant float* projmat,
     constant float4& intrins,
-    constant int3& img_size,
-    constant int3& tile_bounds,
+    constant int2& img_size,
     constant float& clip_thresh,
     device float* covs3d,
     device float* xys, // float2
@@ -360,8 +367,10 @@ kernel void project_gaussians_forward_kernel(
     device int* radii,
     device float* conics, // float3
     device int32_t* num_tiles_hit,
-    uint idx [[thread_position_in_grid]]
+    uint3 tile_bounds [[threadgroups_per_grid]],
+    uint3 gp [[thread_position_in_grid]]
 ) {
+    uint idx = gp.x;
     if (idx >= num_points) {
         return;
     }
@@ -402,7 +411,7 @@ kernel void project_gaussians_forward_kernel(
     // compute the projected mean
     float2 center = project_pix(projmat, p_world, img_size, {cx, cy});
     uint2 tile_min, tile_max;
-    get_tile_bbox(center, radius, tile_bounds, tile_min, tile_max);
+    get_tile_bbox(center, radius, (int3)tile_bounds, tile_min, tile_max);
     int32_t tile_area = (tile_max.x - tile_min.x) * (tile_max.y - tile_min.y);
     if (tile_area <= 0) {
         return;
@@ -414,8 +423,8 @@ kernel void project_gaussians_forward_kernel(
     write_packed_float2(xys, idx, center);
 }
 
+// TODO(achan): this is actually the nd_rasterize_forward_kernel
 kernel void rasterize_forward_kernel(
-    constant int3& tile_bounds,
     constant int3& img_size,
     constant uint& channels,
     constant int32_t* gaussian_ids_sorted,
@@ -429,6 +438,7 @@ kernel void rasterize_forward_kernel(
     device float* out_img,
     constant float* background,
     constant uint2& blockDim, 
+    uint2 tile_bounds [[threadgroups_per_grid]],
     uint2 blockIdx [[threadgroup_position_in_grid]],
     uint2 threadIdx [[thread_position_in_threadgroup]]
 ) {
@@ -593,4 +603,280 @@ kernel void compute_sh_forward_kernel(
     sh_coeffs_to_color(
         degrees_to_use, read_packed_float3(viewdirs, idx), &(coeffs[idx_sh]), &(colors[idx_col])
     );
+}
+
+// kernel to map each intersection from tile ID and depth to a gaussian
+// writes output to isect_ids and gaussian_ids
+kernel void map_gaussian_to_intersects_kernel(
+    constant int& num_points,
+    constant float* xys, // float2
+    constant float* depths,
+    constant int* radii,
+    constant int32_t* cum_tiles_hit,
+    device int64_t* isect_ids,
+    device int32_t* gaussian_ids,
+    uint3 tile_bounds [[threadgroups_per_grid]],
+    uint3 gp [[thread_position_in_grid]]
+) {
+    uint idx = gp.x;
+    if (idx >= num_points)
+        return;
+    if (radii[idx] <= 0)
+        return;
+    // get the tile bbox for gaussian
+    uint2 tile_min, tile_max;
+    float2 center = read_packed_float2(xys, idx);
+    get_tile_bbox(center, radii[idx], (int3)tile_bounds, tile_min, tile_max);
+    // printf("point %d, %d radius, min %d %d, max %d %d\n", idx, radii[idx],
+    // tile_min.x, tile_min.y, tile_max.x, tile_max.y);
+
+    // update the intersection info for all tiles this gaussian hits
+    int32_t cur_idx = (idx == 0) ? 0 : cum_tiles_hit[idx - 1];
+    // printf("point %d starting at %d\n", idx, cur_idx);
+    int64_t depth_id = (int64_t) * (constant int32_t *)&(depths[idx]);
+    for (int i = tile_min.y; i < tile_max.y; ++i) {
+        for (int j = tile_min.x; j < tile_max.x; ++j) {
+            // isect_id is tile ID and depth as int32
+            int64_t tile_id = i * tile_bounds.x + j; // tile within image
+            isect_ids[cur_idx] = (tile_id << 32) | depth_id; // tile | depth id
+            gaussian_ids[cur_idx] = idx;                     // 3D gaussian id
+            ++cur_idx; // handles gaussians that hit more than one tile
+        }
+    }
+    // printf("point %d ending at %d\n", idx, cur_idx);
+}
+
+// kernel to map sorted intersection IDs to tile bins
+// expect that intersection IDs are sorted by increasing tile ID
+// i.e. intersections of a tile are in contiguous chunks
+kernel void get_tile_bin_edges_kernel(
+    constant int& num_intersects, 
+    constant int64_t* isect_ids_sorted, 
+    device int* tile_bins, // int2
+    uint idx [[thread_position_in_grid]]
+) {
+    if (idx >= num_intersects)
+        return;
+    // save the indices where the tile_id changes
+    int32_t cur_tile_idx = (int32_t)(isect_ids_sorted[idx] >> 32);
+    if (idx == 0 || idx == num_intersects - 1) {
+        if (idx == 0)
+            write_packed_int2x(tile_bins, cur_tile_idx, 0);
+        if (idx == num_intersects - 1)
+            write_packed_int2y(tile_bins, cur_tile_idx, num_intersects);
+        return;
+    }
+    int32_t prev_tile_idx = (int32_t)(isect_ids_sorted[idx - 1] >> 32);
+    if (prev_tile_idx != cur_tile_idx) {
+        write_packed_int2y(tile_bins, prev_tile_idx, idx);
+        write_packed_int2x(tile_bins, cur_tile_idx, idx);
+        return;
+    }
+}
+
+float block_reduce_sum(float val, uint tr, threadgroup float* shared) {
+    if (tr < BLOCK_SIZE) {
+        shared[tr] = val;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    
+    for (uint s = 1; s < BLOCK_SIZE; s *= 2) {
+        if (tr % (2 * s) == 0 && tr + s < BLOCK_SIZE) {
+            shared[tr] += shared[tr + s];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    return shared[0];
+}
+
+float block_reduce_max(float val, uint tr, threadgroup float* shared) {
+    if (tr < BLOCK_SIZE) {
+        shared[tr] = val;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    
+    for (uint s = 1; s < BLOCK_SIZE; s *= 2) {
+        if (tr % (2 * s) == 0 && tr + s < BLOCK_SIZE) {
+            shared[tr] = max(shared[tr + s], shared[tr]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    return shared[0];
+}
+
+kernel void rasterize_backward_kernel(
+    constant uint2& img_size,
+    constant int32_t* gaussian_ids_sorted,
+    constant int* tile_bins, // int2
+    constant float* xys, // float2
+    constant float* conics, // float3
+    constant float* rgbs, // float3
+    constant float* opacities,
+    constant float* background, // single float3
+    constant float* final_Ts,
+    constant int* final_index,
+    constant float* v_output, // float3
+    constant float* v_output_alpha,
+    device atomic_float* v_xy, // float2
+    device atomic_float* v_conic, // float3
+    device atomic_float* v_rgb, // float3
+    device atomic_float* v_opacity,
+    device int32_t* debug,
+    uint3 tile_bounds [[threadgroups_per_grid]],
+    uint3 gp [[thread_position_in_grid]],
+    uint3 block_index [[threadgroup_position_in_grid]],
+    uint tr [[thread_index_in_threadgroup]]
+) {
+    int32_t tile_id =
+        block_index.y * tile_bounds.x + block_index.x;
+    uint i = gp.y;
+    uint j = gp.x;
+
+    const float px = (float)j;
+    const float py = (float)i;
+    // clamp this value to the last pixel
+    const int32_t pix_id = min((int32_t)(i * img_size.x + j), (int32_t)(img_size.x * img_size.y - 1));
+
+    // keep not rasterizing threads around for reading data
+    const bool inside = (i < img_size.y && j < img_size.x);
+
+    // this is the T AFTER the last gaussian in this pixel
+    float T_final = final_Ts[pix_id];
+    float T = T_final;
+    // the contribution from gaussians behind the current one
+    float3 buffer = {0.f, 0.f, 0.f};
+    // index of last gaussian to contribute to this pixel
+    const int bin_final = inside? final_index[pix_id] : 0;
+
+    // have all threads in tile process the same gaussians in batches
+    // first collect gaussians between range.x and range.y in batches
+    // which gaussians to look through in this tile
+    const int2 range = read_packed_int2(tile_bins, tile_id);
+    const int num_batches = (range.y - range.x + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    threadgroup int32_t id_batch[BLOCK_SIZE];
+    threadgroup float3 xy_opacity_batch[BLOCK_SIZE];
+    threadgroup float3 conic_batch[BLOCK_SIZE];
+    threadgroup float3 rgbs_batch[BLOCK_SIZE];
+
+    // df/d_out for this pixel
+    const float3 v_out = read_packed_float3(v_output, pix_id);
+    const float v_out_alpha = v_output_alpha[pix_id];
+
+    // collect and process batches of gaussians
+    // each thread loads one gaussian at a time before rasterizing
+    threadgroup float shared[BLOCK_SIZE];
+    // TODO(achan): convert `block_reduce_max` to use SIMD groups
+    const int warp_bin_final = block_reduce_max(bin_final, tr, shared);
+    for (int b = 0; b < num_batches; ++b) {
+        // resync all threads before writing next batch of shared mem
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        // each thread fetch 1 gaussian from back to front
+        // 0 index will be furthest back in batch
+        // index of gaussian to load
+        // batch end is the index of the last gaussian in the batch
+        const int batch_end = range.y - 1 - BLOCK_SIZE * b;
+        int batch_size = min(BLOCK_SIZE, batch_end + 1 - range.x);
+        const int idx = batch_end - tr;
+        if (idx >= range.x) {
+            int32_t g_id = gaussian_ids_sorted[idx];
+            id_batch[tr] = g_id;
+            const float2 xy = read_packed_float2(xys, g_id);
+            const float opac = opacities[g_id];
+            xy_opacity_batch[tr] = {xy.x, xy.y, opac};
+            conic_batch[tr] = read_packed_float3(conics, g_id);
+            rgbs_batch[tr] = read_packed_float3(rgbs, g_id);
+        }
+        // wait for other threads to collect the gaussians in batch
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        // process gaussians in the current batch for this pixel
+        // 0 index is the furthest back gaussian in the batch
+        for (int t = max(0,batch_end - warp_bin_final); t < batch_size; ++t) {
+            int valid = inside;
+            if (batch_end - t > bin_final) {
+                valid = 0;
+            }
+            float alpha;
+            float opac;
+            float2 delta;
+            float3 conic;
+            float vis;
+            if(valid){
+                conic = conic_batch[t];
+                float3 xy_opac = xy_opacity_batch[t];
+                opac = xy_opac.z;
+                delta = {xy_opac.x - px, xy_opac.y - py};
+                float sigma = 0.5f * (conic.x * delta.x * delta.x +
+                                            conic.z * delta.y * delta.y) +
+                                    conic.y * delta.x * delta.y;
+                vis = exp(-sigma);
+                alpha = min(0.99f, opac * vis);
+                if (sigma < 0.f || alpha < 1.f / 255.f) {
+                    valid = 0;
+                }
+            }
+            // TODO(achan): if all threads are inactive in this warp, skip this loop iter here
+
+            float3 v_rgb_local = {0.f, 0.f, 0.f};
+            float3 v_conic_local = {0.f, 0.f, 0.f};
+            float2 v_xy_local = {0.f, 0.f};
+            float v_opacity_local = 0.f;
+            //initialize everything to 0, only set if the lane is valid
+            if(valid){
+                // compute the current T for this gaussian
+                float ra = 1.f / (1.f - alpha);
+                T *= ra;
+                // update v_rgb for this gaussian
+                const float fac = alpha * T;
+                float v_alpha = 0.f;
+                v_rgb_local = {fac * v_out.x, fac * v_out.y, fac * v_out.z};
+
+                const float3 rgb = rgbs_batch[t];
+                // contribution from this pixel
+                v_alpha += (rgb.x * T - buffer.x * ra) * v_out.x;
+                v_alpha += (rgb.y * T - buffer.y * ra) * v_out.y;
+                v_alpha += (rgb.z * T - buffer.z * ra) * v_out.z;
+
+                v_alpha += T_final * ra * v_out_alpha;
+                // contribution from background pixel
+                v_alpha += -T_final * ra * background[0] * v_out.x;
+                v_alpha += -T_final * ra * background[1] * v_out.y;
+                v_alpha += -T_final * ra * background[2] * v_out.z;
+                // update the running sum
+                buffer.x += rgb.x * fac;
+                buffer.y += rgb.y * fac;
+                buffer.z += rgb.z * fac;
+
+                const float v_sigma = -opac * vis * v_alpha;
+                v_conic_local = {0.5f * v_sigma * delta.x * delta.x, 
+                                        0.5f * v_sigma * delta.x * delta.y, 
+                                        0.5f * v_sigma * delta.y * delta.y};
+                v_xy_local = {v_sigma * (conic.x * delta.x + conic.y * delta.y), 
+                                    v_sigma * (conic.y * delta.x + conic.z * delta.y)};
+                v_opacity_local = vis * v_alpha;
+            }
+
+            // TODO(achan): Use SIMD groups to reduce atomic contention similarly to warps
+            int32_t g = id_batch[t];
+
+            atomic_fetch_add_explicit(v_rgb + 3*g + 0, v_rgb_local.x, memory_order_relaxed);
+            atomic_fetch_add_explicit(v_rgb + 3*g + 1, v_rgb_local.y, memory_order_relaxed);
+            atomic_fetch_add_explicit(v_rgb + 3*g + 2, v_rgb_local.z, memory_order_relaxed);
+            
+            atomic_fetch_add_explicit(v_conic + 3*g + 0, v_conic_local.x, memory_order_relaxed);
+            atomic_fetch_add_explicit(v_conic + 3*g + 1, v_conic_local.y, memory_order_relaxed);
+            atomic_fetch_add_explicit(v_conic + 3*g + 2, v_conic_local.z, memory_order_relaxed);
+            
+            atomic_fetch_add_explicit(v_xy + 2*g + 0, v_xy_local.x, memory_order_relaxed);
+            atomic_fetch_add_explicit(v_xy + 2*g + 1, v_xy_local.y, memory_order_relaxed);
+            
+            atomic_fetch_add_explicit(v_opacity + g, v_opacity_local, memory_order_relaxed);
+        }
+    }
 }
