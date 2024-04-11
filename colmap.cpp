@@ -53,6 +53,12 @@ InputData inputDataFromColmap(const std::string &projectRoot){
             cam->fy = readBinary<double>(camf);
             cam->cx = readBinary<double>(camf);
             cam->cy = readBinary<double>(camf);
+        }else if (model == SimpleRadial){
+            cam->fx = readBinary<double>(camf);
+            cam->fy = cam->fx;
+            cam->cx = readBinary<double>(camf);
+            cam->cy = readBinary<double>(camf);
+            cam->k = readBinary<double>(camf);
         }else if (model == OpenCV){
             cam->fx = readBinary<double>(camf);
             cam->fy = readBinary<double>(camf);
