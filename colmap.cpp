@@ -58,7 +58,7 @@ InputData inputDataFromColmap(const std::string &projectRoot){
             cam->fy = cam->fx;
             cam->cx = readBinary<double>(camf);
             cam->cy = readBinary<double>(camf);
-            cam->k = readBinary<double>(camf);
+            cam->k1 = readBinary<double>(camf);
         }else if (model == OpenCV){
             cam->fx = readBinary<double>(camf);
             cam->fy = readBinary<double>(camf);
