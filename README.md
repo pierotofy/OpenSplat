@@ -1,4 +1,4 @@
-# 💦 OpenSplat 
+# 💦 OpenSplat
 
 A free and open source implementation of 3D [gaussian splatting](https://www.youtube.com/watch?v=HVv_IQKlafQ) written in C++, focused on being portable, lean and fast.
 
@@ -10,6 +10,8 @@ OpenSplat takes camera poses + sparse points in [COLMAP](https://colmap.github.i
 Graphics card recommended, but not required! OpenSplat runs the fastest on NVIDIA and AMD GPUs, but can also run entirely on the CPU (~100x slower).
 
 Commercial use allowed and encouraged under the terms of the [AGPLv3](https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0). ✅
+
+We even have a [song](https://youtu.be/1bma7XJkoDM) 🎵
 
 ## Getting Started
 
