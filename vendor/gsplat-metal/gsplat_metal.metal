@@ -368,6 +368,7 @@ kernel void project_gaussians_forward_kernel(
     constant float* projmat,
     constant float4& intrins,
     constant uint2& img_size,
+    constant uint3& tile_bounds,
     constant float& clip_thresh,
     device float* covs3d,
     device float* xys, // float2
@@ -375,7 +376,6 @@ kernel void project_gaussians_forward_kernel(
     device int* radii,
     device float* conics, // float3
     device int32_t* num_tiles_hit,
-    uint3 tile_bounds [[threadgroups_per_grid]],
     uint3 gp [[thread_position_in_grid]]
 ) {
     uint idx = gp.x;
@@ -385,7 +385,7 @@ kernel void project_gaussians_forward_kernel(
     radii[idx] = 0;
     num_tiles_hit[idx] = 0;
 
-    float3 p_world = means3d[idx*3];
+    float3 p_world = read_packed_float3(means3d, idx);
     float3 p_view;
     if (clip_near_plane(p_world, viewmat, p_view, clip_thresh)) {
         return;
@@ -433,6 +433,7 @@ kernel void project_gaussians_forward_kernel(
 
 // TODO(achan): this is actually the nd_rasterize_forward_kernel
 kernel void rasterize_forward_kernel(
+    constant uint3& tile_bounds,
     constant uint3& img_size,
     constant uint& channels,
     constant int32_t* gaussian_ids_sorted,
@@ -446,7 +447,6 @@ kernel void rasterize_forward_kernel(
     device float* out_img,
     constant float* background,
     constant uint2& blockDim, 
-    uint2 tile_bounds [[threadgroups_per_grid]],
     uint2 blockIdx [[threadgroup_position_in_grid]],
     uint2 threadIdx [[thread_position_in_threadgroup]]
 ) {
@@ -735,9 +735,9 @@ kernel void map_gaussian_to_intersects_kernel(
     constant float* depths,
     constant int* radii,
     constant int32_t* cum_tiles_hit,
+    constant uint3& tile_bounds,
     device int64_t* isect_ids,
     device int32_t* gaussian_ids,
-    uint3 tile_bounds [[threadgroups_per_grid]],
     uint3 gp [[thread_position_in_grid]]
 ) {
     uint idx = gp.x;
@@ -838,6 +838,7 @@ inline float warpSum(float val, uint warp_size){
 }
 
 kernel void rasterize_backward_kernel(
+    constant uint3& tile_bounds,
     constant uint2& img_size,
     constant int32_t* gaussian_ids_sorted,
     constant int* tile_bins, // int2
@@ -855,15 +856,14 @@ kernel void rasterize_backward_kernel(
     device atomic_float* v_rgb, // float3
     device atomic_float* v_opacity,
     device int32_t* debug,
-    uint3 tile_bounds [[threadgroups_per_grid]],
     uint3 gp [[thread_position_in_grid]],
-    uint3 block_index [[threadgroup_position_in_grid]],
+    uint3 blockIdx [[threadgroup_position_in_grid]],
     uint tr [[thread_index_in_threadgroup]],
     uint warp_size [[threads_per_simdgroup]],
     uint wr [[thread_index_in_simdgroup]]
 ) {
     int32_t tile_id =
-        block_index.y * tile_bounds.x + block_index.x;
+        blockIdx.y * tile_bounds.x + blockIdx.x;
     uint i = gp.y;
     uint j = gp.x;
 
