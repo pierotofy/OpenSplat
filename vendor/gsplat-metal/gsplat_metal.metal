@@ -796,38 +796,45 @@ kernel void get_tile_bin_edges_kernel(
     }
 }
 
-float block_reduce_sum(float val, uint tr, threadgroup float* shared) {
-    if (tr < BLOCK_SIZE) {
-        shared[tr] = val;
-    }
-    
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    
-    for (uint s = 1; s < BLOCK_SIZE; s *= 2) {
-        if (tr % (2 * s) == 0 && tr + s < BLOCK_SIZE) {
-            shared[tr] += shared[tr + s];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
+inline int warp_reduce_all_max(int val, const int warp_size) {
+    // This uses an xor so that all threads in a warp get the same result
+    for ( int mask = warp_size / 2; mask > 0; mask /= 2 )
+        val = max(val, simd_shuffle_xor(val, mask));
 
-    return shared[0];
+    return val;
 }
 
-float block_reduce_max(float val, uint tr, threadgroup float* shared) {
-    if (tr < BLOCK_SIZE) {
-        shared[tr] = val;
-    }
-    
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    
-    for (uint s = 1; s < BLOCK_SIZE; s *= 2) {
-        if (tr % (2 * s) == 0 && tr + s < BLOCK_SIZE) {
-            shared[tr] = max(shared[tr + s], shared[tr]);
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
+inline int warp_reduce_all_or(int val, const int warp_size) {
+    // This uses an xor so that all threads in a warp get the same result
+    for ( int mask = warp_size / 2; mask > 0; mask /= 2 )
+        val = val | simd_shuffle_xor(val, mask);
 
-    return shared[0];
+    return val;
+}
+
+inline float warp_reduce_sum(float val, const int warp_size) {
+    for ( int offset = warp_size / 2; offset > 0; offset /= 2 )
+        val += simd_shuffle_and_fill_down(val, 0., offset);
+
+    return val;
+}
+
+inline float3 warpSum3(float3 val, uint warp_size){
+    val.x = warp_reduce_sum(val.x, warp_size);
+    val.y = warp_reduce_sum(val.y, warp_size);
+    val.z = warp_reduce_sum(val.z, warp_size);
+    return val;
+}
+
+inline float2 warpSum2(float2 val, uint warp_size){
+    val.x = warp_reduce_sum(val.x, warp_size);
+    val.y = warp_reduce_sum(val.y, warp_size);
+    return val;
+}
+
+inline float warpSum(float val, uint warp_size){
+    val = warp_reduce_sum(val, warp_size);
+    return val;
 }
 
 kernel void rasterize_backward_kernel(
@@ -851,7 +858,9 @@ kernel void rasterize_backward_kernel(
     uint3 tile_bounds [[threadgroups_per_grid]],
     uint3 gp [[thread_position_in_grid]],
     uint3 block_index [[threadgroup_position_in_grid]],
-    uint tr [[thread_index_in_threadgroup]]
+    uint tr [[thread_index_in_threadgroup]],
+    uint warp_size [[threads_per_simdgroup]],
+    uint wr [[thread_index_in_simdgroup]]
 ) {
     int32_t tile_id =
         block_index.y * tile_bounds.x + block_index.x;
@@ -891,9 +900,7 @@ kernel void rasterize_backward_kernel(
 
     // collect and process batches of gaussians
     // each thread loads one gaussian at a time before rasterizing
-    threadgroup float shared[BLOCK_SIZE];
-    // TODO(achan): convert `block_reduce_max` to use SIMD groups
-    const int warp_bin_final = block_reduce_max(bin_final, tr, shared);
+    const int warp_bin_final = warp_reduce_all_max(bin_final, warp_size);
     for (int b = 0; b < num_batches; ++b) {
         // resync all threads before writing next batch of shared mem
         threadgroup_barrier(mem_flags::mem_threadgroup);
@@ -943,7 +950,10 @@ kernel void rasterize_backward_kernel(
                     valid = 0;
                 }
             }
-            // TODO(achan): if all threads are inactive in this warp, skip this loop iter here
+            // if all threads are inactive in this warp, skip this loop
+            if (!warp_reduce_all_or(valid, warp_size)) {
+                continue;
+            }
 
             float3 v_rgb_local = {0.f, 0.f, 0.f};
             float3 v_conic_local = {0.f, 0.f, 0.f};
@@ -984,21 +994,27 @@ kernel void rasterize_backward_kernel(
                 v_opacity_local = vis * v_alpha;
             }
 
-            // TODO(achan): Use SIMD groups to reduce atomic contention similarly to warps
-            int32_t g = id_batch[t];
+            v_rgb_local = warpSum3(v_rgb_local, warp_size);
+            v_conic_local = warpSum3(v_conic_local, warp_size);
+            v_xy_local = warpSum2(v_xy_local, warp_size);
+            v_opacity_local = warpSum(v_opacity_local, warp_size);
 
-            atomic_fetch_add_explicit(v_rgb + 3*g + 0, v_rgb_local.x, memory_order_relaxed);
-            atomic_fetch_add_explicit(v_rgb + 3*g + 1, v_rgb_local.y, memory_order_relaxed);
-            atomic_fetch_add_explicit(v_rgb + 3*g + 2, v_rgb_local.z, memory_order_relaxed);
-            
-            atomic_fetch_add_explicit(v_conic + 3*g + 0, v_conic_local.x, memory_order_relaxed);
-            atomic_fetch_add_explicit(v_conic + 3*g + 1, v_conic_local.y, memory_order_relaxed);
-            atomic_fetch_add_explicit(v_conic + 3*g + 2, v_conic_local.z, memory_order_relaxed);
-            
-            atomic_fetch_add_explicit(v_xy + 2*g + 0, v_xy_local.x, memory_order_relaxed);
-            atomic_fetch_add_explicit(v_xy + 2*g + 1, v_xy_local.y, memory_order_relaxed);
-            
-            atomic_fetch_add_explicit(v_opacity + g, v_opacity_local, memory_order_relaxed);
+            if (wr == 0) {
+                int32_t g = id_batch[t];
+
+                atomic_fetch_add_explicit(v_rgb + 3*g + 0, v_rgb_local.x, memory_order_relaxed);
+                atomic_fetch_add_explicit(v_rgb + 3*g + 1, v_rgb_local.y, memory_order_relaxed);
+                atomic_fetch_add_explicit(v_rgb + 3*g + 2, v_rgb_local.z, memory_order_relaxed);
+                
+                atomic_fetch_add_explicit(v_conic + 3*g + 0, v_conic_local.x, memory_order_relaxed);
+                atomic_fetch_add_explicit(v_conic + 3*g + 1, v_conic_local.y, memory_order_relaxed);
+                atomic_fetch_add_explicit(v_conic + 3*g + 2, v_conic_local.z, memory_order_relaxed);
+                
+                atomic_fetch_add_explicit(v_xy + 2*g + 0, v_xy_local.x, memory_order_relaxed);
+                atomic_fetch_add_explicit(v_xy + 2*g + 1, v_xy_local.y, memory_order_relaxed);
+                
+                atomic_fetch_add_explicit(v_opacity + g, v_opacity_local, memory_order_relaxed);
+            }
         }
     }
 }
@@ -1238,8 +1254,6 @@ kernel void project_gaussians_backward_kernel(
     float3 p_world = read_packed_float3(means3d, idx);
     float fx = intrins.x;
     float fy = intrins.y;
-    float cx = intrins.z;
-    float cy = intrins.w;
     // get v_mean3d from v_xy
     write_packed_float3(
         v_mean3d, idx, 

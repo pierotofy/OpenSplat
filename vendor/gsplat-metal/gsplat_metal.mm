@@ -289,6 +289,7 @@ torch::Tensor compute_sh_forward_tensor(
     NSUInteger num_threads_per_group = 
         MIN(ctx->compute_sh_forward_kernel_cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
     MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->compute_sh_forward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::scalar(num_points),
         EncodeArg::scalar(degree),
@@ -297,6 +298,7 @@ torch::Tensor compute_sh_forward_tensor(
         EncodeArg::tensor(coeffs),
         EncodeArg::tensor(colors)
     });
+    printf("after dispatch for %s\n", __func__);
     return colors;
 }
 
@@ -325,6 +327,7 @@ torch::Tensor compute_sh_backward_tensor(
     NSUInteger num_threads_per_group = 
         MIN(ctx->compute_sh_backward_kernel_cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
     MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->compute_sh_backward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::scalar(num_points),
         EncodeArg::scalar(degree),
@@ -333,6 +336,7 @@ torch::Tensor compute_sh_backward_tensor(
         EncodeArg::tensor(v_colors),
         EncodeArg::tensor(v_coeffs)
     });
+    printf("after dispatch for %s\n", __func__);
 
     return v_coeffs;
 }
@@ -384,6 +388,7 @@ project_gaussians_forward_tensor(
     NSUInteger num_threads_per_group = 
         MIN(ctx->project_gaussians_forward_kernel_cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
     MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->project_gaussians_forward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::scalar(num_points),
         EncodeArg::tensor(means3d),
@@ -402,6 +407,7 @@ project_gaussians_forward_tensor(
         EncodeArg::tensor(conics_d),
         EncodeArg::tensor(num_tiles_hit_d)
     });
+    printf("after dispatch for %s\n", __func__);
     
     return std::make_tuple(
         cov3d_d, xys_d, depths_d, radii_d, conics_d, num_tiles_hit_d
@@ -455,6 +461,7 @@ project_gaussians_backward_tensor(
     NSUInteger num_threads_per_group = 
         MIN(ctx->project_gaussians_backward_kernel_cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
     MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->project_gaussians_backward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::scalar(num_points),
         EncodeArg::tensor(means3d),
@@ -477,6 +484,7 @@ project_gaussians_backward_tensor(
         EncodeArg::tensor(v_scale),
         EncodeArg::tensor(v_quat),
     });
+    printf("after dispatch for %s\n", __func__);
     
     return std::make_tuple(v_cov2d, v_cov3d, v_mean3d, v_scale, v_quat);
 }
@@ -506,6 +514,7 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
     NSUInteger num_threads_per_group = 
         MIN(ctx->map_gaussian_to_intersects_kernel_cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
     MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->map_gaussian_to_intersects_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::scalar(num_points),
         EncodeArg::tensor(xys),
@@ -515,6 +524,7 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
         EncodeArg::tensor(isect_ids_unsorted),
         EncodeArg::tensor(gaussian_ids_unsorted)
     });
+    printf("after dispatch for %s\n", __func__);
 
     return std::make_tuple(isect_ids_unsorted, gaussian_ids_unsorted);
 }
@@ -533,11 +543,13 @@ torch::Tensor get_tile_bin_edges_tensor(
     NSUInteger num_threads_per_group = 
         MIN(ctx->get_tile_bin_edges_kernel_cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_intersects);
     MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->get_tile_bin_edges_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::scalar(num_intersects),
         EncodeArg::tensor(isect_ids_sorted),
         EncodeArg::tensor(tile_bins)
     });
+    printf("after dispatch for %s\n", __func__);
 
     return tile_bins;
 }
@@ -587,6 +599,7 @@ std::tuple<
     MetalContext* ctx = get_global_context();
     MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
     MTLSize thread_group_size = MTLSizeMake(block_size_dim2[0], block_size_dim2[1], 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->rasterize_forward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::array(img_size_dim3, sizeof(img_size_dim3)),
         EncodeArg::scalar(channels),
@@ -602,6 +615,7 @@ std::tuple<
         EncodeArg::tensor(background),
         EncodeArg::array(block_size_dim2, sizeof(block_size_dim2))
     });
+    printf("after dispatch for %s\n", __func__);
 
     return std::make_tuple(out_img, final_Ts, final_idx);
 }
@@ -730,6 +744,7 @@ std::
     MetalContext* ctx = get_global_context();
     MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
     MTLSize thread_group_size = MTLSizeMake(BLOCK_X, BLOCK_Y, 1);
+    printf("before dispatch for %s\n", __func__);
     dispatchKernel(ctx, ctx->rasterize_backward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::array(img_size, sizeof(img_size)),
         EncodeArg::tensor(gaussians_ids_sorted),
@@ -749,6 +764,7 @@ std::
         EncodeArg::tensor(v_opacity),
         EncodeArg::tensor(debug)
     });
+    printf("after dispatch for %s\n", __func__);
 
     return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
 }
