@@ -115,9 +115,9 @@ MetalContext* init_gsplat_metal_context() {
     GSPLAT_METAL_ADD_KERNEL(rasterize_forward_kernel);
     GSPLAT_METAL_ADD_KERNEL(rasterize_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(project_gaussians_forward_kernel);
-    // GSPLAT_METAL_ADD_KERNEL(project_gaussians_backward_kernel);
+    GSPLAT_METAL_ADD_KERNEL(project_gaussians_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(compute_sh_forward_kernel);
-    // GSPLAT_METAL_ADD_KERNEL(compute_sh_backward_kernel);
+    GSPLAT_METAL_ADD_KERNEL(compute_sh_backward_kernel);
     // GSPLAT_METAL_ADD_KERNEL(compute_cov2d_bounds_kernel);
     GSPLAT_METAL_ADD_KERNEL(map_gaussian_to_intersects_kernel);
     GSPLAT_METAL_ADD_KERNEL(get_tile_bin_edges_kernel);
@@ -250,6 +250,44 @@ torch::Tensor compute_sh_backward_tensor(
     unsigned num_bases = num_sh_bases(degree);
     torch::Tensor v_coeffs =
         torch::zeros({num_points, num_bases, 3}, v_colors.options());
+
+    // Get a reference to the command buffer for the MPS stream
+    id<MTLCommandBuffer> command_buffer = torch::mps::get_command_buffer();
+    TORCH_CHECK(command_buffer, "Failed to retrieve command buffer reference");
+
+    // Dispatch the kernel
+    MetalContext* ctx = get_global_context();
+    dispatch_sync(ctx->d_queue, ^(){
+        // Start a compute pass
+        id<MTLComputeCommandEncoder> encoder = [command_buffer computeCommandEncoder];
+        TORCH_CHECK(encoder, "Failed to create compute command encoder");
+
+        // Encode the pipeline state object
+        id<MTLComputePipelineState> cpso = ctx->compute_sh_backward_kernel_cpso;
+        [encoder setComputePipelineState:cpso];
+
+        // Set the tensor buffers
+        ENC_SCALAR(encoder, num_points, 0);
+        ENC_SCALAR(encoder, degree, 1);
+        ENC_SCALAR(encoder, degrees_to_use, 2);
+        ENC_TENSOR(encoder, viewdirs, 3);
+        ENC_TENSOR(encoder, v_colors, 4);
+        ENC_TENSOR(encoder, v_coeffs, 5);
+
+        // Set the grid threadgroup sizes
+        MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
+        
+        NSUInteger num_threads_per_group = MIN(cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
+        MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+
+        // Dispatch the compute command
+        [encoder dispatchThreads:grid_size threadsPerThreadgroup:thread_group_size];
+        [encoder endEncoding];
+
+        // Commit the work
+        torch::mps::synchronize();
+    });
+
     return v_coeffs;
 }
 
@@ -303,7 +341,7 @@ project_gaussians_forward_tensor(
         TORCH_CHECK(encoder, "Failed to create compute command encoder");
 
         float intrins[4] = {fx, fy, cx, cy};
-        int32_t img_size[2] = {(int32_t)img_width, (int32_t)img_height};
+        uint32_t img_size[2] = {img_width, img_height};
 
         // Encode the pipeline state object
         id<MTLComputePipelineState> cpso = ctx->project_gaussians_forward_kernel_cpso;
@@ -383,6 +421,59 @@ project_gaussians_backward_tensor(
         torch::zeros({num_points, 3}, means3d.options().dtype(torch::kFloat32));
     torch::Tensor v_quat =
         torch::zeros({num_points, 4}, means3d.options().dtype(torch::kFloat32));
+    
+    // Get a reference to the command buffer for the MPS stream
+    id<MTLCommandBuffer> command_buffer = torch::mps::get_command_buffer();
+    TORCH_CHECK(command_buffer, "Failed to retrieve command buffer reference");
+
+    // Dispatch the kernel
+    MetalContext* ctx = get_global_context();
+    dispatch_sync(ctx->d_queue, ^(){
+        // Start a compute pass
+        id<MTLComputeCommandEncoder> encoder = [command_buffer computeCommandEncoder];
+        TORCH_CHECK(encoder, "Failed to create compute command encoder");
+
+        float intrins[4] = {fx, fy, cx, cy};
+        uint32_t img_size[2] = {img_width, img_height};
+
+        // Encode the pipeline state object
+        id<MTLComputePipelineState> cpso = ctx->project_gaussians_backward_kernel_cpso;
+        [encoder setComputePipelineState:cpso];
+
+        // Set the tensor buffers
+        ENC_SCALAR(encoder, num_points, 0);
+        ENC_TENSOR(encoder, means3d, 1);
+        ENC_TENSOR(encoder, scales, 2);
+        ENC_SCALAR(encoder, glob_scale, 3);
+        ENC_TENSOR(encoder, quats, 4);
+        ENC_TENSOR(encoder, viewmat, 5);
+        ENC_TENSOR(encoder, projmat, 6);
+        ENC_ARRAY(encoder, intrins, 7);
+        ENC_ARRAY(encoder, img_size, 8);
+        ENC_TENSOR(encoder, cov3d, 9);
+        ENC_TENSOR(encoder, radii, 10);
+        ENC_TENSOR(encoder, conics, 11);
+        ENC_TENSOR(encoder, v_xy, 12);
+        ENC_TENSOR(encoder, v_depth, 13);
+        ENC_TENSOR(encoder, v_conic, 14);
+        ENC_TENSOR(encoder, v_cov2d, 15);
+        ENC_TENSOR(encoder, v_cov3d, 16);
+        ENC_TENSOR(encoder, v_mean3d, 17);
+        ENC_TENSOR(encoder, v_scale, 18);
+        ENC_TENSOR(encoder, v_quat, 19);
+
+        // Set the grid threadgroup sizes
+        MTLSize grid_size = MTLSizeMake(num_points, 1, 1);
+        NSUInteger num_threads_per_group = MIN(cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_points);
+        MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+
+        // Dispatch the compute command
+        [encoder dispatchThreads:grid_size threadsPerThreadgroup:thread_group_size];
+        [encoder endEncoding];
+
+        // Commit the work
+        torch::mps::synchronize();
+    });
     
     return std::make_tuple(v_cov2d, v_cov3d, v_mean3d, v_scale, v_quat);
 }
@@ -546,7 +637,7 @@ std::tuple<
         id<MTLComputePipelineState> cpso = ctx->rasterize_forward_kernel_cpso;
         [encoder setComputePipelineState:cpso];
 
-        int32_t img_size_dim3[4] = {std::get<0>(img_size), std::get<1>(img_size), std::get<2>(img_size), 0xDEAD};
+        uint32_t img_size_dim3[4] = {(uint32_t)std::get<0>(img_size), (uint32_t)std::get<1>(img_size), (uint32_t)std::get<2>(img_size), 0xDEAD};
         int32_t block_size_dim2[2] = {std::get<0>(block), std::get<1>(block)};
 
         // Set the tensor buffers
