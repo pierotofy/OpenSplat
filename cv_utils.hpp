@@ -12,5 +12,6 @@ cv::Mat floatNxNtensorToMat(const torch::Tensor &t);
 torch::Tensor floatNxNMatToTensor(const cv::Mat &m);
 cv::Mat tensorToImage(const torch::Tensor &t);
 torch::Tensor imageToTensor(const cv::Mat &image);
+void imwriteFloat(const std::string &filename, const torch::Tensor &t);
 
 #endif

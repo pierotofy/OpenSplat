@@ -48,3 +48,14 @@ torch::Tensor imageToTensor(const cv::Mat &image){
     return (img.toType(torch::kFloat32) / 255.0f);
 }
 
+
+void imwriteFloat(const std::string &filename, const torch::Tensor &t){
+    torch::Tensor minVal = t.min();
+    torch::Tensor maxVal = t.max();
+
+    torch::Tensor range = maxVal - minVal;
+    torch::Tensor normalized = (t - minVal) / range;
+
+    cv::Mat image = tensorToImage(normalized.detach().cpu());
+    cv::imwrite(filename, image);
+}

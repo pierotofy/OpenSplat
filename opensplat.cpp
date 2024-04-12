@@ -156,17 +156,7 @@ int main(int argc, char *argv[]){
 
             // TODO: remove
             torch::Tensor depth = std::get<1>(f);
-            std::cerr << depth;
-            
-            torch::Tensor minVal = depth.min();
-            torch::Tensor maxVal = depth.max();
-
-            torch::Tensor range = maxVal - minVal;
-            torch::Tensor normalized = (depth - minVal) / range;
-
-            cv::Mat image = tensorToImage(normalized.detach().cpu());
-            cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-            cv::imwrite("depthtest.png", image);
+            imwriteFloat("depthtest.png", depth);
         }
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;

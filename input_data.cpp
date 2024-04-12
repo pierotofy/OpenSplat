@@ -1,6 +1,7 @@
 #include <filesystem>
 #include "input_data.hpp"
 #include "cv_utils.hpp"
+#include "openmvs.hpp"
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
@@ -11,18 +12,26 @@ namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot);
 
 InputData inputDataFromX(const std::string &projectRoot){
     fs::path root(projectRoot);
+    InputData data;
 
     if (fs::exists(root / "transforms.json")){
-        return ns::inputDataFromNerfStudio(projectRoot);
+        data = ns::inputDataFromNerfStudio(projectRoot);
     }else if (fs::exists(root / "sparse") || fs::exists(root / "cameras.bin")){
-        return cm::inputDataFromColmap(projectRoot);
+        data = cm::inputDataFromColmap(projectRoot);
     }else if (fs::exists(root / "reconstruction.json")){
-        return osfm::inputDataFromOpenSfM(projectRoot);
+        data = osfm::inputDataFromOpenSfM(projectRoot);
     }else if (fs::exists(root / "opensfm" / "reconstruction.json")){
-        return osfm::inputDataFromOpenSfM((root / "opensfm").string());
+        data = osfm::inputDataFromOpenSfM((root / "opensfm").string());
     }else{
         throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio project folder)");
     }
+
+    auto dmap = omvs::readDepthmap((root / "depthmaps" / "frame_00015.dmap").string());
+    std::cerr << dmap.filename;
+    imwriteFloat("omvsdepth.png", dmap.depth);
+    exit(1);
+
+    return data;
 }
 
 torch::Tensor Camera::getIntrinsicsMatrix(){
