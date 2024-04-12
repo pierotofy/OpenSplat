@@ -117,7 +117,8 @@ int main(int argc, char *argv[]){
 
             model.optimizersZeroGrad();
 
-            torch::Tensor rgb = model.forward(cam, step);
+            auto f = model.forward(cam, step, true);
+            torch::Tensor rgb = std::get<0>(f);
             torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
             gt = gt.to(device);
 
@@ -136,7 +137,7 @@ int main(int argc, char *argv[]){
             }
 
             if (!valRender.empty() && step % 10 == 0){
-                torch::Tensor rgb = model.forward(*valCam, step);
+                torch::Tensor rgb = std::get<0>(model.forward(*valCam, step, false));
                 cv::Mat image = tensorToImage(rgb.detach().cpu());
                 cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
                 cv::imwrite((fs::path(valRender) / (std::to_string(step) + ".png")).string(), image);
@@ -148,9 +149,24 @@ int main(int argc, char *argv[]){
 
         // Validate
         if (valCam != nullptr){
-            torch::Tensor rgb = model.forward(*valCam, numIters);
+            auto f = model.forward(*valCam, numIters, true);
+            torch::Tensor rgb = std::get<0>(f); 
             torch::Tensor gt = valCam->getImage(model.getDownscaleFactor(numIters)).to(device);
             std::cout << valCam->filePath << " validation loss: " << model.mainLoss(rgb, gt, ssimWeight).item<float>() << std::endl; 
+
+            // TODO: remove
+            torch::Tensor depth = std::get<1>(f);
+            std::cerr << depth;
+            
+            torch::Tensor minVal = depth.min();
+            torch::Tensor maxVal = depth.max();
+
+            torch::Tensor range = maxVal - minVal;
+            torch::Tensor normalized = (depth - minVal) / range;
+
+            cv::Mat image = tensorToImage(normalized.detach().cpu());
+            cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+            cv::imwrite("depthtest.png", image);
         }
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;

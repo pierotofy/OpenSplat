@@ -75,7 +75,7 @@ struct Model{
     delete meansOptScheduler;
   }
 
-  torch::Tensor forward(Camera& cam, int step);
+  std::tuple<torch::Tensor, torch::Tensor> forward(Camera& cam, int step, bool computeDepth);
   void optimizersZeroGrad();
   void optimizersStep();
   void schedulersStep(int step);

@@ -21,12 +21,19 @@ torch::Tensor floatNxNMatToTensor(const cv::Mat &m){
 }
 
 cv::Mat tensorToImage(const torch::Tensor &t){
-    int h = t.sizes()[0];
-    int w = t.sizes()[1];
-    int c = t.sizes()[2];
+    auto sizes = t.sizes();
+    int h = sizes[0];
+    int w = sizes[1];
+    int c = 1;
+
+    if (sizes.size() == 3){
+        c = sizes[2];
+    }
+
+    if (c != 3 && c != 1) throw std::runtime_error("Only images with 1 and 3 channels are supported");
 
     int type = CV_8UC3;
-    if (c != 3) throw std::runtime_error("Only images with 3 channels are supported");
+    if (c == 1) type = CV_8UC1;
 
     cv::Mat image(h, w, type);
     torch::Tensor scaledTensor = (t * 255.0).toType(torch::kU8);

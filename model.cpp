@@ -48,7 +48,7 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
 }
 
 
-torch::Tensor Model::forward(Camera& cam, int step){
+std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, bool computeDepth){
 
     const float scaleFactor = getDownscaleFactor(step);
     const float fx = cam.fx / scaleFactor;
@@ -137,9 +137,9 @@ torch::Tensor Model::forward(Camera& cam, int step){
         #endif
     }
     
-
+    // TODO: check depth shape
     if (radii.sum().item<float>() == 0.0f)
-        return backgroundColor.repeat({height, width, 1});
+        return std::make_tuple(backgroundColor.repeat({height, width, 1}), torch::zeros({height, width}, torch::TensorOptions().dtype(torch::kFloat32).device(device)));
 
     // TODO: is this needed?
     xys.retain_grad();
@@ -188,8 +188,27 @@ torch::Tensor Model::forward(Camera& cam, int step){
     }
 
     rgb = torch::clamp_max(rgb, 1.0f);
+    torch::Tensor depthIm;
+    if (computeDepth){
+        // TODO add CPU
+        #if defined(USE_HIP) || defined(USE_CUDA)
+        depthIm = RasterizeGaussians::apply(
+                xys,
+                depths,
+                radii,
+                conics,
+                numTilesHit,
+                depths.index({Slice(), None}).repeat({1, 3}),
+                torch::sigmoid(opacities),
+                height,
+                width,
+                torch::zeros(3, torch::TensorOptions().dtype(torch::kFloat32).device(device)));
+        #endif
 
-    return rgb;
+        depthIm = depthIm.index({"...", Slice(0, 1)});
+    }
+
+    return std::make_pair(rgb, depthIm);
 }
 
 void Model::optimizersZeroGrad(){
