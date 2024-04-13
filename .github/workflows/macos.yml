@@ -3,7 +3,7 @@ name: OpenSplat (MacOS X86 and ARM)
 on:
   push:
     branches:
-      - fix-runner-macos-13
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
