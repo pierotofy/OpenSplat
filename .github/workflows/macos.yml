@@ -3,7 +3,7 @@ name: OpenSplat (MacOS X86 and ARM)
 on:
   push:
     branches:
-      - main
+      - fix-runner-macos-13
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -52,18 +52,8 @@ jobs:
             brew uninstall --force aws-sam-cli
             brew uninstall --force pipx
             brew uninstall --force python@3.11
-            brew uninstall --force python@3.12
-            rm -f '/usr/local/bin/2to3'
-            rm -f '/usr/local/bin/2to3-3.12'
-            rm -f '/usr/local/bin/idle3'
-            rm -f '/usr/local/bin/idle3.12'
-            rm -f '/usr/local/bin/pydoc3'
-            rm -f '/usr/local/bin/pydoc3.12'
-            rm -f '/usr/local/bin/python3'
-            rm -f '/usr/local/bin/python3-config'
-            rm -f '/usr/local/bin/python3.12'
-            rm -f '/usr/local/bin/python3.12-config'
-          fi
+            brew install --overwrite python@3.12
+          fi          
           brew install \
             ccache \
             cmake \
