@@ -16,7 +16,7 @@
 #include "rasterize_gaussians.hpp"
 #include "constants.hpp"
 #include "cv_utils.hpp"
-#include "vendor/cxxopts.hpp"
+#include <cxxopts.hpp>
 
 using namespace torch::indexing;
 namespace fs = std::filesystem;

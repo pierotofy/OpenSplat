@@ -6,8 +6,8 @@
 #include <fstream>
 #include <unordered_map>
 #include <torch/torch.h>
+#include <nlohmann/json_fwd.hpp>
 #include "input_data.hpp"
-#include "vendor/json/json_fwd.hpp"
 
 using json = nlohmann::json;
 

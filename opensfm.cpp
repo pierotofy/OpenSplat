@@ -1,6 +1,6 @@
 #include <filesystem>
 #include <cstdlib>
-#include "vendor/json/json.hpp"
+#include <nlohmann/json.hpp>
 #include "opensfm.hpp"
 #include "point_io.hpp"
 #include "cv_utils.hpp"
