@@ -10,7 +10,6 @@ struct MetalContext {
     id<MTLCommandQueue> queue;
     dispatch_queue_t d_queue;
 
-    id<MTLComputePipelineState> nd_rasterize_forward_kernel_cpso;
     id<MTLComputePipelineState> nd_rasterize_backward_kernel_cpso;
     id<MTLComputePipelineState> rasterize_forward_kernel_cpso;
     id<MTLComputePipelineState> rasterize_backward_kernel_cpso;
@@ -23,8 +22,6 @@ struct MetalContext {
     id<MTLComputePipelineState> get_tile_bin_edges_kernel_cpso;
 };
 
-// This function is used in both host and device code
-// TODO(achan): Do I need to make this callable from the metal device?
 unsigned num_sh_bases(const unsigned degree) {
     if (degree == 0)
         return 1;
@@ -110,15 +107,14 @@ MetalContext* init_gsplat_metal_context() {
         } \
     }
 
-    // GSPLAT_METAL_ADD_KERNEL(nd_rasterize_forward_kernel);
-    // GSPLAT_METAL_ADD_KERNEL(nd_rasterize_backward_kernel);
+    GSPLAT_METAL_ADD_KERNEL(nd_rasterize_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(rasterize_forward_kernel);
     GSPLAT_METAL_ADD_KERNEL(rasterize_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(project_gaussians_forward_kernel);
     GSPLAT_METAL_ADD_KERNEL(project_gaussians_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(compute_sh_forward_kernel);
     GSPLAT_METAL_ADD_KERNEL(compute_sh_backward_kernel);
-    // GSPLAT_METAL_ADD_KERNEL(compute_cov2d_bounds_kernel);
+    GSPLAT_METAL_ADD_KERNEL(compute_cov2d_bounds_kernel);
     GSPLAT_METAL_ADD_KERNEL(map_gaussian_to_intersects_kernel);
     GSPLAT_METAL_ADD_KERNEL(get_tile_bin_edges_kernel);
 
@@ -129,7 +125,6 @@ MetalContext* init_gsplat_metal_context() {
 
 // TODO(achan): Where do I call this?
 void free_gsplat_metal_context(MetalContext* ctx) {
-    [ctx->nd_rasterize_forward_kernel_cpso release];
     [ctx->nd_rasterize_backward_kernel_cpso release];
     [ctx->rasterize_forward_kernel_cpso release];
     [ctx->rasterize_backward_kernel_cpso release];
@@ -265,6 +260,19 @@ compute_cov2d_bounds_tensor(const int num_pts, torch::Tensor &covs2d) {
     );
     torch::Tensor radii =
         torch::zeros({num_pts, 1}, covs2d.options().dtype(torch::kFloat32));
+    
+    // Dispatch the kernel
+    MetalContext* ctx = get_global_context();
+    MTLSize grid_size = MTLSizeMake(num_pts, 1, 1);
+    NSUInteger num_threads_per_group = 
+        MIN(ctx->compute_cov2d_bounds_kernel_cpso.maxTotalThreadsPerThreadgroup, (NSUInteger)num_pts);
+    MTLSize thread_group_size = MTLSizeMake(num_threads_per_group, 1, 1);
+    dispatchKernel(ctx, ctx->compute_cov2d_bounds_kernel_cpso, grid_size, thread_group_size, {
+        EncodeArg::scalar(num_pts),
+        EncodeArg::tensor(covs2d),
+        EncodeArg::tensor(conics),
+        EncodeArg::tensor(radii)
+    });
 
     return std::make_tuple(conics, radii);
 }
@@ -634,6 +642,7 @@ std::tuple<
     torch::Tensor
 > nd_rasterize_forward_tensor(
     const std::tuple<int, int, int> tile_bounds,
+    // TODO(achan): we should be able to remove the 3rd dimension of `block` as it is always set to 1
     const std::tuple<int, int, int> block,
     const std::tuple<int, int, int> img_size,
     const torch::Tensor &gaussian_ids_sorted,
@@ -652,7 +661,7 @@ std::tuple<
     CHECK_INPUT(opacities);
     CHECK_INPUT(background);
 
-    const int channels = colors.size(1);
+    const uint32_t channels = colors.size(1);
     const int img_width = std::get<0>(img_size);
     const int img_height = std::get<1>(img_size);
 
@@ -665,6 +674,35 @@ std::tuple<
     torch::Tensor final_idx = torch::zeros(
         {img_height, img_width}, xys.options().dtype(torch::kInt32)
     );
+
+    uint32_t img_size_dim3[4] = {(uint32_t)std::get<0>(img_size), (uint32_t)std::get<1>(img_size), (uint32_t)std::get<2>(img_size), 0xDEAD};
+    uint32_t tile_bounds_arr[4] = {
+        (uint32_t)std::get<0>(tile_bounds), 
+        (uint32_t)std::get<1>(tile_bounds), 
+        (uint32_t)std::get<2>(tile_bounds), 
+        0xDEAD
+    };
+    int32_t block_size_dim2[2] = {std::get<0>(block), std::get<1>(block)};
+
+    MetalContext* ctx = get_global_context();
+    MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
+    MTLSize thread_group_size = MTLSizeMake(block_size_dim2[0], block_size_dim2[1], 1);
+    dispatchKernel(ctx, ctx->rasterize_forward_kernel_cpso, grid_size, thread_group_size, {
+        EncodeArg::array(tile_bounds_arr, sizeof(tile_bounds_arr)),
+        EncodeArg::array(img_size_dim3, sizeof(img_size_dim3)),
+        EncodeArg::scalar(channels),
+        EncodeArg::tensor(gaussian_ids_sorted),
+        EncodeArg::tensor(tile_bins),
+        EncodeArg::tensor(xys),
+        EncodeArg::tensor(conics),
+        EncodeArg::tensor(colors),
+        EncodeArg::tensor(opacities),
+        EncodeArg::tensor(final_Ts),
+        EncodeArg::tensor(final_idx),
+        EncodeArg::tensor(out_img),
+        EncodeArg::tensor(background),
+        EncodeArg::array(block_size_dim2, sizeof(block_size_dim2))
+    });
 
     return std::make_tuple(out_img, final_Ts, final_idx);
 }
@@ -692,8 +730,17 @@ std::
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     ) {
+    CHECK_INPUT(gaussians_ids_sorted);
+    CHECK_INPUT(tile_bins);
     CHECK_INPUT(xys);
+    CHECK_INPUT(conics);
     CHECK_INPUT(colors);
+    CHECK_INPUT(opacities);
+    CHECK_INPUT(background);
+    CHECK_INPUT(final_Ts);
+    CHECK_INPUT(final_idx);
+    CHECK_INPUT(v_output);
+    CHECK_INPUT(v_output_alpha);
 
     const int num_points = xys.size(0);
     const int channels = colors.size(1);
@@ -703,6 +750,47 @@ std::
     torch::Tensor v_colors =
         torch::zeros({num_points, channels}, xys.options());
     torch::Tensor v_opacity = torch::zeros({num_points, 1}, xys.options());
+    torch::Tensor workspace = torch::zeros(
+        {img_height, img_width, channels},
+        xys.options().dtype(torch::kFloat32)
+    );
+
+    // Get a reference to the command buffer for the MPS stream
+    id<MTLCommandBuffer> command_buffer = torch::mps::get_command_buffer();
+    TORCH_CHECK(command_buffer, "Failed to retrieve command buffer reference");
+
+    uint32_t img_size[2] = {img_width, img_height};
+    uint32_t tile_bounds_arr[4] = {
+        (img_width + BLOCK_X - 1) / BLOCK_X,
+        (img_height + BLOCK_Y - 1) / BLOCK_Y,
+        1, 
+        0xDEAD
+    };
+
+    MetalContext* ctx = get_global_context();
+    MTLSize grid_size = MTLSizeMake(img_width, img_height, 1);
+    MTLSize thread_group_size = MTLSizeMake(BLOCK_X, BLOCK_Y, 1);
+    dispatchKernel(ctx, ctx->nd_rasterize_backward_kernel_cpso, grid_size, thread_group_size, {
+        EncodeArg::array(tile_bounds_arr, sizeof(tile_bounds_arr)),
+        EncodeArg::array(img_size, sizeof(img_size)),
+        EncodeArg::scalar(channels),
+        EncodeArg::tensor(gaussians_ids_sorted),
+        EncodeArg::tensor(tile_bins),
+        EncodeArg::tensor(xys),
+        EncodeArg::tensor(conics),
+        EncodeArg::tensor(colors),
+        EncodeArg::tensor(opacities),
+        EncodeArg::tensor(background),
+        EncodeArg::tensor(final_Ts),
+        EncodeArg::tensor(final_idx),
+        EncodeArg::tensor(v_output),
+        EncodeArg::tensor(v_output_alpha),
+        EncodeArg::tensor(v_xy),
+        EncodeArg::tensor(v_conic),
+        EncodeArg::tensor(v_colors),
+        EncodeArg::tensor(v_opacity),
+        EncodeArg::tensor(workspace)
+    });
 
     return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
 }

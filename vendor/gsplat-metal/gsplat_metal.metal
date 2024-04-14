@@ -6,6 +6,7 @@ using namespace metal;
 #define BLOCK_Y 16
 #define BLOCK_SIZE (BLOCK_X * BLOCK_Y)
 #define CHANNELS 3
+#define MAX_REGISTER_CHANNELS 3
 
 constant float SH_C0 = 0.28209479177387814f;
 constant float SH_C1 = 0.4886025119029199f;
@@ -1018,6 +1019,119 @@ kernel void rasterize_backward_kernel(
     }
 }
 
+kernel void nd_rasterize_backward_kernel(
+    constant uint3& tile_bounds,
+    constant uint3& img_size,
+    constant uint& channels,
+    constant int32_t* gaussians_ids_sorted,
+    constant int* tile_bins, // int2
+    constant float* xys, // float2
+    constant float* conics, // float3
+    constant float* rgbs,
+    constant float* opacities,
+    constant float* background,
+    constant float* final_Ts,
+    constant int* final_index,
+    constant float* v_output,
+    constant float* v_output_alpha,
+    device atomic_float* v_xy, // float2
+    device atomic_float* v_conic, // float3
+    device atomic_float* v_rgb,
+    device atomic_float* v_opacity,
+    device float* workspace,
+    uint3 blockIdx [[threadgroup_position_in_grid]],
+    uint3 blockDim [[threads_per_threadgroup]],
+    uint3 threadIdx [[thread_position_in_threadgroup]]
+) {
+    if (channels > MAX_REGISTER_CHANNELS && workspace == nullptr) {
+        return;
+    }
+    // current naive implementation where tile data loading is redundant
+    // TODO tile data should be shared between tile threads
+    int32_t tile_id = blockIdx.y * tile_bounds.x + blockIdx.x;
+    uint i = blockIdx.y * blockDim.y + threadIdx.y;
+    uint j = blockIdx.x * blockDim.x + threadIdx.x;
+    float px = (float)j;
+    float py = (float)i;
+    int32_t pix_id = i * img_size.x + j;
+
+    // return if out of bounds
+    if (i >= img_size.y || j >= img_size.x) {
+        return;
+    }
+
+    // which gaussians get gradients for this pixel
+    int2 range = read_packed_int2(tile_bins, tile_id);
+    // df/d_out for this pixel
+    constant float *v_out = &(v_output[channels * pix_id]);
+    const float v_out_alpha = v_output_alpha[pix_id];
+    // this is the T AFTER the last gaussian in this pixel
+    float T_final = final_Ts[pix_id];
+    float T = T_final;
+    // the contribution from gaussians behind the current one
+    device float *S = &workspace[channels * pix_id];
+    int bin_final = final_index[pix_id];
+
+    // iterate backward to compute the jacobians wrt rgb, opacity, mean2d, and
+    // conic recursively compute T_{n-1} from T_n, where T_i = prod(j < i) (1 -
+    // alpha_j), and S_{n-1} from S_n, where S_j = sum_{i > j}(rgb_i * alpha_i *
+    // T_i) df/dalpha_i = rgb_i * T_i - S_{i+1| / (1 - alpha_i)
+    for (int idx = bin_final - 1; idx >= range.x; --idx) {
+        const int32_t g = gaussians_ids_sorted[idx];
+        const float3 conic = read_packed_float3(conics, g);
+        const float2 center = read_packed_float2(xys, g);
+        const float2 delta = {center.x - px, center.y - py};
+        const float sigma =
+            0.5f * (conic.x * delta.x * delta.x + conic.z * delta.y * delta.y) +
+            conic.y * delta.x * delta.y;
+        if (sigma < 0.f) {
+            continue;
+        }
+        const float opac = opacities[g];
+        const float vis = exp(-sigma);
+        const float alpha = min(0.99f, opac * vis);
+        if (alpha < 1.f / 255.f) {
+            continue;
+        }
+
+        // compute the current T for this gaussian
+        const float ra = 1.f / (1.f - alpha);
+        T *= ra;
+        // rgb = rgbs[g];
+        // update v_rgb for this gaussian
+        const float fac = alpha * T;
+        float v_alpha = 0.f;
+        for (int c = 0; c < channels; ++c) {
+            // gradient wrt rgb
+            atomic_fetch_add_explicit(v_rgb + channels * g + c, fac * v_out[c], memory_order_relaxed);
+            // contribution from this pixel
+            v_alpha += (rgbs[channels * g + c] * T - S[c] * ra) * v_out[c];
+            // contribution from background pixel
+            v_alpha += -T_final * ra * background[c] * v_out[c];
+            // update the running sum
+            S[c] += rgbs[channels * g + c] * fac;
+        }
+        v_alpha += T_final * ra * v_out_alpha;
+        // update v_opacity for this gaussian
+        atomic_fetch_add_explicit(v_opacity + g, vis * v_alpha, memory_order_relaxed);
+
+        // compute vjps for conics and means
+        // d_sigma / d_delta = conic * delta
+        // d_sigma / d_conic = delta * delta.T
+        const float v_sigma = -opac * vis * v_alpha;
+
+        atomic_fetch_add_explicit(v_conic + 3*g + 0, 0.5f * v_sigma * delta.x * delta.x, memory_order_relaxed);
+        atomic_fetch_add_explicit(v_conic + 3*g + 1, 0.5f * v_sigma * delta.x * delta.y, memory_order_relaxed);
+        atomic_fetch_add_explicit(v_conic + 3*g + 2, 0.5f * v_sigma * delta.y * delta.y, memory_order_relaxed);
+        atomic_fetch_add_explicit(
+            v_xy + 2*g + 0, v_sigma * (conic.x * delta.x + conic.y * delta.y), memory_order_relaxed
+        );
+        atomic_fetch_add_explicit(
+            v_xy + 2*g + 1, v_sigma * (conic.y * delta.x + conic.z * delta.y), memory_order_relaxed
+        );
+    }
+}
+
 // given v_xy_pix, get v_xyz
 inline float3 project_pix_vjp(
     constant float *mat, const float3 p, const uint2 img_size, const float2 v_xy
@@ -1294,4 +1408,27 @@ kernel void project_gaussians_backward_kernel(
         &(v_scale[3*idx]),
         &(v_quat[4*idx])
     );
+}
+
+kernel void compute_cov2d_bounds_kernel(
+    constant uint& num_pts, 
+    constant float* covs2d, 
+    device float* conics, 
+    device float* radii,
+    uint row [[thread_index_in_threadgroup]]
+) {
+    if (row >= num_pts) {
+        return;
+    }
+    int index = row * 3;
+    float3 conic;
+    float radius;
+    float3 cov2d{
+        (float)covs2d[index], (float)covs2d[index + 1], (float)covs2d[index + 2]
+    };
+    compute_cov2d_bounds(cov2d, conic, radius);
+    conics[index] = conic.x;
+    conics[index + 1] = conic.y;
+    conics[index + 2] = conic.z;
+    radii[row] = radius;
 }
