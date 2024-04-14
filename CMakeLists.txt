@@ -138,10 +138,7 @@ elseif(GPU_RUNTIME STREQUAL "MPS")
         ${METAL_FRAMEWORK}
         ${METALKIT_FRAMEWORK}
     )
-    target_include_directories(gsplat PRIVATE
-        ${PROJECT_SOURCE_DIR}/vendor/glm        
-        ${TORCH_INCLUDE_DIRS}
-    )
+    target_include_directories(gsplat PRIVATE ${TORCH_INCLUDE_DIRS})
     # copy shader files to bin directory
     configure_file(vendor/gsplat-metal/gsplat_metal.metal ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal COPYONLY)
     add_custom_command(

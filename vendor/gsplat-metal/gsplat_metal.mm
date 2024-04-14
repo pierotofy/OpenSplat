@@ -729,8 +729,17 @@ std::
         const torch::Tensor &v_output, // dL_dout_color
         const torch::Tensor &v_output_alpha
     ) {
+    CHECK_INPUT(gaussians_ids_sorted);
+    CHECK_INPUT(tile_bins);
     CHECK_INPUT(xys);
+    CHECK_INPUT(conics);
     CHECK_INPUT(colors);
+    CHECK_INPUT(opacities);
+    CHECK_INPUT(background);
+    CHECK_INPUT(final_Ts);
+    CHECK_INPUT(final_idx);
+    CHECK_INPUT(v_output);
+    CHECK_INPUT(v_output_alpha);
 
     const int num_points = xys.size(0);
     const int channels = colors.size(1);
@@ -741,13 +750,11 @@ std::
         torch::zeros({num_points, channels}, xys.options());
     torch::Tensor v_opacity = torch::zeros({num_points, 1}, xys.options());
 
-    torch::Tensor debug = torch::zeros({1}, xys.options().dtype(torch::kInt32));
-
     // Get a reference to the command buffer for the MPS stream
     id<MTLCommandBuffer> command_buffer = torch::mps::get_command_buffer();
     TORCH_CHECK(command_buffer, "Failed to retrieve command buffer reference");
 
-    uint32_t img_size[2] = {img_height, img_width};
+    uint32_t img_size[2] = {img_width, img_height};
     uint32_t tile_bounds_arr[4] = {
         (img_width + BLOCK_X - 1) / BLOCK_X,
         (img_height + BLOCK_Y - 1) / BLOCK_Y,
@@ -756,7 +763,7 @@ std::
     };
 
     MetalContext* ctx = get_global_context();
-    MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
+    MTLSize grid_size = MTLSizeMake(img_width, img_height, 1);
     MTLSize thread_group_size = MTLSizeMake(BLOCK_X, BLOCK_Y, 1);
     dispatchKernel(ctx, ctx->rasterize_backward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::array(tile_bounds_arr, sizeof(tile_bounds_arr)),
@@ -775,8 +782,7 @@ std::
         EncodeArg::tensor(v_xy),
         EncodeArg::tensor(v_conic),
         EncodeArg::tensor(v_colors),
-        EncodeArg::tensor(v_opacity),
-        EncodeArg::tensor(debug)
+        EncodeArg::tensor(v_opacity)
     });
 
     return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
