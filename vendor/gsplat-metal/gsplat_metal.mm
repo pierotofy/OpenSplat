@@ -594,7 +594,7 @@ std::tuple<
     int32_t block_size_dim2[2] = {std::get<0>(block), std::get<1>(block)};
 
     MetalContext* ctx = get_global_context();
-    MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
+    MTLSize grid_size = MTLSizeMake(img_width, img_height, 1);
     MTLSize thread_group_size = MTLSizeMake(block_size_dim2[0], block_size_dim2[1], 1);
     dispatchKernel(ctx, ctx->nd_rasterize_forward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::array(tile_bounds_arr, sizeof(tile_bounds_arr)),
