@@ -432,8 +432,7 @@ kernel void project_gaussians_forward_kernel(
     write_packed_float2(xys, idx, center);
 }
 
-// TODO(achan): this is actually the nd_rasterize_forward_kernel
-kernel void rasterize_forward_kernel(
+kernel void nd_rasterize_forward_kernel(
     constant uint3& tile_bounds,
     constant uint3& img_size,
     constant uint& channels,

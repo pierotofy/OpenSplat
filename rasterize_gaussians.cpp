@@ -160,13 +160,13 @@ torch::Tensor RasterizeGaussiansCPU::forward(AutogradContext *ctx,
     torch::Device device = xys.device();
 
     auto t = rasterize_forward_tensor_cpu(imgWidth, imgHeight, 
-                            xys.to(torch::kCPU),
-                            conics.to(torch::kCPU),
-                            colors.to(torch::kCPU),
-                            opacity.to(torch::kCPU),
-                            background.to(torch::kCPU),
-                            cov2d.to(torch::kCPU),
-                            camDepths.to(torch::kCPU)
+                            xys,
+                            conics,
+                            colors,
+                            opacity,
+                            background,
+                            cov2d,
+                            camDepths
                             );
     // Final image
     torch::Tensor outImg = std::get<0>(t).to(device);
@@ -200,17 +200,17 @@ tensor_list RasterizeGaussiansCPU::backward(AutogradContext *ctx, tensor_list gr
     torch::Device device = xys.device();
     
     auto t = rasterize_backward_tensor_cpu(imgHeight, imgWidth, 
-                            xys.to(torch::kCPU),
-                            conics.to(torch::kCPU),
-                            colors.to(torch::kCPU),
-                            opacity.to(torch::kCPU),
-                            background.to(torch::kCPU),
-                            cov2d.to(torch::kCPU),
-                            camDepths.to(torch::kCPU),
-                            finalTs.to(torch::kCPU),
+                            xys,
+                            conics,
+                            colors,
+                            opacity,
+                            background,
+                            cov2d,
+                            camDepths,
+                            finalTs,
                             px2gid,
-                            v_outImg.to(torch::kCPU),
-                            v_outAlpha.to(torch::kCPU));
+                            v_outImg,
+                            v_outAlpha);
 
     // delete[] px2gid;
 

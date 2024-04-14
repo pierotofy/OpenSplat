@@ -11,7 +11,7 @@ struct MetalContext {
     dispatch_queue_t d_queue;
 
     id<MTLComputePipelineState> nd_rasterize_backward_kernel_cpso;
-    id<MTLComputePipelineState> rasterize_forward_kernel_cpso;
+    id<MTLComputePipelineState> nd_rasterize_forward_kernel_cpso;
     id<MTLComputePipelineState> rasterize_backward_kernel_cpso;
     id<MTLComputePipelineState> project_gaussians_forward_kernel_cpso;
     id<MTLComputePipelineState> project_gaussians_backward_kernel_cpso;
@@ -108,7 +108,7 @@ MetalContext* init_gsplat_metal_context() {
     }
 
     GSPLAT_METAL_ADD_KERNEL(nd_rasterize_backward_kernel);
-    GSPLAT_METAL_ADD_KERNEL(rasterize_forward_kernel);
+    GSPLAT_METAL_ADD_KERNEL(nd_rasterize_forward_kernel);
     GSPLAT_METAL_ADD_KERNEL(rasterize_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(project_gaussians_forward_kernel);
     GSPLAT_METAL_ADD_KERNEL(project_gaussians_backward_kernel);
@@ -121,26 +121,6 @@ MetalContext* init_gsplat_metal_context() {
     [metal_library release];
 
     return ctx;
-}
-
-// TODO(achan): Where do I call this?
-void free_gsplat_metal_context(MetalContext* ctx) {
-    [ctx->nd_rasterize_backward_kernel_cpso release];
-    [ctx->rasterize_forward_kernel_cpso release];
-    [ctx->rasterize_backward_kernel_cpso release];
-    [ctx->project_gaussians_forward_kernel_cpso release];
-    [ctx->project_gaussians_backward_kernel_cpso release];
-    [ctx->compute_sh_forward_kernel_cpso release];
-    [ctx->compute_sh_backward_kernel_cpso release];
-    [ctx->compute_cov2d_bounds_kernel_cpso release];
-    [ctx->map_gaussian_to_intersects_kernel_cpso release];
-    [ctx->get_tile_bin_edges_kernel_cpso release];
-
-    [ctx->queue release];
-    [ctx->device release];
-    // We do not need to release `d_queue` here as that is managed by torch.
-
-    free(ctx);
 }
 
 MetalContext* get_global_context() {
@@ -616,7 +596,7 @@ std::tuple<
     MetalContext* ctx = get_global_context();
     MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
     MTLSize thread_group_size = MTLSizeMake(block_size_dim2[0], block_size_dim2[1], 1);
-    dispatchKernel(ctx, ctx->rasterize_forward_kernel_cpso, grid_size, thread_group_size, {
+    dispatchKernel(ctx, ctx->nd_rasterize_forward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::array(tile_bounds_arr, sizeof(tile_bounds_arr)),
         EncodeArg::array(img_size_dim3, sizeof(img_size_dim3)),
         EncodeArg::scalar(channels),
@@ -687,7 +667,7 @@ std::tuple<
     MetalContext* ctx = get_global_context();
     MTLSize grid_size = MTLSizeMake(img_height, img_width, 1);
     MTLSize thread_group_size = MTLSizeMake(block_size_dim2[0], block_size_dim2[1], 1);
-    dispatchKernel(ctx, ctx->rasterize_forward_kernel_cpso, grid_size, thread_group_size, {
+    dispatchKernel(ctx, ctx->nd_rasterize_forward_kernel_cpso, grid_size, thread_group_size, {
         EncodeArg::array(tile_bounds_arr, sizeof(tile_bounds_arr)),
         EncodeArg::array(img_size_dim3, sizeof(img_size_dim3)),
         EncodeArg::scalar(channels),
