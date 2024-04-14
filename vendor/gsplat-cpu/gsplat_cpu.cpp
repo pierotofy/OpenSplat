@@ -162,7 +162,7 @@ std::tuple<
 
     torch::Tensor outImg = torch::zeros({height, width, channels}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
     torch::Tensor finalTs = torch::ones({height, width}, torch::TensorOptions().dtype(torch::kFloat32).device(device));   
-    torch::Tensor done = torch::zeros({height, width}, torch::TensorOptions().dtype(torch::kBool).device(device)).fill_(false);
+    torch::Tensor done = torch::zeros({height, width}, torch::TensorOptions().dtype(torch::kBool).device(device));   
 
     torch::Tensor sqCov2dX = 3.0f * torch::sqrt(cov2d.index({"...", 0, 0}));
     torch::Tensor sqCov2dY = 3.0f * torch::sqrt(cov2d.index({"...", 1, 1}));
@@ -205,7 +205,7 @@ std::tuple<
         
         for (int i = minx; i < maxx; i++){
             for (int j = miny; j < maxy; j++){
-                size_t pixIdx = (i * width/2 + j);
+                size_t pixIdx = (i * width + j);
                 if (pDone[pixIdx]) continue;
 
                 float xCam = gX - j;
