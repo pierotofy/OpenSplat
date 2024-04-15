@@ -60,6 +60,9 @@ int main(int argc, char **argv){
     if (torch::cuda::is_available() && result.count("cpu") == 0){
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
+    }else if(torch::mps::is_available() && result.count("cpu") == 0){
+        std::cout << "Using MPS" << std::endl;
+        device = torch::kMPS;
     }else{
         std::cout << "Using CPU" << std::endl;
     }
@@ -160,7 +163,7 @@ int main(int argc, char **argv){
                 width,
                 background);
         }else{
-            #if defined(USE_HIP) || defined(USE_CUDA)
+            #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
                 auto p = ProjectGaussians::apply(means, scales, 1, 
                                         quats, viewMat, viewMat,
                                         focal, focal,

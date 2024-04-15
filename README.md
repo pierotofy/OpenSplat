@@ -121,15 +121,22 @@ brew install opencv
 brew install pytorch
 ```
 
+You will also need to install Xcode and the Xcode command line tools to compile with metal support (otherwise, OpenSplat will build with CPU acceleration only):
+1. Install Xcode from the Apple App Store.
+2. Install the command line tools with `xcode-select --install`. This might do nothing on your machine.
+3. If `xcode-select --print-path` prints `/Library/Developer/CommandLineTools`,then run `sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`.
+
 Then run:
 
 ```
 git clone https://github.com/pierotofy/OpenSplat OpenSplat
 cd OpenSplat
 mkdir build && cd build
-cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ .. && make -j$(nproc)
+cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch/ -DGPU_RUNTIME=MPS .. && make -j$(sysctl -n hw.logicalcpu)
 ./opensplat
 ```
+
+If building CPU-only, remove `-DGPU_RUNTIME=MPS`.
 
 :warning: You will probably get a *libc10.dylib can’t be opened because Apple cannot check it for malicious software* error on first run. Open **System Settings** and go to **Privacy & Security** and find the **Allow** button. You might need to repeat this several times until all torch libraries are loaded.
 
@@ -234,7 +241,6 @@ We recently released OpenSplat, so there's lots of work to do.
 
  * Support for running on AMD cards (more testing needed)
  * Improve speed / reduce memory usage
- * Add Metal support on macOS
  * Distributed computation using multiple machines
  * Real-time training viewer output
  * Compressed scene outputs

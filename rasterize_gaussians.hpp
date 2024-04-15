@@ -6,7 +6,7 @@
 
 using namespace torch::autograd;
 
-#if defined(USE_HIP) || defined(USE_CUDA)
+#if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
 
 std::tuple<torch::Tensor,
         torch::Tensor,
