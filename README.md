@@ -7,7 +7,7 @@ A free and open source implementation of 3D [gaussian splatting](https://www.you
 
 OpenSplat takes camera poses + sparse points in [COLMAP](https://colmap.github.io/), [OpenSfM](https://github.com/mapillary/OpenSfM), [ODM](https://github.com/OpenDroneMap/ODM) or [nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html) project format and computes a [scene file](https://drive.google.com/file/d/12lmvVWpFlFPL6nxl2e2d-4u4a31RCSKT/view?usp=sharing) (.ply) that can be later imported for [viewing](https://antimatter15.com/splat/?url=https://splat.uav4geo.com/banana.splat), editing and rendering in other [software](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#open-source-implementations).
 
-Graphics card recommended, but not required! OpenSplat runs the fastest on NVIDIA and AMD GPUs, but can also run entirely on the CPU (~100x slower).
+Graphics card recommended, but not required! OpenSplat runs the fastest on NVIDIA, AMD and Apple (Metal) GPUs, but can also run entirely on the CPU (~100x slower).
 
 Commercial use allowed and encouraged under the terms of the [AGPLv3](https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0). ✅
 
