@@ -119,9 +119,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: |
+            build/libgsplat.a
             build/libgsplat_cpu.a
             build/opensplat
             build/simple_trainer
+            build/default.metallib
 
       - name: Clean Compiler Cache
         run: |
