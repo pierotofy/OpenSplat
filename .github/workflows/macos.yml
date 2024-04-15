@@ -3,7 +3,7 @@ name: OpenSplat (MacOS X86 and ARM)
 on:
   push:
     branches:
-      - mps-build
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
