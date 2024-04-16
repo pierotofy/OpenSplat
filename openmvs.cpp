@@ -6,7 +6,7 @@ namespace fs = std::filesystem;
 
 namespace omvs{
 
-Depthmap readDepthmap(const std::string &dmap){
+Depthmap readDepthmap(const std::string &dmap, bool readHeaderOnly){
     Depthmap d;
     std::ifstream fin(dmap, std::ios_base::binary);
     if (!fin.is_open()) throw std::runtime_error("Cannot open " + dmap);
@@ -25,6 +25,8 @@ Depthmap readDepthmap(const std::string &dmap){
     fnamePath.resize(fnameSize);
     fin.read(reinterpret_cast<char *>(fnamePath.data()), sizeof(char) * fnameSize);
     d.filename = fs::path(fnamePath).filename().string();
+
+    if (readHeaderOnly) return d;
 
     // neighbor IDs (skip)
     uint32_t numNeighbors;

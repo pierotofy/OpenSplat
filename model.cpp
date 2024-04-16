@@ -6,6 +6,8 @@
 #include "tensor_math.hpp"
 #include "gsplat.hpp"
 
+#include "cv_utils.hpp" // TODO REMOVE
+
 #ifdef USE_HIP
 #include <c10/hip/HIPCachingAllocator.h>
 #elif defined(USE_CUDA)
@@ -570,4 +572,16 @@ torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimW
     torch::Tensor ssimLoss = 1.0f - ssim.eval(rgb, gt);
     torch::Tensor l1Loss = l1(rgb, gt);
     return (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;
+}
+
+torch::Tensor Model::depthLoss(torch::Tensor &depth, torch::Tensor &gt){
+    torch::Tensor mask = gt > 0;
+    torch::Tensor loss = l1(depth * mask, gt);
+
+    // imwriteFloat("depthmask.png", depth * mask);
+    // imwriteFloat("depthgt.png", gt);
+
+    // exit(1);
+    
+    return loss;
 }

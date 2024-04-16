@@ -84,6 +84,7 @@ struct Model{
   void savePlySplat(const std::string &filename);
   void saveDebugPly(const std::string &filename);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
+  torch::Tensor depthLoss(torch::Tensor &depth, torch::Tensor &gt);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
   void removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);

@@ -5,6 +5,7 @@
 #include "point_io.hpp"
 #include "cv_utils.hpp"
 #include "tensor_math.hpp"
+#include "openmvs.hpp"
 
 namespace fs = std::filesystem;
 
@@ -146,6 +147,29 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
 
     ret.points.xyz = (xyz - ret.translation) * ret.scale;
     ret.points.rgb = rgb;
+
+    // TODO: add flag?
+    fs::path depthmapsRoot = nsRoot / "undistorted" / "openmvs" / "depthmaps";
+    if (true && fs::exists(depthmapsRoot)){
+        std::unordered_map<std::string, Camera *> camDict;
+        for (Camera &cam : ret.cameras){
+            camDict[fs::path(cam.filePath).filename().replace_extension("").string()] = &cam;
+            std::cerr << fs::path(cam.filePath).filename().replace_extension("").string() << std::endl;
+        }
+
+        for (auto const& entry : fs::directory_iterator{depthmapsRoot}){
+            if (entry.path().extension().string() == ".dmap"){
+                auto dmap = omvs::readDepthmap(entry.path().string(), true);
+                std::string fname = fs::path(dmap.filename).replace_extension("").replace_extension("").string();
+
+                if (camDict.find(fname) != camDict.end()){
+                    camDict[fname]->depthPath = fs::absolute(entry.path()).string();
+                }else{
+                    std::cout << "Warning: cannot associate depthmap " << entry.path().string() << " with a camera (no match to " << fname << " filename)" << std::endl;
+                }
+            }
+        }
+    }
 
     return ret;
 }

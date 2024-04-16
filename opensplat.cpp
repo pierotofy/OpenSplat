@@ -95,7 +95,7 @@ int main(int argc, char *argv[]){
     try{
         InputData inputData = inputDataFromX(projectRoot);
         for (Camera &cam : inputData.cameras){
-            cam.loadImage(downScaleFactor);
+            cam.load(downScaleFactor, inputData.scale);
         }
 
         // Withhold a validation camera if necessary
@@ -120,15 +120,22 @@ int main(int argc, char *argv[]){
 
             model.optimizersZeroGrad();
 
-            auto f = model.forward(cam, step, true);
+            auto f = model.forward(cam, step, cam.hasDepth());
+            float downscaleFactor = model.getDownscaleFactor(step);
             torch::Tensor rgb = std::get<0>(f);
-            torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
-            gt = gt.to(device);
+            torch::Tensor gt = cam.getImage(downscaleFactor).to(device);
+            torch::Tensor loss = model.mainLoss(rgb, gt, ssimWeight);
 
-            torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);
-            mainLoss.backward();
+            if (cam.hasDepth()){
+                torch::Tensor depthGt = cam.getDepth(downscaleFactor).to(device);
+                torch::Tensor depth = std::get<1>(f);
+                torch::Tensor depthLoss =  model.depthLoss(depth, depthGt);
+                loss = loss + depthLoss;
+            }
+
+            loss.backward();
             
-            if (step % displayStep == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
+            if (step % displayStep == 0) std::cout << "Step " << step << ": " << loss.item<float>() << std::endl;
 
             model.optimizersStep();
             model.schedulersStep(step);
@@ -156,10 +163,6 @@ int main(int argc, char *argv[]){
             torch::Tensor rgb = std::get<0>(f); 
             torch::Tensor gt = valCam->getImage(model.getDownscaleFactor(numIters)).to(device);
             std::cout << valCam->filePath << " validation loss: " << model.mainLoss(rgb, gt, ssimWeight).item<float>() << std::endl; 
-
-            // TODO: remove
-            torch::Tensor depth = std::get<1>(f);
-            imwriteFloat("depthtest.png", depth);
         }
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;

@@ -29,7 +29,7 @@ namespace omvs{
         torch::Tensor depth;
     };
 
-    Depthmap readDepthmap(const std::string &dmap);
+    Depthmap readDepthmap(const std::string &dmap, bool readHeaderOnly = false);
 }
 
 #endif

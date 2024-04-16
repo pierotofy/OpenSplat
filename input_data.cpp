@@ -26,11 +26,6 @@ InputData inputDataFromX(const std::string &projectRoot){
         throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio project folder)");
     }
 
-    auto dmap = omvs::readDepthmap((root / "depthmaps" / "frame_00015.dmap").string());
-    std::cerr << dmap.filename;
-    imwriteFloat("omvsdepth.png", dmap.depth);
-    exit(1);
-
     return data;
 }
 
@@ -38,6 +33,11 @@ torch::Tensor Camera::getIntrinsicsMatrix(){
     return torch::tensor({{fx, 0.0f, cx},
                           {0.0f, fy, cy},
                           {0.0f, 0.0f, 1.0f}}, torch::kFloat32);
+}
+
+void Camera::load(float downscaleFactor, float scale){
+    loadImage(downscaleFactor);
+    if (hasDepth()) loadDepth(scale);
 }
 
 void Camera::loadImage(float downscaleFactor){
@@ -61,8 +61,7 @@ void Camera::loadImage(float downscaleFactor){
     cy *= scaleFactor * rescaleF;
 
     if (downscaleFactor > 1.0f){
-        float f = 1.0f / downscaleFactor;
-        cv::resize(cImg, cImg, cv::Size(), f, f, cv::INTER_AREA);
+        cv::resize(cImg, cImg, cv::Size(), scaleFactor, scaleFactor, cv::INTER_AREA);
     }
 
     K = getIntrinsicsMatrix();
@@ -96,13 +95,24 @@ void Camera::loadImage(float downscaleFactor){
     cy = K[1][2].item<float>();
 }
 
+void Camera::loadDepth(float scale){
+    // Populates depth
+    if (!image.numel()) std::runtime_error("call loadImage first");
+    if (depth.numel()) std::runtime_error("loadDepth already called");
+    std::cout << "Loading " << depthPath << std::endl;
+
+    auto dmap = omvs::readDepthmap(depthPath);
+    cv::Mat cImg = floatNxNtensorToMat(dmap.depth);
+    float scaleFactor = image.size(0) / cImg.rows;
+    cv::resize(cImg, cImg, cv::Size(image.size(1), image.size(0)), scaleFactor, scaleFactor, scaleFactor < 1.0f ? cv::INTER_AREA : cv::INTER_LINEAR);
+    
+    // OpenMVS depthmaps are already undistorted
+    depth = torch::unsqueeze(floatNxNMatToTensor(cImg) * scale, -1);
+}
+
 torch::Tensor Camera::getImage(int downscaleFactor){
     if (downscaleFactor <= 1) return image;
     else{
-
-        // torch::jit::script::Module container = torch::jit::load("gt.pt");
-        // return container.attr("val").toTensor();
-
         if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
             return imagePyramids[downscaleFactor];
         }
@@ -116,8 +126,28 @@ torch::Tensor Camera::getImage(int downscaleFactor){
     }
 }
 
+torch::Tensor Camera::getDepth(int downscaleFactor){
+    if (downscaleFactor <= 1) return depth;
+    else{
+        if (depthPyramids.find(downscaleFactor) != depthPyramids.end()){
+            return depthPyramids[downscaleFactor];
+        }
+
+        // Rescale, store and return
+        cv::Mat cImg = floatNxNtensorToMat(depth);
+        cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
+        torch::Tensor t = torch::unsqueeze(floatNxNMatToTensor(cImg), -1);
+        depthPyramids[downscaleFactor] = t;
+        return t;
+    }
+}
+
 bool Camera::hasDistortionParameters(){
     return k1 != 0.0f || k2 != 0.0f || k3 != 0.0f || p1 != 0.0f || p2 != 0.0f;
+}
+
+bool Camera::hasDepth(){
+    return depthPath != "";
 }
 
 std::vector<float> Camera::undistortionParameters(){
