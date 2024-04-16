@@ -1,7 +1,7 @@
 #include "rasterize_gaussians.hpp"
 #include "gsplat.hpp"
 
-#if defined(USE_HIP) || defined(USE_CUDA)
+#if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
 
 std::tuple<torch::Tensor,
         torch::Tensor,
@@ -171,9 +171,9 @@ torch::Tensor RasterizeGaussiansCPU::forward(AutogradContext *ctx,
     torch::Tensor finalTs = std::get<1>(t);
     std::vector<int32_t> *px2gid = std::get<2>(t);
 
+    ctx->saved_data["px2gid"] = reinterpret_cast<int64_t>(px2gid);
     ctx->saved_data["imgWidth"] = imgWidth;
     ctx->saved_data["imgHeight"] = imgHeight;
-    ctx->saved_data["px2gid"] = reinterpret_cast<int64_t>(px2gid);
     ctx->save_for_backward({ xys, conics, colors, opacity, background, cov2d, camDepths, finalTs });
     
     return outImg;

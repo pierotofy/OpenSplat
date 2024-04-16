@@ -108,7 +108,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
         cov2d = p[3];
         camDepths = p[4];
     }else{
-        #if defined(USE_HIP) || defined(USE_CUDA)
+        #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
 
         TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
                         (height + BLOCK_Y - 1) / BLOCK_Y,
@@ -152,7 +152,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
     if (device == torch::kCPU){
         rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
-        #if defined(USE_HIP) || defined(USE_CUDA)
+        #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
         rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
         #endif
     }
@@ -172,7 +172,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
                 width,
                 backgroundColor);
     }else{  
-        #if defined(USE_HIP) || defined(USE_CUDA)
+        #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
         rgb = RasterizeGaussians::apply(
                 xys,
                 depths,

@@ -52,18 +52,8 @@ jobs:
             brew uninstall --force aws-sam-cli
             brew uninstall --force pipx
             brew uninstall --force python@3.11
-            brew uninstall --force python@3.12
-            rm -f '/usr/local/bin/2to3'
-            rm -f '/usr/local/bin/2to3-3.12'
-            rm -f '/usr/local/bin/idle3'
-            rm -f '/usr/local/bin/idle3.12'
-            rm -f '/usr/local/bin/pydoc3'
-            rm -f '/usr/local/bin/pydoc3.12'
-            rm -f '/usr/local/bin/python3'
-            rm -f '/usr/local/bin/python3-config'
-            rm -f '/usr/local/bin/python3.12'
-            rm -f '/usr/local/bin/python3.12-config'
-          fi
+            brew install --overwrite python@3.12
+          fi          
           brew install \
             ccache \
             cmake \
@@ -105,13 +95,21 @@ jobs:
           set -x
           mkdir build
           cd build
+          
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            export GPU_RUNTIME=MPS
+          else
+            export GPU_RUNTIME=CPU
+          fi
+          
           cmake .. \
             -G${CMAKE_GENERATOR} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }} \
             -DCMAKE_C_COMPILER_LAUNCHER=$(which ccache) \
             -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
-            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install \
+            -DGPU_RUNTIME=${GPU_RUNTIME} \
             -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           ninja
           ls -l .
@@ -121,9 +119,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: |
+            build/libgsplat.a
             build/libgsplat_cpu.a
             build/opensplat
             build/simple_trainer
+            build/default.metallib
 
       - name: Clean Compiler Cache
         run: |

@@ -79,14 +79,17 @@ int main(int argc, char *argv[]){
     const float splitScreenSize = result["split-screen-size"].as<float>();
 
     torch::Device device = torch::kCPU;
-    int displayStep = 1;
+    int displayStep = 10;
 
-    if (torch::cuda::is_available() && result.count("cpu") == 0) {
+    if (torch::hasCUDA() && result.count("cpu") == 0) {
         std::cout << "Using CUDA" << std::endl;
         device = torch::kCUDA;
-        displayStep = 10;
+    } else if (torch::hasMPS() && result.count("cpu") == 0) {
+        std::cout << "Using MPS" << std::endl;
+        device = torch::kMPS;
     }else{
         std::cout << "Using CPU" << std::endl;
+        displayStep = 1;
     }
 
     try{
