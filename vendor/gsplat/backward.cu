@@ -164,18 +164,23 @@ __global__ void rasterize_backward_kernel(
     const int32_t* __restrict__ gaussian_ids_sorted,
     const int2* __restrict__ tile_bins,
     const float2* __restrict__ xys,
+    const float* __restrict__ depths,
     const float3* __restrict__ conics,
     const float3* __restrict__ rgbs,
     const float* __restrict__ opacities,
     const float3& __restrict__ background,
     const float* __restrict__ final_Ts,
     const int* __restrict__ final_index,
+    const float* __restrict__ final_acc,
+    const float* __restrict__ final_depth,    
     const float3* __restrict__ v_output,
+    const float* __restrict__ v_out_depth,
     const float* __restrict__ v_output_alpha,
     float2* __restrict__ v_xy,
     float3* __restrict__ v_conic,
     float3* __restrict__ v_rgb,
-    float* __restrict__ v_opacity
+    float* __restrict__ v_opacity,
+    float* __restrict__ v_depth    
 ) {
     auto block = cg::this_thread_block();
     int32_t tile_id =
@@ -294,6 +299,8 @@ __global__ void rasterize_backward_kernel(
             float3 v_conic_local = {0.f, 0.f, 0.f};
             float2 v_xy_local = {0.f, 0.f};
             float v_opacity_local = 0.f;
+            float v_depth_local = 0.f;
+
             //initialize everything to 0, only set if the lane is valid
             if(valid){
                 // compute the current T for this gaussian
@@ -327,11 +334,15 @@ __global__ void rasterize_backward_kernel(
                 v_xy_local = {v_sigma * (conic.x * delta.x + conic.y * delta.y), 
                                     v_sigma * (conic.y * delta.x + conic.z * delta.y)};
                 v_opacity_local = vis * v_alpha;
+
+                v_depth_local = fac / final_acc[pix_id]
             }
             warpSum3(v_rgb_local, warp);
             warpSum3(v_conic_local, warp);
             warpSum2(v_xy_local, warp);
             warpSum(v_opacity_local, warp);
+            warpSum(v_depth_local, warp);
+            
             if (warp.thread_rank() == 0) {
                 int32_t g = id_batch[t];
                 float* v_rgb_ptr = (float*)(v_rgb);
@@ -349,6 +360,8 @@ __global__ void rasterize_backward_kernel(
                 atomicAdd(v_xy_ptr + 2*g + 1, v_xy_local.y);
                 
                 atomicAdd(v_opacity + g, v_opacity_local);
+                atomicAdd(v_depth + g, v_depth_local);
+                
             }
         }
     }
