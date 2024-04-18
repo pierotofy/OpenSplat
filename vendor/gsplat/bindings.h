@@ -111,6 +111,7 @@ torch::Tensor get_tile_bin_edges_tensor(
 std::tuple<
     torch::Tensor,
     torch::Tensor,
+    torch::Tensor,
     torch::Tensor
 > rasterize_forward_tensor(
     const std::tuple<int, int, int> tile_bounds,
@@ -119,6 +120,7 @@ std::tuple<
     const torch::Tensor &gaussian_ids_sorted,
     const torch::Tensor &tile_bins,
     const torch::Tensor &xys,
+    const torch::Tensor &depths,
     const torch::Tensor &conics,
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
@@ -171,6 +173,7 @@ std::
         torch::Tensor, // dL_dxy
         torch::Tensor, // dL_dconic
         torch::Tensor, // dL_dcolors
+        torch::Tensor, // dL_ddepth
         torch::Tensor  // dL_dopacity
         >
     rasterize_backward_tensor(
@@ -179,6 +182,7 @@ std::
         const torch::Tensor &gaussians_ids_sorted,
         const torch::Tensor &tile_bins,
         const torch::Tensor &xys,
+        const torch::Tensor &depths,        
         const torch::Tensor &conics,
         const torch::Tensor &colors,
         const torch::Tensor &opacities,
@@ -186,5 +190,5 @@ std::
         const torch::Tensor &final_Ts,
         const torch::Tensor &final_idx,
         const torch::Tensor &v_output, // dL_dout_color
-        const torch::Tensor &v_output_alpha
+        const torch::Tensor &v_depth_out // dL_dout_depth
     );

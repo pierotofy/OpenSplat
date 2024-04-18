@@ -36,7 +36,7 @@ cv::Mat tensorToImage(const torch::Tensor &t){
     if (c == 1) type = CV_8UC1;
 
     cv::Mat image(h, w, type);
-    torch::Tensor scaledTensor = (t * 255.0).toType(torch::kU8);
+    torch::Tensor scaledTensor = (t * 255.0).toType(torch::kU8).cpu();
     uint8_t* dataPtr = static_cast<uint8_t*>(scaledTensor.data_ptr());
     std::copy(dataPtr, dataPtr + (w * h * c), image.data);
 
@@ -56,6 +56,6 @@ void imwriteFloat(const std::string &filename, const torch::Tensor &t){
     torch::Tensor range = maxVal - minVal;
     torch::Tensor normalized = (t - minVal) / range;
 
-    cv::Mat image = tensorToImage(normalized.detach().cpu());
+    cv::Mat image = tensorToImage(normalized);
     cv::imwrite(filename, image);
 }

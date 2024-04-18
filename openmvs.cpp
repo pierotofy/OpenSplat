@@ -37,7 +37,7 @@ Depthmap readDepthmap(const std::string &dmap, bool readHeaderOnly){
     fin.ignore(sizeof(double) * 21);
 
     // Depthmap
-    d.depth = torch::zeros({d.header.depthHeight, d.header.depthWidth, 1}, torch::kFloat32);
+    d.depth = torch::zeros({d.header.depthHeight, d.header.depthWidth}, torch::kFloat32);
     fin.read(reinterpret_cast<char *>(d.depth.data_ptr()), sizeof(float) * d.header.depthHeight * d.header.depthWidth);
 
     fin.close();

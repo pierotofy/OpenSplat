@@ -164,6 +164,7 @@ __global__ void rasterize_backward_kernel(
     const int32_t* __restrict__ gaussian_ids_sorted,
     const int2* __restrict__ tile_bins,
     const float2* __restrict__ xys,
+    const float* __restrict__ depths,
     const float3* __restrict__ conics,
     const float3* __restrict__ rgbs,
     const float* __restrict__ opacities,
@@ -171,10 +172,11 @@ __global__ void rasterize_backward_kernel(
     const float* __restrict__ final_Ts,
     const int* __restrict__ final_index,
     const float3* __restrict__ v_output,
-    const float* __restrict__ v_output_alpha,
+    const float* __restrict__ v_depth_out,
     float2* __restrict__ v_xy,
     float3* __restrict__ v_conic,
     float3* __restrict__ v_rgb,
+    float* __restrict__ v_depth,
     float* __restrict__ v_opacity
 ) {
     auto block = cg::this_thread_block();
@@ -196,8 +198,11 @@ __global__ void rasterize_backward_kernel(
     // this is the T AFTER the last gaussian in this pixel
     float T_final = final_Ts[pix_id];
     float T = T_final;
+    float accum_depth_rec = 0.f;
     // the contribution from gaussians behind the current one
     float3 buffer = {0.f, 0.f, 0.f};
+    float alpha_buffer = 0.f;
+    float depth_buffer = 0.f;
     // index of last gaussian to contribute to this pixel
     const int bin_final = inside? final_index[pix_id] : 0;
 
@@ -211,10 +216,12 @@ __global__ void rasterize_backward_kernel(
     __shared__ float3 xy_opacity_batch[BLOCK_SIZE];
     __shared__ float3 conic_batch[BLOCK_SIZE];
     __shared__ float3 rgbs_batch[BLOCK_SIZE];
+    __shared__ float depths_batch[BLOCK_SIZE];
+    
 
     // df/d_out for this pixel
     const float3 v_out = v_output[pix_id];
-    const float v_out_alpha = v_output_alpha[pix_id];
+    const float v_depth_pixel = v_depth_out[pix_id];
 
     // collect and process batches of gaussians
     // each thread loads one gaussian at a time before rasterizing
@@ -245,6 +252,7 @@ __global__ void rasterize_backward_kernel(
             xy_opacity_batch[tr] = {xy.x, xy.y, opac};
             conic_batch[tr] = conics[g_id];
             rgbs_batch[tr] = rgbs[g_id];
+            depths_batch[tr] = depths[g_id];
         }
         // wait for other threads to collect the gaussians in batch
         block.sync();
@@ -294,6 +302,7 @@ __global__ void rasterize_backward_kernel(
             float3 v_conic_local = {0.f, 0.f, 0.f};
             float2 v_xy_local = {0.f, 0.f};
             float v_opacity_local = 0.f;
+            float v_depth_local = 0.f;
             //initialize everything to 0, only set if the lane is valid
             if(valid){
                 // compute the current T for this gaussian
@@ -303,22 +312,29 @@ __global__ void rasterize_backward_kernel(
                 const float fac = alpha * T;
                 float v_alpha = 0.f;
                 v_rgb_local = {fac * v_out.x, fac * v_out.y, fac * v_out.z};
+                v_depth_local = fac;
 
                 const float3 rgb = rgbs_batch[t];
+                const float depth = depths_batch[t];
+                accum_depth_rec = alpha_buffer*depth_buffer + (1.f-alpha_buffer)*accum_depth_rec;
+
                 // contribution from this pixel
                 v_alpha += (rgb.x * T - buffer.x * ra) * v_out.x;
                 v_alpha += (rgb.y * T - buffer.y * ra) * v_out.y;
                 v_alpha += (rgb.z * T - buffer.z * ra) * v_out.z;
-
-                v_alpha += T_final * ra * v_out_alpha;
                 // contribution from background pixel
                 v_alpha += -T_final * ra * background.x * v_out.x;
                 v_alpha += -T_final * ra * background.y * v_out.y;
                 v_alpha += -T_final * ra * background.z * v_out.z;
+                //contribution from depth
+                v_alpha += (depth-accum_depth_rec)*v_depth_pixel;
+
                 // update the running sum
                 buffer.x += rgb.x * fac;
                 buffer.y += rgb.y * fac;
                 buffer.z += rgb.z * fac;
+                depth_buffer = depth;
+                alpha_buffer = alpha;
 
                 const float v_sigma = -opac * vis * v_alpha;
                 v_conic_local = {0.5f * v_sigma * delta.x * delta.x, 
@@ -349,6 +365,7 @@ __global__ void rasterize_backward_kernel(
                 atomicAdd(v_xy_ptr + 2*g + 1, v_xy_local.y);
                 
                 atomicAdd(v_opacity + g, v_opacity_local);
+                atomicAdd(v_depth + g, v_depth_local* v_depth_pixel);
             }
         }
     }

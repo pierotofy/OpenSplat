@@ -90,6 +90,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
     torch::Tensor cov2d; // CPU-only
     torch::Tensor camDepths; // CPU-only
     torch::Tensor rgb;
+    torch::Tensor depthIm;
 
     if (device == torch::kCPU){
         auto p = ProjectGaussiansCPU::apply(means, 
@@ -175,7 +176,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
                 backgroundColor);
     }else{  
         #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
-        rgb = RasterizeGaussians::apply(
+        auto r = RasterizeGaussians::apply(
                 xys,
                 depths,
                 radii,
@@ -186,29 +187,12 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
                 height,
                 width,
                 backgroundColor);
+        rgb = r[0];
+        depthIm = r[1];
         #endif
     }
 
     rgb = torch::clamp_max(rgb, 1.0f);
-    torch::Tensor depthIm;
-    if (computeDepth){
-        // TODO add CPU
-        #if defined(USE_HIP) || defined(USE_CUDA)
-        depthIm = RasterizeGaussians::apply(
-                xys,
-                depths,
-                radii,
-                conics,
-                numTilesHit,
-                depths.index({Slice(), None}).repeat({1, 3}),
-                torch::sigmoid(opacities),
-                height,
-                width,
-                torch::zeros(3, torch::TensorOptions().dtype(torch::kFloat32).device(device)));
-        #endif
-
-        depthIm = depthIm.index({"...", Slice(0, 1)});
-    }
 
     return std::make_pair(rgb, depthIm);
 }

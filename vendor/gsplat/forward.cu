@@ -259,12 +259,14 @@ __global__ void rasterize_forward(
     const int32_t* __restrict__ gaussian_ids_sorted,
     const int2* __restrict__ tile_bins,
     const float2* __restrict__ xys,
+    const float* __restrict__ depths,
     const float3* __restrict__ conics,
     const float3* __restrict__ colors,
     const float* __restrict__ opacities,
     float* __restrict__ final_Ts,
     int* __restrict__ final_index,
     float3* __restrict__ out_img,
+    float* __restrict__ out_depth,
     const float3& __restrict__ background
 ) {
     // each thread draws one pixel, but also timeshares caching gaussians in a
@@ -307,6 +309,8 @@ __global__ void rasterize_forward(
     // designated pixel
     int tr = block.thread_rank();
     float3 pix_out = {0.f, 0.f, 0.f};
+    float depth_out = {0.f};
+
     for (int b = 0; b < num_batches; ++b) {
         // resync all threads before beginning next batch
         // end early if entire tile is done
@@ -359,6 +363,7 @@ __global__ void rasterize_forward(
             pix_out.x = pix_out.x + c.x * vis;
             pix_out.y = pix_out.y + c.y * vis;
             pix_out.z = pix_out.z + c.z * vis;
+            depth_out = depth_out + depths[g] * vis;
             T = next_T;
             cur_idx = batch_start + t;
         }
@@ -374,6 +379,7 @@ __global__ void rasterize_forward(
         final_color.y = pix_out.y + T * background.y;
         final_color.z = pix_out.z + T * background.z;
         out_img[pix_id] = final_color;
+        out_depth[pix_id] = depth_out;
     }
 }
 

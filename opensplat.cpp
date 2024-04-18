@@ -163,6 +163,13 @@ int main(int argc, char *argv[]){
             torch::Tensor rgb = std::get<0>(f); 
             torch::Tensor gt = valCam->getImage(model.getDownscaleFactor(numIters)).to(device);
             std::cout << valCam->filePath << " validation loss: " << model.mainLoss(rgb, gt, ssimWeight).item<float>() << std::endl; 
+
+
+            torch::Tensor depth = std::get<1>(f);
+            imwriteFloat("testdepth.png", depth);
+            imwriteFloat("testdepth_gt.png", valCam->getDepth(model.getDownscaleFactor(numIters)));
+            imwriteRGB("testrgb.png", tensorToImage(rgb));
+
         }
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;

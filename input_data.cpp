@@ -107,7 +107,7 @@ void Camera::loadDepth(float scale){
     cv::resize(cImg, cImg, cv::Size(image.size(1), image.size(0)), scaleFactor, scaleFactor, scaleFactor < 1.0f ? cv::INTER_AREA : cv::INTER_LINEAR);
     
     // OpenMVS depthmaps are already undistorted
-    depth = torch::unsqueeze(floatNxNMatToTensor(cImg) * scale, -1);
+    depth = floatNxNMatToTensor(cImg) * scale;
 }
 
 torch::Tensor Camera::getImage(int downscaleFactor){
@@ -136,7 +136,7 @@ torch::Tensor Camera::getDepth(int downscaleFactor){
         // Rescale, store and return
         cv::Mat cImg = floatNxNtensorToMat(depth);
         cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
-        torch::Tensor t = torch::unsqueeze(floatNxNMatToTensor(cImg), -1);
+        torch::Tensor t = floatNxNMatToTensor(cImg);
         depthPyramids[downscaleFactor] = t;
         return t;
     }

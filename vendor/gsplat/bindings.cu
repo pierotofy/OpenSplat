@@ -334,7 +334,7 @@ torch::Tensor get_tile_bin_edges_tensor(
     return tile_bins;
 }
 
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 rasterize_forward_tensor(
     const std::tuple<int, int, int> tile_bounds,
     const std::tuple<int, int, int> block,
@@ -342,6 +342,7 @@ rasterize_forward_tensor(
     const torch::Tensor &gaussian_ids_sorted,
     const torch::Tensor &tile_bins,
     const torch::Tensor &xys,
+    const torch::Tensor &depths,
     const torch::Tensor &conics,
     const torch::Tensor &colors,
     const torch::Tensor &opacities,
@@ -350,6 +351,7 @@ rasterize_forward_tensor(
     CHECK_INPUT(gaussian_ids_sorted);
     CHECK_INPUT(tile_bins);
     CHECK_INPUT(xys);
+    CHECK_INPUT(depths);
     CHECK_INPUT(conics);
     CHECK_INPUT(colors);
     CHECK_INPUT(opacities);
@@ -377,6 +379,9 @@ rasterize_forward_tensor(
     torch::Tensor out_img = torch::zeros(
         {img_height, img_width, channels}, xys.options().dtype(torch::kFloat32)
     );
+    torch::Tensor out_depth = torch::zeros(
+        {img_height, img_width}, xys.options().dtype(torch::kFloat32)
+    );
     torch::Tensor final_Ts = torch::zeros(
         {img_height, img_width}, xys.options().dtype(torch::kFloat32)
     );
@@ -390,16 +395,18 @@ rasterize_forward_tensor(
         gaussian_ids_sorted.contiguous().data_ptr<int32_t>(),
         (int2 *)tile_bins.contiguous().data_ptr<int>(),
         (float2 *)xys.contiguous().data_ptr<float>(),
+        depths.contiguous().data_ptr<float>(),
         (float3 *)conics.contiguous().data_ptr<float>(),
         (float3 *)colors.contiguous().data_ptr<float>(),
         opacities.contiguous().data_ptr<float>(),
         final_Ts.contiguous().data_ptr<float>(),
         final_idx.contiguous().data_ptr<int>(),
         (float3 *)out_img.contiguous().data_ptr<float>(),
+        out_depth.contiguous().data_ptr<float>(),
         *(float3 *)background.contiguous().data_ptr<float>()
     );
 
-    return std::make_tuple(out_img, final_Ts, final_idx);
+    return std::make_tuple(out_img, out_depth, final_Ts, final_idx);
 }
 
 
@@ -564,6 +571,7 @@ std::
         torch::Tensor, // dL_dxy
         torch::Tensor, // dL_dconic
         torch::Tensor, // dL_dcolors
+        torch::Tensor, // dl_ddepth
         torch::Tensor  // dL_dopacity
         >
     rasterize_backward_tensor(
@@ -572,6 +580,7 @@ std::
         const torch::Tensor &gaussians_ids_sorted,
         const torch::Tensor &tile_bins,
         const torch::Tensor &xys,
+        const torch::Tensor &depths,
         const torch::Tensor &conics,
         const torch::Tensor &colors,
         const torch::Tensor &opacities,
@@ -579,10 +588,11 @@ std::
         const torch::Tensor &final_Ts,
         const torch::Tensor &final_idx,
         const torch::Tensor &v_output, // dL_dout_color
-        const torch::Tensor &v_output_alpha // dL_dout_alpha
+        const torch::Tensor &v_depth_out // dL_dout_depth
     ) {
 
     CHECK_INPUT(xys);
+    CHECK_INPUT(depths);
     CHECK_INPUT(colors);
 
     if (xys.ndimension() != 2 || xys.size(1) != 2) {
@@ -607,6 +617,7 @@ std::
     torch::Tensor v_conic = torch::zeros({num_points, 3}, xys.options());
     torch::Tensor v_colors =
         torch::zeros({num_points, channels}, xys.options());
+    torch::Tensor v_depth = torch::zeros({num_points}, xys.options());
     torch::Tensor v_opacity = torch::zeros({num_points, 1}, xys.options());
 
     rasterize_backward_kernel<<<tile_bounds, block>>>(
@@ -615,6 +626,7 @@ std::
         gaussians_ids_sorted.contiguous().data_ptr<int>(),
         (int2 *)tile_bins.contiguous().data_ptr<int>(),
         (float2 *)xys.contiguous().data_ptr<float>(),
+        depths.contiguous().data_ptr<float>(),
         (float3 *)conics.contiguous().data_ptr<float>(),
         (float3 *)colors.contiguous().data_ptr<float>(),
         opacities.contiguous().data_ptr<float>(),
@@ -622,12 +634,13 @@ std::
         final_Ts.contiguous().data_ptr<float>(),
         final_idx.contiguous().data_ptr<int>(),
         (float3 *)v_output.contiguous().data_ptr<float>(),
-        v_output_alpha.contiguous().data_ptr<float>(),
+        v_depth_out.contiguous().data_ptr<float>(),
         (float2 *)v_xy.contiguous().data_ptr<float>(),
         (float3 *)v_conic.contiguous().data_ptr<float>(),
         (float3 *)v_colors.contiguous().data_ptr<float>(),
+        v_depth.contiguous().data_ptr<float>(),
         v_opacity.contiguous().data_ptr<float>()
     );
 
-    return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
+    return std::make_tuple(v_xy, v_conic, v_colors, v_depth, v_opacity);
 }
