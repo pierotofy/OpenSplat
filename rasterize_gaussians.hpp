@@ -32,7 +32,8 @@ public:
             torch::Tensor opacity,
             int imgHeight,
             int imgWidth,
-            torch::Tensor background);
+            torch::Tensor background,
+            torch::Tensor depthMask);
     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs);
 };
 

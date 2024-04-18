@@ -199,6 +199,7 @@ __global__ void rasterize_backward_kernel(
     float T_final = final_Ts[pix_id];
     float T = T_final;
     float accum_depth_rec = 0.f;
+
     // the contribution from gaussians behind the current one
     float3 buffer = {0.f, 0.f, 0.f};
     float alpha_buffer = 0.f;
@@ -316,7 +317,7 @@ __global__ void rasterize_backward_kernel(
 
                 const float3 rgb = rgbs_batch[t];
                 const float depth = depths_batch[t];
-                accum_depth_rec = alpha_buffer*depth_buffer + (1.f-alpha_buffer)*accum_depth_rec;
+                accum_depth_rec = alpha_buffer * depth_buffer + (1.f - alpha_buffer) * accum_depth_rec;
 
                 // contribution from this pixel
                 v_alpha += (rgb.x * T - buffer.x * ra) * v_out.x;
@@ -327,7 +328,7 @@ __global__ void rasterize_backward_kernel(
                 v_alpha += -T_final * ra * background.y * v_out.y;
                 v_alpha += -T_final * ra * background.z * v_out.z;
                 //contribution from depth
-                v_alpha += (depth-accum_depth_rec)*v_depth_pixel;
+                v_alpha += (depth - accum_depth_rec) * v_depth_pixel;
 
                 // update the running sum
                 buffer.x += rgb.x * fac;
@@ -348,6 +349,7 @@ __global__ void rasterize_backward_kernel(
             warpSum3(v_conic_local, warp);
             warpSum2(v_xy_local, warp);
             warpSum(v_opacity_local, warp);
+
             if (warp.thread_rank() == 0) {
                 int32_t g = id_batch[t];
                 float* v_rgb_ptr = (float*)(v_rgb);
@@ -365,7 +367,7 @@ __global__ void rasterize_backward_kernel(
                 atomicAdd(v_xy_ptr + 2*g + 1, v_xy_local.y);
                 
                 atomicAdd(v_opacity + g, v_opacity_local);
-                atomicAdd(v_depth + g, v_depth_local* v_depth_pixel);
+                atomicAdd(v_depth + g, v_depth_local * v_depth_pixel);
             }
         }
     }

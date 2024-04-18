@@ -1,6 +1,8 @@
 #include "rasterize_gaussians.hpp"
 #include "gsplat.hpp"
 
+#include "cv_utils.hpp" // TODO: REMOVE
+
 #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
 
 std::tuple<torch::Tensor,
@@ -46,7 +48,8 @@ variable_list RasterizeGaussians::forward(AutogradContext *ctx,
             torch::Tensor opacity,
             int imgHeight,
             int imgWidth,
-            torch::Tensor background
+            torch::Tensor background,
+            torch::Tensor depthMask
         ){
     
     int numPoints = xys.size(0);
@@ -86,7 +89,7 @@ variable_list RasterizeGaussians::forward(AutogradContext *ctx,
 
     ctx->saved_data["imgWidth"] = imgWidth;
     ctx->saved_data["imgHeight"] = imgHeight;
-    ctx->save_for_backward({ gaussianIdsSorted, tileBins, xys, depths, conics, colors, opacity, background, finalTs, finalIdx });
+    ctx->save_for_backward({ gaussianIdsSorted, tileBins, xys, depths, conics, colors, opacity, background, finalTs, finalIdx, depthMask });
     
     return {outImg, outDepth};
 }
@@ -94,7 +97,7 @@ variable_list RasterizeGaussians::forward(AutogradContext *ctx,
 tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_outputs) {
     torch::Tensor v_outImg = grad_outputs[0];
     torch::Tensor v_outDepth = grad_outputs[1];
-    
+
     int imgHeight = ctx->saved_data["imgHeight"].toInt();
     int imgWidth = ctx->saved_data["imgWidth"].toInt();
 
@@ -109,6 +112,9 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     torch::Tensor background = saved[7];
     torch::Tensor finalTs = saved[8];
     torch::Tensor finalIdx = saved[9];
+    torch::Tensor depthMask = saved[10];
+
+    v_outDepth *= depthMask;
 
     // torch::Tensor v_outAlpha = torch::zeros_like(v_outImg.index({"...", 0}));
     
@@ -142,7 +148,8 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
             v_opacity,
             none, // imgHeight
             none, // imgWidth
-            none // background
+            none, // background
+            none // depthMask
     };
 }
 

@@ -50,7 +50,7 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
 }
 
 
-std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, bool computeDepth){
+std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
 
     const float scaleFactor = getDownscaleFactor(step);
     const float fx = cam.fx / scaleFactor;
@@ -91,6 +91,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
     torch::Tensor camDepths; // CPU-only
     torch::Tensor rgb;
     torch::Tensor depthIm;
+    torch::Tensor depthMask = cam.hasDepth() ? (cam.getDepth(scaleFactor) <= 0).to(device) : torch::Tensor().to(device);
 
     if (device == torch::kCPU){
         auto p = ProjectGaussiansCPU::apply(means, 
@@ -151,7 +152,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
     viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
     torch::Tensor rgbs;
-    
+     
     if (device == torch::kCPU){
         rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
@@ -186,7 +187,8 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, b
                 torch::sigmoid(opacities),
                 height,
                 width,
-                backgroundColor);
+                backgroundColor,
+                depthMask);
         rgb = r[0];
         depthIm = r[1];
         #endif
@@ -560,12 +562,5 @@ torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimW
 
 torch::Tensor Model::depthLoss(torch::Tensor &depth, torch::Tensor &gt){
     torch::Tensor mask = gt > 0;
-    torch::Tensor loss = l1(depth * mask, gt);
-
-    // imwriteFloat("depthmask.png", depth * mask);
-    // imwriteFloat("depthgt.png", gt);
-
-    // exit(1);
-    
-    return loss;
+    return l1(depth * mask, gt * mask);
 }
