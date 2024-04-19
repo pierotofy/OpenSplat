@@ -135,7 +135,7 @@ int main(int argc, char *argv[]){
 
             if (saveEvery > 0 && step % saveEvery == 0){
                 fs::path p(outputScene);
-                model.savePlySplat((p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string()));
+                model.save((p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string()));
             }
 
             if (!valRender.empty() && step % 10 == 0){
@@ -146,7 +146,7 @@ int main(int argc, char *argv[]){
             }
         }
 
-        model.savePlySplat(outputScene);
+        model.save(outputScene);
         // model.saveDebugPly("debug.ply");
 
         // Validate

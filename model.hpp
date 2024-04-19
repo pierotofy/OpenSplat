@@ -81,7 +81,9 @@ struct Model{
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
   void afterTrain(int step);
-  void savePlySplat(const std::string &filename);
+  void save(const std::string &filename);
+  void savePly(const std::string &filename);
+  void saveSplat(const std::string &filename);
   void saveDebugPly(const std::string &filename);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
