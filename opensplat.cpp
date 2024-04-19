@@ -94,9 +94,9 @@ int main(int argc, char *argv[]){
 
     try{
         InputData inputData = inputDataFromX(projectRoot);
-        for (Camera &cam : inputData.cameras){
+        parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
             cam.loadImage(downScaleFactor);
-        }
+        });
 
         // Withhold a validation camera if necessary
         auto t = inputData.getCameras(validate, valImage);
