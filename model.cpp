@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "model.hpp"
 #include "constants.hpp"
 #include "tile_bounds.hpp"
@@ -11,6 +12,8 @@
 #elif defined(USE_CUDA)
 #include <c10/cuda/CUDACachingAllocator.h>
 #endif
+
+namespace fs = std::filesystem;
 
 torch::Tensor randomQuatTensor(long long n){
     torch::Tensor u = torch::rand(n);
@@ -458,7 +461,16 @@ void Model::afterTrain(int step){
     }
 }
 
-void Model::savePlySplat(const std::string &filename){
+void Model::save(const std::string &filename){
+    if (fs::path(filename).extension().string() == ".splat"){
+        saveSplat(filename);
+    }else{
+        savePly(filename);
+    }
+    std::cout << "Wrote " << filename << std::endl;
+}
+
+void Model::savePly(const std::string &filename){
     std::ofstream o(filename, std::ios::binary);
     int numPoints = means.size(0);
 
@@ -515,7 +527,42 @@ void Model::savePlySplat(const std::string &filename){
     }
 
     o.close();
-    std::cout << "Wrote " << filename << std::endl;
+}
+
+void Model::saveSplat(const std::string &filename){
+    std::ofstream o(filename, std::ios::binary);
+    int numPoints = means.size(0);
+
+    torch::Tensor meansCpu = keepCrs ? (means.cpu() / scale) + translation : means.cpu();
+    torch::Tensor scalesCpu = keepCrs ? (torch::exp(scales.cpu()) / scale) : torch::exp(scales.cpu());
+    torch::Tensor rgbsCpu = (sh2rgb(featuresDc.cpu()) * 255.0f).toType(torch::kUInt8);
+    torch::Tensor opac = (1.0f + torch::exp(-opacities.cpu()));
+    torch::Tensor opacitiesCpu = torch::clamp(((1.0f / opac) * 255.0f), 0.0f, 255.0f).toType(torch::kUInt8);
+    torch::Tensor quatsCpu = torch::clamp(quats.cpu() * 128.0f + 128.0f, 0.0f, 255.0f).toType(torch::kUInt8);
+
+    std::vector< size_t > splatIndices( numPoints );
+    std::iota( splatIndices.begin(), splatIndices.end(), 0 );
+    torch::Tensor order = (scalesCpu.index({"...", 0}) + 
+                            scalesCpu.index({"...", 1}) + 
+                            scalesCpu.index({"...", 2})) / 
+                            opac.index({"...", 0});
+    float *orderPtr = reinterpret_cast<float *>(order.data_ptr());
+
+    std::sort(splatIndices.begin(), splatIndices.end(), 
+        [&orderPtr](size_t const &a, size_t const &b) {
+            return orderPtr[a] > orderPtr[b];
+        });
+
+    for (int i = 0; i < numPoints; i++){
+        size_t idx = splatIndices[i];
+
+        o.write(reinterpret_cast<const char *>(meansCpu[idx].data_ptr()), sizeof(float) * 3);
+        o.write(reinterpret_cast<const char *>(scalesCpu[idx].data_ptr()), sizeof(float) * 3);
+        o.write(reinterpret_cast<const char *>(rgbsCpu[idx].data_ptr()), sizeof(uint8_t) * 3);
+        o.write(reinterpret_cast<const char *>(opacitiesCpu[idx].data_ptr()), sizeof(uint8_t) * 1);
+        o.write(reinterpret_cast<const char *>(quatsCpu[idx].data_ptr()), sizeof(uint8_t) * 4);
+    }
+    o.close();
 }
 
 void Model::saveDebugPly(const std::string &filename){
