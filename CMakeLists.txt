@@ -7,6 +7,35 @@ set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation
 set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+# Don't complain about the override from NANOFLANN_BUILD_EXAMPLES
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+# Use time-of-extraction for FetchContent'ed files modification time
+if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+    cmake_policy(SET CMP0135 NEW)
+endif()
+include(FetchContent)
+FetchContent_Declare(nlohmann_json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d
+)
+set(NANOFLANN_BUILD_EXAMPLES OFF)
+FetchContent_Declare(nanoflann
+    GIT_REPOSITORY https://github.com/jlblancoc/nanoflann.git
+    GIT_TAG 923c2ac16a955317054c296d298425d33c0cb9de # 1.5.5
+)
+FetchContent_Declare(cxxopts
+    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+    GIT_TAG 3bf268481da8208d171d8908e6491459de3651d7 # 3.2.0
+)
+FetchContent_MakeAvailable(nlohmann_json nanoflann cxxopts)
+if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
+    FetchContent_Declare(glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG 0af55ccecd98d4e5a8d1fad7de25ba429d60e863 # 1.0.1
+    )
+    FetchContent_MakeAvailable(glm)
+endif()
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
@@ -125,10 +154,10 @@ if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
         target_compile_definitions(gsplat PRIVATE USE_HIP __HIP_PLATFORM_AMD__)
     endif()
     target_include_directories(gsplat PRIVATE
-        ${PROJECT_SOURCE_DIR}/vendor/glm        
         ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
         ${TORCH_INCLUDE_DIRS}
     )
+    target_link_libraries(gsplat PUBLIC glm::glm-header-only)
     set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
 elseif(GPU_RUNTIME STREQUAL "MPS")    
     add_library(gsplat vendor/gsplat-metal/gsplat_metal.mm)
@@ -164,12 +193,15 @@ add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdt
 install(TARGETS opensplat DESTINATION bin)
 set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
 target_include_directories(opensplat PRIVATE
-    ${PROJECT_SOURCE_DIR}/vendor/glm
-    ${PROJECT_SOURCE_DIR}/vendor/nanoflann
     ${PROJECT_SOURCE_DIR}/vendor
     ${GPU_INCLUDE_DIRS}
 )
 target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(opensplat PRIVATE
+    nlohmann_json::nlohmann_json
+    cxxopts::cxxopts
+    nanoflann::nanoflann
+)
 if (NOT WIN32)
     target_link_libraries(opensplat PUBLIC pthread)
 endif()
@@ -185,12 +217,15 @@ if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
     add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp cv_utils.cpp)
     install(TARGETS simple_trainer DESTINATION bin)
     target_include_directories(simple_trainer PRIVATE
-        ${PROJECT_SOURCE_DIR}/vendor/glm 
-        ${PROJECT_SOURCE_DIR}/vendor/nanoflann
         ${PROJECT_SOURCE_DIR}/vendor
         ${GPU_INCLUDE_DIRS}
     )
     target_link_libraries(simple_trainer PUBLIC ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+    target_link_libraries(simple_trainer PRIVATE
+        nlohmann_json::nlohmann_json
+        cxxopts::cxxopts
+        nanoflann::nanoflann
+    )
     if (NOT WIN32)
         target_link_libraries(simple_trainer PUBLIC pthread)
     endif()
