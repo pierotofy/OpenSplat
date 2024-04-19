@@ -138,7 +138,7 @@ tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_
     torch::Tensor v_depth = std::get<3>(t);
     torch::Tensor v_opacity = std::get<4>(t);
     torch::Tensor none;
-
+    
     return { v_xy,
             v_depth, // depths
             none, // radii
