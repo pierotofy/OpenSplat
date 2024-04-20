@@ -1,10 +1,10 @@
 #include <filesystem>
-#include "vendor/json/json.hpp"
+#include <nlohmann/json.hpp>
 #include "opensplat.hpp"
 #include "input_data.hpp"
 #include "utils.hpp"
 #include "cv_utils.hpp"
-#include "vendor/cxxopts.hpp"
+#include <cxxopts.hpp>
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;

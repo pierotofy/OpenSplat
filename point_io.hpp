@@ -12,7 +12,7 @@
 #include <pdal/io/BufferReader.hpp>
 #endif
 
-#include "vendor/nanoflann/nanoflann.hpp"
+#include <nanoflann.hpp>
 
 struct XYZ {
     float x;

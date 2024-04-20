@@ -2,7 +2,7 @@
 #define KDTREE_TENSOR
 
 #include <torch/torch.h>
-#include "vendor/nanoflann/nanoflann.hpp"
+#include <nanoflann.hpp>
 
 struct PointsTensor {
     torch::Tensor tensor;

@@ -1,16 +1,16 @@
 #ifndef GSPLAT_H
 #define GSPLAT_H
 
-#include "vendor/gsplat/config.h"
+#include <gsplat/config.h>
 
 #if defined(USE_HIP) || defined(USE_CUDA)
-#include "vendor/gsplat/bindings.h"
+#include <gsplat/bindings.h>
 #endif
 
 #if defined(USE_MPS)
-#include "vendor/gsplat-metal/bindings.h"
+#include <gsplat-metal/bindings.h>
 #endif
 
-#include "vendor/gsplat-cpu/bindings.h"
+#include <gsplat-cpu/bindings.h>
 
 #endif
