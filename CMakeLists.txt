@@ -15,23 +15,24 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
 endif()
 include(FetchContent)
 FetchContent_Declare(nlohmann_json
-    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-    URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d
+    GIT_REPOSITORY https://github.com/nlohmann/json
+    GIT_TAG v3.11.3
 )
 set(NANOFLANN_BUILD_EXAMPLES OFF)
+set(NANOFLANN_BUILD_TESTS OFF)
 FetchContent_Declare(nanoflann
     GIT_REPOSITORY https://github.com/jlblancoc/nanoflann.git
-    GIT_TAG 923c2ac16a955317054c296d298425d33c0cb9de # 1.5.5
+    GIT_TAG v1.5.5
 )
 FetchContent_Declare(cxxopts
     GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-    GIT_TAG 3bf268481da8208d171d8908e6491459de3651d7 # 3.2.0
+    GIT_TAG v3.2.0
 )
 FetchContent_MakeAvailable(nlohmann_json nanoflann cxxopts)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     FetchContent_Declare(glm
         GIT_REPOSITORY https://github.com/g-truc/glm.git
-        GIT_TAG 0af55ccecd98d4e5a8d1fad7de25ba429d60e863 # 1.0.1
+        GIT_TAG 1.0.1
     )
     FetchContent_MakeAvailable(glm)
 endif()
@@ -102,7 +103,7 @@ elseif(GPU_RUNTIME STREQUAL "HIP")
     set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
     find_package(HIP REQUIRED)
 
-    file(GLOB_RECURSE GSPLAT_GPU_SRC LIST_DIRECTORIES False vendor/gsplat/*.cu)
+    file(GLOB_RECURSE GSPLAT_GPU_SRC LIST_DIRECTORIES False rasterizer/gsplat/*.cu)
     set_source_files_properties(${GSPLAT_GPU_SRC} PROPERTIES LANGUAGE HIP)
 
     if(WIN32)
@@ -144,7 +145,7 @@ set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui opencv_calib3d)
 
 set(GSPLAT_LIBS gsplat_cpu)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
-    add_library(gsplat vendor/gsplat/forward.cu vendor/gsplat/backward.cu vendor/gsplat/bindings.cu vendor/gsplat/helpers.cuh)
+    add_library(gsplat rasterizer/gsplat/forward.cu rasterizer/gsplat/backward.cu rasterizer/gsplat/bindings.cu rasterizer/gsplat/helpers.cuh)
     list(APPEND GSPLAT_LIBS gsplat)
     if(GPU_RUNTIME STREQUAL "CUDA")
         set(GPU_LIBRARIES "cuda")
@@ -160,7 +161,7 @@ if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     target_link_libraries(gsplat PUBLIC glm::glm-header-only)
     set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
 elseif(GPU_RUNTIME STREQUAL "MPS")    
-    add_library(gsplat vendor/gsplat-metal/gsplat_metal.mm)
+    add_library(gsplat rasterizer/gsplat-metal/gsplat_metal.mm)
     list(APPEND GSPLAT_LIBS gsplat)
     target_link_libraries(gsplat PRIVATE 
         ${FOUNDATION_LIBRARY}
@@ -169,14 +170,14 @@ elseif(GPU_RUNTIME STREQUAL "MPS")
     )
     target_include_directories(gsplat PRIVATE ${TORCH_INCLUDE_DIRS})
     # copy shader files to bin directory
-    configure_file(vendor/gsplat-metal/gsplat_metal.metal ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal COPYONLY)
+    configure_file(rasterizer/gsplat-metal/gsplat_metal.metal ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal COPYONLY)
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/default.metallib
         COMMAND xcrun -sdk macosx metal    ${XC_FLAGS} -c ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.air
         COMMAND xcrun -sdk macosx metallib                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.air   -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/default.metallib
         COMMAND rm -f ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.air
         COMMAND rm -f ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/gsplat_metal.metal
-        DEPENDS vendor/gsplat-metal/gsplat_metal.metal
+        DEPENDS rasterizer/gsplat-metal/gsplat_metal.metal
         COMMENT "Compiling Metal kernels"
     )
 
@@ -186,14 +187,14 @@ elseif(GPU_RUNTIME STREQUAL "MPS")
     )
 endif()
 
-add_library(gsplat_cpu vendor/gsplat-cpu/gsplat_cpu.cpp)
+add_library(gsplat_cpu rasterizer/gsplat-cpu/gsplat_cpu.cpp)
 target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 
 add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp input_data.cpp tensor_math.cpp)
 install(TARGETS opensplat DESTINATION bin)
 set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
 target_include_directories(opensplat PRIVATE
-    ${PROJECT_SOURCE_DIR}/vendor
+    ${PROJECT_SOURCE_DIR}/rasterizer
     ${GPU_INCLUDE_DIRS}
 )
 target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
@@ -217,7 +218,7 @@ if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
     add_executable(simple_trainer simple_trainer.cpp project_gaussians.cpp rasterize_gaussians.cpp cv_utils.cpp)
     install(TARGETS simple_trainer DESTINATION bin)
     target_include_directories(simple_trainer PRIVATE
-        ${PROJECT_SOURCE_DIR}/vendor
+        ${PROJECT_SOURCE_DIR}/rasterizer
         ${GPU_INCLUDE_DIRS}
     )
     target_link_libraries(simple_trainer PUBLIC ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
