@@ -15,24 +15,20 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
 endif()
 include(FetchContent)
 FetchContent_Declare(nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json
-    GIT_TAG v3.11.3
+    URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.zip
 )
 set(NANOFLANN_BUILD_EXAMPLES OFF)
 set(NANOFLANN_BUILD_TESTS OFF)
 FetchContent_Declare(nanoflann
-    GIT_REPOSITORY https://github.com/jlblancoc/nanoflann.git
-    GIT_TAG v1.5.5
+    URL https://github.com/jlblancoc/nanoflann/archive/refs/tags/v1.5.5.zip
 )
 FetchContent_Declare(cxxopts
-    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-    GIT_TAG v3.2.0
+    URL https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.zip
 )
 FetchContent_MakeAvailable(nlohmann_json nanoflann cxxopts)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     FetchContent_Declare(glm
-        GIT_REPOSITORY https://github.com/g-truc/glm.git
-        GIT_TAG 1.0.1
+        URL https://github.com/g-truc/glm/archive/refs/tags/1.0.1.zip
     )
     FetchContent_MakeAvailable(glm)
 endif()
