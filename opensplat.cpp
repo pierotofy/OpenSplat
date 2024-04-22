@@ -125,6 +125,15 @@ int main(int argc, char *argv[]){
             gt = gt.to(device);
 
             torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);
+
+            // mainLoss += torch::mean(torch::sum(torch::abs(model.scales.index({"...", 0}) - model.scales.index({"...", 1})), -1));
+            // mainLoss += torch::mean(torch::sum(torch::abs(1.0f - model.scales.index({"...", 2})), -1));
+            torch::Tensor s = torch::exp(model.scales);
+            // mainLoss += 0.01f * (torch::mean(torch::pow(s.index({"...", 0}) - s.index({"...", 1}), 2).unsqueeze(-1)) +
+            //                      torch::mean(torch::pow(s.index({"...", 2}), 2).unsqueeze(-1)));
+            mainLoss += 0.01f * (torch::mean(torch::pow(s.index({"...", 0}) - s.index({"...", 1}), 2).unsqueeze(-1)) +
+                                 torch::mean(torch::pow(s.index({"...", 1}) - s.index({"...", 2}), 2).unsqueeze(-1)));
+
             mainLoss.backward();
             
             if (step % displayStep == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
