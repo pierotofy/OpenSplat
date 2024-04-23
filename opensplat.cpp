@@ -94,6 +94,7 @@ int main(int argc, char *argv[]){
 
     try{
         InputData inputData = inputDataFromX(projectRoot);
+
         parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
             cam.loadImage(downScaleFactor);
         });
@@ -146,6 +147,7 @@ int main(int argc, char *argv[]){
             }
         }
 
+        inputData.saveCameras((fs::path(outputScene).parent_path() / "cameras.json").string(), keepCrs);
         model.save(outputScene);
         // model.saveDebugPly("debug.ply");
 
