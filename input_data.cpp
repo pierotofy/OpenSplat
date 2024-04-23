@@ -170,13 +170,11 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
         R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f})));
 
         if (keepCrs) T = (T / scale) + translation;
-        std::vector<float> position(3);
-        position[0] = T[0].item<float>();
-        position[1] = T[1].item<float>();
-        position[2] = T[2].item<float>();
 
+        std::vector<float> position(3);
         std::vector<std::vector<float>> rotation(3, std::vector<float>(3));
         for (int i = 0; i < 3; i++) {
+            position[i] = T[i].item<float>();
             for (int j = 0; j < 3; j++) {
                 rotation[i][j] = R[i][j].item<float>();
             }
