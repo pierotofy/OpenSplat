@@ -61,7 +61,6 @@ torch::Tensor Model::forward(Camera& cam, int step){
     const int height = static_cast<int>(static_cast<float>(cam.height) / scaleFactor);
     const int width = static_cast<int>(static_cast<float>(cam.width) / scaleFactor);
 
-    // TODO: these can be moved to Camera and computed only once?
     torch::Tensor R = cam.camToWorld.index({Slice(None, 3), Slice(None, 3)});
     torch::Tensor T = cam.camToWorld.index({Slice(None, 3), Slice(3,4)});
 

@@ -4,13 +4,14 @@
 #include "input_data.hpp"
 #include "utils.hpp"
 #include "cv_utils.hpp"
+#include "constants.hpp"
 #include <cxxopts.hpp>
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 
 int main(int argc, char *argv[]){
-    cxxopts::Options options("opensplat", "Open Source 3D Gaussian Splats generator");
+    cxxopts::Options options("opensplat", "Open Source 3D Gaussian Splats generator - " APP_VERSION);
     options.add_options()
         ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
         ("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value("splat.ply"))
@@ -37,6 +38,7 @@ int main(int argc, char *argv[]){
         ("split-screen-size", "Split gaussians that are larger than this percentage of screen space", cxxopts::value<float>()->default_value("0.05"))
 
         ("h,help", "Print usage")
+        ("version", "Print version")
         ;
     options.parse_positional({ "input" });
     options.positional_help("[colmap/nerfstudio/opensfm/odm project path]");
@@ -50,10 +52,15 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
     }
 
+    if (result.count("version")){
+        std::cout << APP_VERSION << std::endl;
+        return EXIT_SUCCESS;
+    }
     if (result.count("help") || !result.count("input")) {
         std::cout << options.help() << std::endl;
         return EXIT_SUCCESS;
     }
+
 
     const std::string projectRoot = result["input"].as<std::string>();
     const std::string outputScene = result["output"].as<std::string>();
@@ -94,6 +101,7 @@ int main(int argc, char *argv[]){
 
     try{
         InputData inputData = inputDataFromX(projectRoot);
+
         parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
             cam.loadImage(downScaleFactor);
         });
@@ -146,6 +154,7 @@ int main(int argc, char *argv[]){
             }
         }
 
+        inputData.saveCameras((fs::path(outputScene).parent_path() / "cameras.json").string(), keepCrs);
         model.save(outputScene);
         // model.saveDebugPly("debug.ply");
 

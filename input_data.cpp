@@ -1,9 +1,11 @@
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include "input_data.hpp"
 #include "cv_utils.hpp"
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
+using json = nlohmann::json;
 
 namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
 namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot); }
@@ -144,4 +146,48 @@ std::tuple<std::vector<Camera>, Camera *> InputData::getCameras(bool validate, c
 
         return std::make_tuple(cams, valCam);
     }
+}
+
+
+void InputData::saveCameras(const std::string &filename, bool keepCrs){
+    json j = json::array();
+    
+    for (size_t i = 0; i < cameras.size(); i++){
+        Camera &cam = cameras[i];
+
+        json camera = json::object();
+        camera["id"] = i;
+        camera["img_name"] = fs::path(cam.filePath).filename().string();
+        camera["width"] = cam.width;
+        camera["height"] = cam.height;
+        camera["fx"] = cam.fx;
+        camera["fy"] = cam.fy;
+
+        torch::Tensor R = cam.camToWorld.index({Slice(None, 3), Slice(None, 3)});
+        torch::Tensor T = cam.camToWorld.index({Slice(None, 3), Slice(3,4)}).squeeze();
+        
+        // Flip z and y
+        R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f})));
+
+        if (keepCrs) T = (T / scale) + translation;
+
+        std::vector<float> position(3);
+        std::vector<std::vector<float>> rotation(3, std::vector<float>(3));
+        for (int i = 0; i < 3; i++) {
+            position[i] = T[i].item<float>();
+            for (int j = 0; j < 3; j++) {
+                rotation[i][j] = R[i][j].item<float>();
+            }
+        }
+
+        camera["position"] = position;
+        camera["rotation"] = rotation;
+        j.push_back(camera);
+    }
+    
+    std::ofstream of(filename);
+    of << j;
+    of.close();
+
+    std::cout << "Wrote " << filename << std::endl;
 }

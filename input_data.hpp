@@ -33,7 +33,6 @@ struct Camera{
         width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), 
         k1(k1), k2(k2), k3(k3), p1(p1), p2(p2),
         camToWorld(camToWorld), filePath(filePath) {}
-    
     torch::Tensor getIntrinsicsMatrix();
     bool hasDistortionParameters();
     std::vector<float> undistortionParameters();
@@ -57,6 +56,8 @@ struct InputData{
     Points points;
 
     std::tuple<std::vector<Camera>, Camera *> getCameras(bool validate, const std::string &valImage = "random");
+
+    void saveCameras(const std::string &filename, bool keepCrs);
 };
 InputData inputDataFromX(const std::string &projectRoot);
 
