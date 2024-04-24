@@ -7,6 +7,28 @@ set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation
 set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+# Read version
+file(READ "VERSION" APP_VERSION)
+
+# Read git commit
+set(GIT_REV "")
+execute_process(COMMAND git rev-parse --short HEAD
+                WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" 
+                OUTPUT_VARIABLE GIT_REV 
+                ERROR_QUIET)
+string(REGEX REPLACE "\n$" "" GIT_REV "${GIT_REV}")
+if (NOT "${GIT_REV}" STREQUAL "")
+    set(DAPP_VERSION "${APP_VERSION} (git commit ${GIT_REV})")
+    set(DAPP_REVISION "${GIT_REV}")
+else()
+    set(DAPP_VERSION "${APP_VERSION}")
+    set(DAPP_REVISION "dev")
+endif()
+
+message("OpenSplat Version: ${DAPP_VERSION}")
+add_compile_options("-DAPP_VERSION=\"${DAPP_VERSION}\"")
+add_compile_options("-DAPP_REVISION=\"${DAPP_REVISION}\"")
+
 # Don't complain about the override from NANOFLANN_BUILD_EXAMPLES
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 # Use time-of-extraction for FetchContent'ed files modification time

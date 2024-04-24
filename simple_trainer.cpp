@@ -22,7 +22,7 @@ using namespace torch::indexing;
 namespace fs = std::filesystem;
 
 int main(int argc, char **argv){
-    cxxopts::Options options("simple_trainer", "Test program for gsplat execution");
+    cxxopts::Options options("simple_trainer", "Test program for gsplat execution - " APP_VERSION);
     options.add_options()
         ("cpu", "Force CPU execution")
         ("width", "Test image width", cxxopts::value<int>()->default_value("256"))
@@ -32,6 +32,7 @@ int main(int argc, char **argv){
         ("lr", "Learning rate", cxxopts::value<float>()->default_value("0.01"))
         ("render", "Save rendered images to folder", cxxopts::value<std::string>()->default_value(""))
         ("h,help", "Print usage")
+        ("version", "Print version")
         ;
     cxxopts::ParseResult result;
     try {
@@ -45,6 +46,11 @@ int main(int argc, char **argv){
 
     if (result.count("help")) {
         std::cout << options.help() << std::endl;
+        return EXIT_SUCCESS;
+    }
+
+    if (result.count("version")) {
+        std::cout << APP_VERSION << std::endl;
         return EXIT_SUCCESS;
     }
 
