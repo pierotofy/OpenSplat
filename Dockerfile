@@ -2,6 +2,7 @@ ARG UBUNTU_VERSION=22.04
 
 FROM ubuntu:${UBUNTU_VERSION}
 
+ARG UBUNTU_VERSION=22.04
 ARG TORCH_VERSION=2.2.1
 ARG CUDA_VERSION=12.1.1
 ARG TORCH_CUDA_ARCH_LIST=7.0;7.5
@@ -35,7 +36,7 @@ RUN apt-get update && \
 
 
 # Install CUDA
-RUN bash .github/workflows/cuda/Linux.sh ${CUDA_VERSION}
+RUN bash .github/workflows/cuda/Linux.sh "ubuntu-${UBUNTU_VERSION}" ${CUDA_VERSION}
 
 # Install libtorch
 RUN wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cu"${CUDA_VERSION%%.*}"$(echo $CUDA_VERSION | cut -d'.' -f2)/libtorch-cxx11-abi-shared-with-deps-${TORCH_VERSION}%2Bcu"${CUDA_VERSION%%.*}"$(echo $CUDA_VERSION | cut -d'.' -f2).zip -O libtorch.zip && \
