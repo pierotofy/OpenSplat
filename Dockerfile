@@ -2,6 +2,7 @@ ARG UBUNTU_VERSION=22.04
 
 FROM ubuntu:${UBUNTU_VERSION}
 
+ARG UBUNTU_VERSION
 ARG TORCH_VERSION=2.2.1
 ARG CUDA_VERSION=12.1.1
 ARG TORCH_CUDA_ARCH_LIST=7.0;7.5
@@ -17,6 +18,17 @@ WORKDIR /code
 
 # Copy everything
 COPY . ./
+
+# Upgrade cmake if Ubuntu version is 20.04
+RUN if [[ "$UBUNTU_VERSION" = "20.04" ]]; then \
+        apt-get update && \
+        apt-get install -y ca-certificates gpg wget && \
+        wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null && \
+        echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ focal main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null && \
+        apt-get update && \
+        apt-get install kitware-archive-keyring && \
+        echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ focal-rc main' | tee -a /etc/apt/sources.list.d/kitware.list >/dev/null; \
+    fi
 
 # Install build dependencies
 RUN apt-get update && \
@@ -35,7 +47,7 @@ RUN apt-get update && \
 
 
 # Install CUDA
-RUN bash .github/workflows/cuda/Linux.sh ${CUDA_VERSION}
+RUN bash .github/workflows/cuda/Linux.sh "ubuntu-${UBUNTU_VERSION}" ${CUDA_VERSION}
 
 # Install libtorch
 RUN wget --no-check-certificate -nv https://download.pytorch.org/libtorch/cu"${CUDA_VERSION%%.*}"$(echo $CUDA_VERSION | cut -d'.' -f2)/libtorch-cxx11-abi-shared-with-deps-${TORCH_VERSION}%2Bcu"${CUDA_VERSION%%.*}"$(echo $CUDA_VERSION | cut -d'.' -f2).zip -O libtorch.zip && \

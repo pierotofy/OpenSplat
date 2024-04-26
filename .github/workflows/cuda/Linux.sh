@@ -1,15 +1,15 @@
 #!/bin/bash
 
+# Ubuntu version
+UBUNTU_VER=${1}
+OS=$(echo ${UBUNTU_VER} | tr -d '-' | tr -d '.')
+
 # CUDA major and minor version
-CUDA_VER_FULL=${1}
+CUDA_VER_FULL=${2}
 CUDA_VER_ARR=($(echo ${CUDA_VER_FULL} | tr "." " "))
 CUDA_VER="${CUDA_VER_ARR[0]}.${CUDA_VER_ARR[1]}"
 CUDA_VER_ID="${CUDA_VER_ARR[0]}_${CUDA_VER_ARR[1]}"
 CUDA_VER_SHORT="cu${CUDA_VER_ARR[0]}${CUDA_VER_ARR[1]}"
-
-# Took from https://github.com/pyg-team/pyg-lib/
-
-OS=ubuntu2004
 
 case ${CUDA_VER_SHORT} in
   cu121)

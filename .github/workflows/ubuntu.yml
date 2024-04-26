@@ -66,7 +66,7 @@ jobs:
       - name: Install CUDA
         if: ${{ steps.cuda-cache.outputs.cache-hit != 'true' }}
         run: |
-          bash .github/workflows/cuda/${{ runner.os }}.sh ${{ matrix.cuda-version }}
+          bash .github/workflows/cuda/${{ runner.os }}.sh ${{ matrix.os }} ${{ matrix.cuda-version }}
 
       - name: Setup CUDA
         shell: bash
