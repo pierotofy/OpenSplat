@@ -159,7 +159,7 @@ docker build \
   --build-arg UBUNTU_VERSION=22.04 \
   --build-arg CUDA_VERSION=12.1.1 \
   --build-arg TORCH_VERSION=2.2.1 \
-  --build-arg TORCH_CUDA_ARCH_LIST="7.0;7.5" \
+  --build-arg CMAKE_CUDA_ARCHITECTURES="70;75;80" \
   --build-arg CMAKE_BUILD_TYPE=Release .
 ```
 

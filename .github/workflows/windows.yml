@@ -33,7 +33,6 @@ jobs:
       CL: /MP
       CMAKE_GENERATOR: ${{matrix.generator}}
       CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
-      TORCH_CUDA_ARCH_LIST: '7.0;7.5'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -136,7 +135,6 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=ccache `
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\libtorch `
             -DOPENCV_DIR=${{ github.workspace }}\OpenCV\opencv\build `
-            -DTORCH_CUDA_ARCH_LIST="${{ env.TORCH_CUDA_ARCH_LIST }}" `
             -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           cmake --build . --parallel --config ${{ matrix.cmake-build-type }}
 
