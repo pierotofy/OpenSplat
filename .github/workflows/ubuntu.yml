@@ -27,7 +27,6 @@ jobs:
       CL: /MP
       CMAKE_GENERATOR: Ninja
       CMAKE_GENERATOR_PLATFORM: ${{matrix.arch}}
-      TORCH_CUDA_ARCH_LIST: '7.0;7.5'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
