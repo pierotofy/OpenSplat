@@ -35,6 +35,9 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
     cmake_policy(SET CMP0135 NEW)
 endif()
+# Suppress warning #20012-D (nvcc and glm)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -diag-suppress=20012)
+
 include(FetchContent)
 FetchContent_Declare(nlohmann_json
     URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.zip

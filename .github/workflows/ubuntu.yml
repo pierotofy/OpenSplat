@@ -3,7 +3,7 @@ name: OpenSplat (Ubuntu CUDA)
 on:
   push:
     branches:
-      - main
+      - fix-nvcc-warning-20012
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
