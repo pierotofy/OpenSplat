@@ -734,7 +734,7 @@ kernel void map_gaussian_to_intersects_kernel(
     constant float* xys, // float2
     constant float* depths,
     constant int* radii,
-    constant int32_t* cum_tiles_hit,
+    constant int32_t* num_tiles_hit,
     constant uint3& tile_bounds,
     device int64_t* isect_ids,
     device int32_t* gaussian_ids,
@@ -753,7 +753,7 @@ kernel void map_gaussian_to_intersects_kernel(
     // tile_min.x, tile_min.y, tile_max.x, tile_max.y);
 
     // update the intersection info for all tiles this gaussian hits
-    int32_t cur_idx = (idx == 0) ? 0 : cum_tiles_hit[idx - 1];
+    int32_t cur_idx = (idx == 0) ? 0 : num_tiles_hit[idx - 1];
     // printf("point %d starting at %d\n", idx, cur_idx);
     int64_t depth_id = (int64_t) * (constant int32_t *)&(depths[idx]);
     for (int i = tile_min.y; i < tile_max.y; ++i) {

@@ -483,13 +483,13 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
     const torch::Tensor &xys,
     const torch::Tensor &depths,
     const torch::Tensor &radii,
-    const torch::Tensor &cum_tiles_hit,
+    const torch::Tensor &num_tiles_hit,
     const std::tuple<int, int, int> tile_bounds
 ) {
     CHECK_INPUT(xys);
     CHECK_INPUT(depths);
     CHECK_INPUT(radii);
-    CHECK_INPUT(cum_tiles_hit);
+    CHECK_INPUT(num_tiles_hit);
 
     torch::Tensor gaussian_ids_unsorted =
         torch::zeros({num_intersects}, xys.options().dtype(torch::kInt32));
@@ -513,7 +513,7 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
         EncodeArg::tensor(xys),
         EncodeArg::tensor(depths),
         EncodeArg::tensor(radii),
-        EncodeArg::tensor(cum_tiles_hit),
+        EncodeArg::tensor(num_tiles_hit),
         EncodeArg::array(tile_bounds_arr, sizeof(tile_bounds_arr)),
         EncodeArg::tensor(isect_ids_unsorted),
         EncodeArg::tensor(gaussian_ids_unsorted)
