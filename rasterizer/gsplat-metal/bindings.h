@@ -92,7 +92,7 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
     const torch::Tensor &xys,
     const torch::Tensor &depths,
     const torch::Tensor &radii,
-    const torch::Tensor &cum_tiles_hit,
+    const torch::Tensor &num_tiles_hit,
     const std::tuple<int, int, int> tile_bounds
 );
 
