@@ -439,6 +439,9 @@ torch::Tensor compute_sh_forward_tensor_cpu(
         torch::Tensor x = xyz[0];
         torch::Tensor y = xyz[1];
         torch::Tensor z = xyz[2];
+        result.index_put_({"...", 1}, SH_C1 * -y);
+        result.index_put_({"...", 2}, SH_C1 * z);
+        result.index_put_({"...", 3}, SH_C1 * -x);
 
         if (numBases > 4){
             torch::Tensor xx = x * x;
