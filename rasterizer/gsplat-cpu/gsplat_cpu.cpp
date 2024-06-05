@@ -61,8 +61,8 @@ project_gaussians_forward_tensor_cpu(
     const unsigned img_width,
     const float clip_thresh
 ){
-    float fovx = 0.5f * static_cast<float>(img_height) / fx;
-    float fovy = 0.5f * static_cast<float>(img_width) / fy;
+    float fovx = 0.5f * static_cast<float>(img_width) / fx;
+    float fovy = 0.5f * static_cast<float>(img_height) / fy;
     
     // clip_near_plane
     torch::Tensor Rclip = viewmat.index({"...", Slice(None, 3), Slice(None, 3)}); 
