@@ -114,7 +114,11 @@ jobs:
       - name: Install LibTorch
         if: ${{ steps.libtorch-cache.outputs.cache-hit != 'true' }}
         run: |
-          $LIBTORCH_URL = "https://download.pytorch.org/libtorch/$env:CUDA_VER_SHORT/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B$($env:CUDA_VER_SHORT).zip"
+          if ("${{ matrix.cuda-version }}" -eq "12.4.0") {
+            $LIBTORCH_URL = "https://download.pytorch.org/libtorch/nightly/cu124/libtorch-win-shared-with-deps-latest.zip"
+          } else {
+            $LIBTORCH_URL = "https://download.pytorch.org/libtorch/$env:CUDA_VER_SHORT/libtorch-win-shared-with-deps-${{ matrix.torch-version }}%2B$($env:CUDA_VER_SHORT).zip"
+          }
           echo $LIBTORCH_URL
           Invoke-WebRequest $LIBTORCH_URL -OutFile libtorch.zip
           Expand-Archive -Path .\libtorch.zip -DestinationPath ${{ github.workspace }}
