@@ -3,7 +3,7 @@ name: OpenSplat (MacOS X86 and ARM)
 on:
   push:
     branches:
-      - torch-2.3.x
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [macos-14, macos-13] # [macos-14, macos-13, macos-12, macos-11]
         arch: [arm64, x86_64] # [arm64, x86_64]
-        torch-version: [2.3.1] # [2.2.1, 2.2.0, 2.1.2, 2.1.1, 2.1.0, 2.0.0, 1.13.0, 1.12.0]
+        torch-version: [2.3.1, 2.2.1, 2.1.2] # [2.2.1, 2.2.0, 2.1.2, 2.1.1, 2.1.0, 2.0.0, 1.13.0, 1.12.0]
         cmake-build-type: [Release] # [Debug, ClangTidy]
         exclude:
           - os: macos-14

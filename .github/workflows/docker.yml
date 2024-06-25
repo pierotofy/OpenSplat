@@ -3,7 +3,7 @@ name: OpenSplat (Docker CUDA)
 on:
   push:
     branches:
-      - torch-2.3.x
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
