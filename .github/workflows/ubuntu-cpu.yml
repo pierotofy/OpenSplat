@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04] # [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
         arch: [x64] # [x64, x86]
-        torch-version: [2.1.2, 2.2.1] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
+        torch-version: [2.3.1, 2.2.1, 2.1.2] # [1.12.0, 1.13.0, 2.0.0, 2.1.0, 2.1.1, 2.1.2, 2.2.0, 2.2.1]
         cmake-build-type: [Release] # [Debug, ClangTidy]
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
