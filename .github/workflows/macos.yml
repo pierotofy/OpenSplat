@@ -27,6 +27,9 @@ jobs:
             arch: arm64
             torch-version: 2.1.2
           - os: macos-13
+            arch: x86_64
+            torch-version: 2.3.1
+          - os: macos-13
             arch: arm64
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
