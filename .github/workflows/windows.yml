@@ -3,7 +3,7 @@ name: OpenSplat (Windows CUDA)
 on:
   push:
     branches:
-      - fix-windows-2022-cuda
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
