@@ -5,3 +5,6 @@
 build/
 .idea/
 .vscode/
+install/
+libtorch/
+output/
