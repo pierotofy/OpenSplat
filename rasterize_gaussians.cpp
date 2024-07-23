@@ -36,7 +36,7 @@ std::tuple<torch::Tensor,
     return std::make_tuple(isectIds, gaussianIds, isectIdsSorted, gaussianIdsSorted, tileBins);
 }
 
-torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx, 
+variable_list RasterizeGaussians::forward(AutogradContext *ctx,
             torch::Tensor xys,
             torch::Tensor depths,
             torch::Tensor radii,
@@ -72,6 +72,7 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
                             xys,
                             conics,
                             colors,
+                            depths,
                             opacity,
                             background);
     // Final image
@@ -82,11 +83,14 @@ torch::Tensor RasterizeGaussians::forward(AutogradContext *ctx,
     // Map of tile bin IDs
     torch::Tensor finalIdx = std::get<2>(t);
 
+    // Out depth
+    torch::Tensor outDepth = std::get<3>(t);
+
     ctx->saved_data["imgWidth"] = imgWidth;
     ctx->saved_data["imgHeight"] = imgHeight;
     ctx->save_for_backward({ gaussianIdsSorted, tileBins, xys, conics, colors, opacity, background, finalTs, finalIdx });
     
-    return outImg;
+    return {outImg, outDepth};
 }
 
 tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_outputs) {

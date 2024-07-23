@@ -51,7 +51,7 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
 }
 
 
-torch::Tensor Model::forward(Camera& cam, int step){
+std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
 
     const float scaleFactor = getDownscaleFactor(step);
     const float fx = cam.fx / scaleFactor;
@@ -90,6 +90,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
     torch::Tensor cov2d; // CPU-only
     torch::Tensor camDepths; // CPU-only
     torch::Tensor rgb;
+    torch::Tensor depth; // GPU-only
 
     if (device == torch::kCPU){
         auto p = ProjectGaussiansCPU::apply(means, 
@@ -141,7 +142,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
     
 
     if (radii.sum().item<float>() == 0.0f)
-        return backgroundColor.repeat({height, width, 1});
+        return std::make_tuple(backgroundColor.repeat({height, width, 1}), torch::zeros({height, width}, backgroundColor.options().dtype(torch::kFloat32)));
 
     // TODO: is this needed?
     xys.retain_grad();
@@ -175,7 +176,7 @@ torch::Tensor Model::forward(Camera& cam, int step){
                 backgroundColor);
     }else{  
         #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
-        rgb = RasterizeGaussians::apply(
+        auto rast_ret = RasterizeGaussians::apply(
                 xys,
                 depths,
                 radii,
@@ -186,12 +187,15 @@ torch::Tensor Model::forward(Camera& cam, int step){
                 height,
                 width,
                 backgroundColor);
+
+        rgb = rast_ret[0];
+        depth = rast_ret[1];
         #endif
     }
 
     rgb = torch::clamp_max(rgb, 1.0f);
 
-    return rgb;
+    return std::make_tuple(rgb, depth);
 }
 
 void Model::optimizersZeroGrad(){

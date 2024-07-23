@@ -35,6 +35,25 @@ cv::Mat tensorToImage(const torch::Tensor &t){
 
     return image;
 }
+cv::Mat depthToImage(const torch::Tensor &depth) {
+    // Check if the input tensor is of shape [h, w]
+    TORCH_CHECK(depth.dim() == 2, "Input tensor must be of shape [h, w]");
+
+    // Convert the tensor to a cv::Mat
+    // Clone the tensor to ensure it is contiguous in memory
+    torch::Tensor depth_clone = depth.clone();
+    cv::Mat depth_mat(depth_clone.size(0), depth_clone.size(1), CV_32F, depth_clone.data_ptr<float>());
+
+    // Normalize the depth map to the range [0, 255]
+    cv::Mat depth_normalized;
+    cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8U);
+
+    // Apply a colormap to the normalized depth map
+    cv::Mat depth_colored;
+    cv::applyColorMap(depth_normalized, depth_colored, cv::COLORMAP_JET);
+
+    return depth_colored;
+}
 
 torch::Tensor imageToTensor(const cv::Mat &image){
     torch::Tensor img = torch::from_blob(image.data, { image.rows, image.cols, image.dims + 1 }, torch::kU8);
