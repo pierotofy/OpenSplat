@@ -86,11 +86,17 @@ variable_list RasterizeGaussians::forward(AutogradContext *ctx,
     // Out depth
     torch::Tensor outDepth = std::get<3>(t);
 
+    // Out median depth
+    torch::Tensor outMedianDepth = std::get<4>(t);
+
+    // Out opacity
+    torch::Tensor outOpacity =std::get<5>(t);
+
     ctx->saved_data["imgWidth"] = imgWidth;
     ctx->saved_data["imgHeight"] = imgHeight;
     ctx->save_for_backward({ gaussianIdsSorted, tileBins, xys, conics, colors, opacity, background, finalTs, finalIdx });
     
-    return {outImg, outDepth};
+    return {outImg, outDepth, outMedianDepth, outOpacity};
 }
 
 tensor_list RasterizeGaussians::backward(AutogradContext *ctx, tensor_list grad_outputs) {

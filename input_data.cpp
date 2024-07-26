@@ -89,24 +89,42 @@ void Camera::loadImage(float downscaleFactor){
     cy = K[1][2].item<float>();
 }
 
-torch::Tensor Camera::getImage(int downscaleFactor){
-    if (downscaleFactor <= 1) return image;
-    else{
+torch::Tensor Camera::getImage(int downscaleFactor) {
+  if (downscaleFactor <= 1)
+    return image;
+  else {
 
-        // torch::jit::script::Module container = torch::jit::load("gt.pt");
-        // return container.attr("val").toTensor();
+    // torch::jit::script::Module container = torch::jit::load("gt.pt");
+    // return container.attr("val").toTensor();
 
-        if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
-            return imagePyramids[downscaleFactor];
-        }
-
-        // Rescale, store and return
-        cv::Mat cImg = tensorToImage(image);
-        cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
-        torch::Tensor t = imageToTensor(cImg);
-        imagePyramids[downscaleFactor] = t;
-        return t;
+    if (imagePyramids.find(downscaleFactor) != imagePyramids.end()) {
+      return imagePyramids[downscaleFactor];
     }
+
+    // Rescale, store and return
+    cv::Mat cImg = tensorToImage(image);
+    cv::resize(
+        cImg, cImg,
+        cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0,
+        0.0, cv::INTER_AREA);
+    torch::Tensor t = imageToTensor(cImg);
+    imagePyramids[downscaleFactor] = t;
+    return t;
+  }
+}
+torch::Tensor Camera::getViewMatrix(const torch::Device& device) const {
+    torch::Tensor R = camToWorld.index({Slice(None, 3), Slice(None, 3)});
+    torch::Tensor T = camToWorld.index({Slice(None, 3), Slice(3,4)});
+    // Flip the z and y axes to align with gsplat conventions
+    R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f}, R.device())));
+
+    // worldToCam
+    torch::Tensor Rinv = R.transpose(0, 1);
+    torch::Tensor Tinv = torch::matmul(-Rinv, T);
+    torch::Tensor viewMat = torch::eye(4, device);
+    viewMat.index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
+    viewMat.index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
+    return viewMat;
 }
 
 bool Camera::hasDistortionParameters(){

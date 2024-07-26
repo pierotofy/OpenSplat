@@ -1,4 +1,6 @@
 #include <filesystem>
+#include <eigen3/Eigen/Dense>
+#include <vdbfusion/VDBVolume.h>
 #include "model.hpp"
 #include "constants.hpp"
 #include "tile_bounds.hpp"
@@ -14,6 +16,22 @@
 #endif
 
 namespace fs = std::filesystem;
+using namespace vdbfusion;
+
+namespace {
+int extractNumber(const std::string &str) {
+    size_t pos = str.rfind('_');
+    if (pos != std::string::npos) {
+        return std::stoi(str.substr(pos + 1));
+    }
+    return -1; // or any other appropriate default/error value
+}
+
+// Comparison function for sorting
+bool compareByExtractedNumber(const std::string &a, const std::string &b) {
+    return extractNumber(a) < extractNumber(b);
+}
+} // namespace
 
 torch::Tensor randomQuatTensor(long long n){
     torch::Tensor u = torch::rand(n);
@@ -51,7 +69,7 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
 }
 
 
-std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step, bool training){
 
     const float scaleFactor = getDownscaleFactor(step);
     const float fx = cam.fx / scaleFactor;
@@ -73,11 +91,12 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
 
     lastHeight = height;
     lastWidth = width;
+    lastScaleFactor = scaleFactor;
 
     torch::Tensor viewMat = torch::eye(4, device);
     viewMat.index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
     viewMat.index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
-        
+
     float fovX = 2.0f * std::atan(width / (2.0f * fx));
     float fovY = 2.0f * std::atan(height / (2.0f * fy));
 
@@ -91,15 +110,17 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
     torch::Tensor camDepths; // CPU-only
     torch::Tensor rgb;
     torch::Tensor depth; // GPU-only
+    torch::Tensor rendered_opacity; // GPU-only
+    torch::Tensor median_depth; // GPU-only
 
     if (device == torch::kCPU){
-        auto p = ProjectGaussiansCPU::apply(means, 
-                                torch::exp(scales), 
-                                1, 
-                                quats / quats.norm(2, {-1}, true), 
-                                viewMat, 
+        auto p = ProjectGaussiansCPU::apply(means,
+                                torch::exp(scales),
+                                1,
+                                quats / quats.norm(2, {-1}, true),
+                                viewMat,
                                 torch::matmul(projMat, viewMat),
-                                fx, 
+                                fx,
                                 fy,
                                 cx,
                                 cy,
@@ -116,13 +137,13 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
         TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
                         (height + BLOCK_Y - 1) / BLOCK_Y,
                         1);
-        auto p = ProjectGaussians::apply(means, 
-                        torch::exp(scales), 
-                        1, 
-                        quats / quats.norm(2, {-1}, true), 
-                        viewMat, 
+        auto p = ProjectGaussians::apply(means,
+                        torch::exp(scales),
+                        1,
+                        quats / quats.norm(2, {-1}, true),
+                        viewMat,
                         torch::matmul(projMat, viewMat),
-                        fx, 
+                        fx,
                         fy,
                         cx,
                         cy,
@@ -139,19 +160,22 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
             throw std::runtime_error("GPU support not built, use --cpu");
         #endif
     }
-    
+
 
     if (radii.sum().item<float>() == 0.0f)
-        return std::make_tuple(backgroundColor.repeat({height, width, 1}), torch::zeros({height, width}, backgroundColor.options().dtype(torch::kFloat32)));
+        return std::make_tuple(backgroundColor.repeat({height, width, 1}),
+            torch::zeros({height, width}, backgroundColor.options().dtype(torch::kFloat32)),
+            torch::zeros({height, width}, backgroundColor.options().dtype(torch::kFloat32)),
+            torch::zeros({height, width}, backgroundColor.options().dtype(torch::kFloat32)));
 
     // TODO: is this needed?
-    xys.retain_grad();
+    if (training) xys.retain_grad();
 
     torch::Tensor viewDirs = means.detach() - T.transpose(0, 1).to(device);
     viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
     torch::Tensor rgbs;
-    
+
     if (device == torch::kCPU){
         rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
@@ -159,7 +183,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
         rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
         #endif
     }
-    
+
     rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f);
 
     if (device == torch::kCPU){
@@ -174,7 +198,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
                 height,
                 width,
                 backgroundColor);
-    }else{  
+    }else{
         #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
         auto rast_ret = RasterizeGaussians::apply(
                 xys,
@@ -190,12 +214,14 @@ std::tuple<torch::Tensor, torch::Tensor> Model::forward(Camera& cam, int step){
 
         rgb = rast_ret[0];
         depth = rast_ret[1];
+        median_depth = rast_ret[2].index({0, Slice(), Slice()});
+        rendered_opacity = rast_ret[3];
         #endif
     }
 
     rgb = torch::clamp_max(rgb, 1.0f);
 
-    return std::make_tuple(rgb, depth);
+    return std::make_tuple(rgb, depth, median_depth, rendered_opacity);
 }
 
 void Model::optimizersZeroGrad(){
@@ -232,7 +258,7 @@ void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &n
     auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
 #endif
     auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
-    
+
     std::vector<int64_t> repeats;
     repeats.push_back(nSamples);
     for (long int i = 0; i < paramState->exp_avg().dim() - 1; i++){
@@ -240,12 +266,12 @@ void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &n
     }
 
     paramState->exp_avg(torch::cat({
-        paramState->exp_avg(), 
+        paramState->exp_avg(),
         torch::zeros_like(paramState->exp_avg().index({idcs.squeeze()})).repeat(repeats)
     }, 0));
-    
+
     paramState->exp_avg_sq(torch::cat({
-        paramState->exp_avg_sq(), 
+        paramState->exp_avg_sq(),
         torch::zeros_like(paramState->exp_avg_sq().index({idcs.squeeze()})).repeat(repeats)
     }, 0));
 
@@ -255,7 +281,7 @@ void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &n
     auto newPId = newParam.unsafeGetTensorImpl();
 #else
     auto newPId = c10::guts::to_string(newParam.unsafeGetTensorImpl());
-#endif    
+#endif
     optimizer->state()[newPId] = std::move(paramState);
     optimizer->param_groups()[0].params()[0] = newParam;
 }
@@ -287,7 +313,7 @@ void Model::afterTrain(int step){
 
     if (step < stopSplitAt){
         torch::Tensor visibleMask = (radii > 0).flatten();
-        
+
         torch::Tensor grads = torch::linalg::vector_norm(xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
         if (!xysGradNorm.numel()){
             xysGradNorm = grads;
@@ -334,12 +360,12 @@ void Model::afterTrain(int step){
             torch::Tensor rots = quatToRotMat(qs.repeat({nSplitSamples, 1}));
             torch::Tensor rotatedSamples = torch::bmm(rots, scaledSamples.index({"...", None})).squeeze();
             torch::Tensor splitMeans = rotatedSamples + means.index({splits}).repeat({nSplitSamples, 1});
-            
+
             torch::Tensor splitFeaturesDc = featuresDc.index({splits}).repeat({nSplitSamples, 1});
             torch::Tensor splitFeaturesRest = featuresRest.index({splits}).repeat({nSplitSamples, 1, 1});
-            
+
             torch::Tensor splitOpacities = opacities.index({splits}).repeat({nSplitSamples, 1});
-        
+
             const float sizeFac = 1.6f;
             torch::Tensor splitScales = torch::log(torch::exp(scales.index({splits})) / sizeFac).repeat({nSplitSamples, 1});
             scales.index({splits}) = torch::log(torch::exp(scales.index({splits})) / sizeFac);
@@ -361,7 +387,7 @@ void Model::afterTrain(int step){
             opacities = torch::cat({opacities.detach(), splitOpacities, dupOpacities}, 0).requires_grad_();
             scales = torch::cat({scales.detach(), splitScales, dupScales}, 0).requires_grad_();
             quats = torch::cat({quats.detach(), splitQuats, dupQuats}, 0).requires_grad_();
-            
+
             max2DSize = torch::cat({
                 max2DSize,
                 torch::zeros_like(splitScales.index({Slice(), 0})),
@@ -376,7 +402,7 @@ void Model::afterTrain(int step){
             addToOptimizer(featuresDcOpt, featuresDc, splitIdcs, nSplitSamples);
             addToOptimizer(featuresRestOpt, featuresRest, splitIdcs, nSplitSamples);
             addToOptimizer(opacitiesOpt, opacities, splitIdcs, nSplitSamples);
-            
+
             torch::Tensor dupIdcs = torch::where(dups)[0];
             addToOptimizer(meansOpt, means, dupIdcs, 1);
             addToOptimizer(scalesOpt, scales, dupIdcs, 1);
@@ -427,7 +453,7 @@ void Model::afterTrain(int step){
                 removeFromOptimizer(featuresDcOpt, featuresDc, culls);
                 removeFromOptimizer(featuresRestOpt, featuresRest, culls);
                 removeFromOptimizer(opacitiesOpt, opacities, culls);
-                
+
                 std::cout << "Culled " << (numPointsBefore - means.size(0)) << " gaussians, remaining " << means.size(0) << std::endl;
             }
         }
@@ -442,7 +468,7 @@ void Model::afterTrain(int step){
                 auto pId = param.unsafeGetTensorImpl();
             #else
                 auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
-            #endif    
+            #endif
             auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*opacitiesOpt->state()[pId]));
             paramState->exp_avg(torch::zeros_like(paramState->exp_avg()));
             paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));
@@ -532,6 +558,132 @@ void Model::savePly(const std::string &filename){
     o.close();
 }
 
+// void Model::loadPly(const std::string &filename) {
+//     /* You are assumed already known
+//      * device
+//      * keepCrs
+//      * scale
+//      * translation
+//      */
+//
+//     PLYData plyIn(filename);
+//
+//     auto vertex =plyIn.getElement("vetex");
+//     auto xs = torch::tensor(vertex.getProperty<float>("x"));
+//     auto ys = torch::tensor(vertex.getProperty<float>("y"));
+//     auto zs = torch::tensor(vertex.getProperty<float>("z"));
+//     means = torch::cat({xs, ys, zs}, 1).to(device).requires_grad_();
+//     means = keepCrs ? (means - translation)*scale : means;
+//
+//     featuresDc = torch::full({means.size(0), 3}, 0, device).requires_grad_();
+//     featuresDc.index_put_({Slice(), 0}, torch::tensor(vertex.getProperty<float>("f_dc_0"), device));
+//     featuresDc.index_put_({Slice(), 1}, torch::tensor(vertex.getProperty<float>("f_dc_1"), device));
+//     featuresDc.index_put_({Slice(), 2}, torch::tensor(vertex.getProperty<float>("f_dc_2"), device));
+//
+//     std::vector<std::string> features_rest_name;
+//     for (const auto& prop_ptr : vertex.properties) {
+//         if (prop_ptr->name.rfind("f_rest_", 0) != std::string::npos) features_rest_name.push_back(prop_ptr->name);
+//     }
+//     std::sort(features_rest_name.begin(), features_rest_name.end(), compareByExtractedNumber);
+//
+//     featuresRest = torch::zeros({means.size(0), static_cast<int64_t>(features_rest_name.size())}, device).requires_grad_();
+//     for (int i=0; i < features_rest_name.size(); i++) {
+//         featuresRest.index({Slice(), i}) = torch::tensor(vertex.getProperty<float>(features_rest_name[i]), device);
+//     }
+//
+//     featuresRest = featuresRest.reshape({featuresRest.size(0), 3, -1}).transpose(1, 2);
+//
+//     auto scale_0 = torch::tensor(vertex.getProperty<float>("scale_0"));
+//     auto scale_1 = torch::tensor(vertex.getProperty<float>("scale_1"));
+//     auto scale_2 = torch::tensor(vertex.getProperty<float>("scale_2"));
+//     scales = torch::cat({scale_0, scale_1, scale_2}, 1).to(device).requires_grad_();
+//     scales = keepCrs ? torch::log(torch::exp(scales)*scale) : scales;
+//
+//     opacities = torch::tensor(vertex.getProperty<float>("opacity"), device).requires_grad_();
+//
+//     auto rot_0 = torch::tensor(vertex.getProperty<float>("rot_0"));
+//     auto rot_1 = torch::tensor(vertex.getProperty<float>("rot_1"));
+//     auto rot_2 = torch::tensor(vertex.getProperty<float>("rot_2"));
+//     auto rot_3 = torch::tensor(vertex.getProperty<float>("rot_3"));
+//     quats = torch::cat({rot_0, rot_1, rot_2, rot_3}, 1).to(device).requires_grad_();
+// }
+
+
+// void Model::extractMeshBounded(const std::string &filename, const InputData &inputData,const int step, const int mesh_res) {
+//     torch::NoGradGuard noGrad;
+//
+//     if (fs::path(filename).extension().string() != ".ply") {
+//         throw std::runtime_error("Unsupported file format. Only.ply files are supported.");
+//     }
+//
+//     // Set the active_sh to 0 to export only diffuse texture
+//     this->shDegree = 0;
+//
+//     // estimate radius and center of the scene
+//     const double radius = 1.0f / inputData.scale;
+//     const double depth_trunc = 2.0f * radius;
+//     const double voxel_size = depth_trunc / mesh_res;
+//     const double sdf_trunc = 5.0 * voxel_size;
+//     std::cout << "Running tsdf volume integration ..." << std::endl
+//             << "depth_trunc: " << depth_trunc << std::endl
+//             << "voxel_size: " << voxel_size << std::endl
+//             << "sdf_trunc: " << sdf_trunc << std::endl;
+//
+//     // create a TSDF volume
+//     open3d::pipelines::integration::ScalableTSDFVolume volume(voxel_size, sdf_trunc, open3d::pipelines::integration::TSDFVolumeColorType::RGB8);
+//
+//     const float scaleFactor = lastScaleFactor;
+//     int camIndex = 0;
+//     for (auto cam : inputData.cameras) {
+//         open3d::camera::PinholeCameraParameters cam_o3d;
+//
+//         torch::Tensor w2c = cam.getViewMatrix(torch::kCPU).contiguous();
+//         Eigen::Map<Eigen::MatrixXf> w2c_mat(w2c.data_ptr<float>(), w2c.size(0), w2c.size(1));
+//         open3d::camera::PinholeCameraIntrinsic cam_intric (lastWidth, lastHeight,
+//             cam.cx / scaleFactor,
+//             cam.cy / scaleFactor,
+//             cam.fx / scaleFactor,
+//             cam.fy / scaleFactor);
+//         cam_o3d.intrinsic_ = cam_intric;
+//         cam_o3d.extrinsic_ = w2c_mat.cast<double>();
+//
+//         auto [rgb, depth] = this->forward(cam, step, false);
+//         rgb = (rgb * 255.0f).toType(torch::kU8);
+//         // Convert the RGB tensor to Open3D image
+//         open3d::geometry::Image rgb_o3d;
+//         rgb_o3d.Prepare(lastWidth, lastHeight, 3, 1);
+//         for (int y = 0; y < lastHeight; ++y) {
+//             for (int x = 0; x < lastWidth; ++x) {
+//                 for (int c = 0; c < 3; ++c) {
+//                     rgb_o3d.data_[y * lastWidth * 3 + x * 3 + c] = rgb.index({y, x, c}).item<uint8_t>();
+//                 }
+//             }
+//         }
+//
+//         // Convert the depth tensor to Open3D image
+//         open3d::geometry::Image depth_o3d;
+//         depth_o3d.Prepare(lastWidth, lastHeight, 1, 4); // Assuming depth is a float image
+//         for (int y = 0; y < lastHeight; ++y) {
+//             for (int x = 0; x < lastWidth; ++x) {
+//                 auto depth_value = depth[y][x].item<float>();
+//                 memcpy(depth_o3d.data_.data() + (y * lastWidth + x) * sizeof(float), &depth_value, sizeof(float));
+//             }
+//         }
+//         auto rgbd_o3d = open3d::geometry::RGBDImage::CreateFromColorAndDepth(rgb_o3d, depth_o3d, 1.0f, depth_trunc, false);
+//         volume.Integrate(*rgbd_o3d, cam_o3d.intrinsic_, cam_o3d.extrinsic_);
+//         std::cout << "Processed frame: " << ++camIndex << std::endl;
+//     }
+//
+//     // Extract the mesh from the TSDF volume
+//     auto mesh = volume.ExtractTriangleMesh();
+//     mesh->ComputeVertexNormals();
+//
+//     // Save the mesh to a file
+//     if (!open3d::io::WriteTriangleMesh(filename, *mesh)) {
+//         throw std::runtime_error("Failed to save the mesh to " + filename);
+//     }
+// }
+
 void Model::saveSplat(const std::string &filename){
     std::ofstream o(filename, std::ios::binary);
     int numPoints = means.size(0);
@@ -545,13 +697,13 @@ void Model::saveSplat(const std::string &filename){
 
     std::vector< size_t > splatIndices( numPoints );
     std::iota( splatIndices.begin(), splatIndices.end(), 0 );
-    torch::Tensor order = (scalesCpu.index({"...", 0}) + 
-                            scalesCpu.index({"...", 1}) + 
-                            scalesCpu.index({"...", 2})) / 
+    torch::Tensor order = (scalesCpu.index({"...", 0}) +
+                            scalesCpu.index({"...", 1}) +
+                            scalesCpu.index({"...", 2})) /
                             opac.index({"...", 0});
     float *orderPtr = reinterpret_cast<float *>(order.data_ptr());
 
-    std::sort(splatIndices.begin(), splatIndices.end(), 
+    std::sort(splatIndices.begin(), splatIndices.end(),
         [&orderPtr](size_t const &a, size_t const &b) {
             return orderPtr[a] > orderPtr[b];
         });
@@ -568,33 +720,132 @@ void Model::saveSplat(const std::string &filename){
     o.close();
 }
 
-void Model::saveDebugPly(const std::string &filename){
-    // A standard PLY
-    std::ofstream o(filename, std::ios::binary);
-    int numPoints = means.size(0);
+void Model::saveDebugPly(const std::string &filename) {
+  // A standard PLY
+  std::ofstream o(filename, std::ios::binary);
+  int numPoints = means.size(0);
 
-    o << "ply" << std::endl;
-    o << "format binary_little_endian 1.0" << std::endl;
-    o << "comment Generated by opensplat" << std::endl;
-    o << "element vertex " << numPoints << std::endl;
-    o << "property float x" << std::endl;
-    o << "property float y" << std::endl;
-    o << "property float z" << std::endl;
-    o << "property uchar red" << std::endl;
-    o << "property uchar green" << std::endl;
-    o << "property uchar blue" << std::endl;
-    o << "end_header" << std::endl;
+  o << "ply" << std::endl;
+  o << "format binary_little_endian 1.0" << std::endl;
+  o << "comment Generated by opensplat" << std::endl;
+  o << "element vertex " << numPoints << std::endl;
+  o << "property float x" << std::endl;
+  o << "property float y" << std::endl;
+  o << "property float z" << std::endl;
+  o << "property uchar red" << std::endl;
+  o << "property uchar green" << std::endl;
+  o << "property uchar blue" << std::endl;
+  o << "end_header" << std::endl;
 
-    torch::Tensor meansCpu = keepCrs ? (means.cpu() / scale) + translation : means.cpu();
-    torch::Tensor rgbsCpu = (sh2rgb(featuresDc.cpu()) * 255.0f).toType(torch::kUInt8);
+  torch::Tensor meansCpu =
+      keepCrs ? (means.cpu() / scale) + translation : means.cpu();
+  torch::Tensor rgbsCpu =
+      (sh2rgb(featuresDc.cpu()) * 255.0f).toType(torch::kUInt8);
 
-    for (size_t i = 0; i < numPoints; i++) {
-        o.write(reinterpret_cast<const char *>(meansCpu[i].data_ptr()), sizeof(float) * 3);
-        o.write(reinterpret_cast<const char *>(rgbsCpu[i].data_ptr()), sizeof(uint8_t) * 3);
+  for (size_t i = 0; i < numPoints; i++) {
+    o.write(reinterpret_cast<const char *>(meansCpu[i].data_ptr()),
+            sizeof(float) * 3);
+    o.write(reinterpret_cast<const char *>(rgbsCpu[i].data_ptr()),
+            sizeof(uint8_t) * 3);
+  }
+
+  o.close();
+  std::cout << "Wrote " << filename << std::endl;
+}
+void Model::extractMesh(const std::string &filename, const InputData &inputData,
+                        const int step) {
+    torch::NoGradGuard noGrad;
+    VDBVolume volume(0.01f, 0.04f, false);
+    const std::vector<Camera>& cams = inputData.cameras;
+
+    for(int i=0; i < cams.size(); i=i+3) {
+        auto cam = cams[i];
+        auto [rgb, depth, median_depth, rendered_opacity] = this->forward(cam, step, false);
+        // std::cout << "rgb shape: " << rgb.sizes() << std::endl;
+        // std::cout << rgb << std::endl;
+        auto invalid_mask = rendered_opacity < 0.5f;
+        // std::cout << "invalid_mask: " << invalid_mask << std::endl;
+        // std::cout << "depth: " << depth << std::endl;
+        rgb.index({invalid_mask, Slice()}) = 0.f;
+        median_depth.index({invalid_mask}) = 0.f;
+
+        // get pointcloud from median_depth
+        auto height = median_depth.size(0);
+        auto width = median_depth.size(1);
+
+        auto valid_x = torch::arange(width, torch::TensorOptions().dtype(torch::kFloat32).device(device)) / (width - 1);
+        auto valid_y = torch::arange(height, torch::TensorOptions().dtype(torch::kFloat32).device(device)) / (height -1);
+
+        auto grid = torch::meshgrid({valid_y, valid_x});
+        // std::cout << "grid:\n" << grid << std::endl;
+
+        valid_y = grid[0];
+        valid_x = grid[1];
+        // std::cout << "valid_x: " << valid_x.sizes() << std::endl;
+        // std::cout << valid_x << std::endl;
+        // std::cout << "valid_y: " << valid_y.sizes() << std::endl;
+        auto ndc_xyz = torch::stack({valid_x, valid_y, median_depth}, -1);
+        // std::cout << "ndc_xyz: " << ndc_xyz.sizes() << std::endl;
+
+        // ndc_xyz to cam_xyz
+        auto inv_scale = torch::tensor({{width-1, height-1}}, ndc_xyz.device());
+        auto cam_z = ndc_xyz.index({Slice(), Slice(), Slice(2,3)});
+        auto cam_xy = ndc_xyz.index({"...", Slice(0, 2)}) * inv_scale * cam_z;
+        auto cam_xyz = torch::cat({cam_xy, cam_z}, -1);
+        // std::cout << "intrisincs: " << cam.getIntrinsicsMatrix() << std::endl;
+        cam_xyz = cam_xyz.matmul(torch::inverse(cam.getIntrinsicsMatrix().to(device).transpose(0, 1))).reshape({-1, 3});
+        // std::cout << "cam_xyz: " << cam_xyz.sizes() << std::endl;
+        auto cam_xyz_h = torch::cat({cam_xyz, torch::ones_like(cam_xyz.index({"...", Slice(0, 1)}))}, -1);
+        // std::cout << "cam_xyz_h: " << cam_xyz_h.sizes() << std::endl;
+        // std::cout << "extrinsics: " << cam.getViewMatrix(torch::kCPU) << std::endl;
+        auto world_xyz = cam_xyz_h.matmul(torch::inverse(cam.getViewMatrix(device)).transpose(0, 1));
+        // std::cout << world_xyz.sizes() << std::endl;
+        // std::cout << world_xyz.index({Slice(0, 1)}) << std::endl;
+        world_xyz = world_xyz.index({"...", Slice(0, 3)}).reshape({height, width, 3});
+
+        world_xyz = world_xyz.index({torch::logical_not(invalid_mask)}).cpu().contiguous();
+        // std::cout << "world_xyz: " << world_xyz.sizes() << std::endl;
+        auto cam_center = cam.camToWorld.index({Slice(0,3), 3}).cpu().contiguous();
+        // std::cout << "cam_center:\n" << cam_center << std::endl;
+        std::vector<Eigen::Vector3d> point_cloud(world_xyz.size(0));
+        for(int j=0; j<world_xyz.size(0); j++) {
+            auto* data_ptr = world_xyz.index({j}).data_ptr<float>();
+            // std::cout << "world_xyz:\n" <<  world_xyz.index({j}) << std::endl;
+            Eigen::Vector3f point(data_ptr);
+            // std::cout << "point: " << point << std::endl;
+            point_cloud[j] = point.cast<double>();
+            // std::cout << "point_cloud[" << j << "]" << point_cloud[j] << std::endl;
+        }
+        Eigen::Vector3f center_f(cam_center.data_ptr<float>());
+        Eigen::Vector3d center_d = center_f.cast<double>();
+        // std::cout << "cam_center:\n" << cam_center << std::endl;
+        // std::cout << "center_d:\n" << center_d << std::endl;
+        volume.Integrate(point_cloud, center_d, [](float /*unused*/) { return 1.0; });
+    }
+    auto [vertices, triangles] = volume.ExtractTriangleMesh(true, 5);
+    size_t numVertices = vertices.size();
+    size_t numTriangles = triangles.size();
+    std::cout << "Number of vertices: " << numVertices << std::endl;
+    std::cout << "Number of triangle: " << numTriangles << std::endl;
+    std::vector<std::array<double, 3>> vertexPositions(numVertices);
+    std::vector<std::vector<int>> faceIndices(numTriangles) ;
+    for (size_t i = 0; i < numVertices; ++i) {
+        vertexPositions[i] = {vertices[i][0], vertices[i][1], vertices[i][2]};
+        // std::cout << "vertexPositions: " << vertexPositions[i][0] << ", "
+        //                                  << vertexPositions[i][1] << ", "
+        //                                  << vertexPositions[i][2] << std::endl;
+        // std::cout << "vertices: " << vertices[i] << std::endl;
     }
 
-    o.close();
-    std::cout << "Wrote " << filename << std::endl;
+    for (size_t i = 0; i < numTriangles; ++i) {
+        faceIndices[i] = {triangles[i][0], triangles[i][1], triangles[i][2]};
+        // std::cout << "faceIndices: " << faceIndices[i] << std::endl;
+        // std::cout << "triangles: " << triangles[i] << std::endl;
+    }
+    PLYData plyOut;
+    plyOut.addVertexPositions(vertexPositions);
+    plyOut.addFaceIndices(faceIndices);
+    plyOut.write(filename, DataFormat::Binary);
 }
 
 torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight){

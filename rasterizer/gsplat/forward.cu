@@ -267,6 +267,8 @@ __global__ void rasterize_forward(
     int* __restrict__ final_index,
     float3* __restrict__ out_img,
     float* __restrict__ out_depth,
+    float* __restrict__ out_median_depth,
+    float* __restrict__ out_opacity,
     const float3& __restrict__ background
 ) {
     // each thread draws one pixel, but also timeshares caching gaussians in a
@@ -298,6 +300,7 @@ __global__ void rasterize_forward(
     __shared__ int32_t id_batch[BLOCK_SIZE];
     __shared__ float3 xy_opacity_batch[BLOCK_SIZE];
     __shared__ float3 conic_batch[BLOCK_SIZE];
+    __shared__ float depth_batch[BLOCK_SIZE];
 
     // current visibility left to render
     float T = 1.f;
@@ -309,7 +312,11 @@ __global__ void rasterize_forward(
     // designated pixel
     int tr = block.thread_rank();
     float3 pix_out = {0.f, 0.f, 0.f};
-    float dep_out = 0.f;
+    float D = 0.f;
+    float median_D = 15.0f;
+    float median_weight = 0;
+    float median_id = 0;
+
     for (int b = 0; b < num_batches; ++b) {
         // resync all threads before beginning next batch
         // end early if entire tile is done
@@ -328,6 +335,7 @@ __global__ void rasterize_forward(
             const float opac = opacities[g_id];
             xy_opacity_batch[tr] = {xy.x, xy.y, opac};
             conic_batch[tr] = conics[g_id];
+            depth_batch[tr] = depths[g_id];
         }
 
         // wait for other threads to collect the gaussians in batch
@@ -362,7 +370,14 @@ __global__ void rasterize_forward(
             pix_out.x = pix_out.x + c.x * vis;
             pix_out.y = pix_out.y + c.y * vis;
             pix_out.z = pix_out.z + c.z * vis;
-            dep_out += depths[g] * vis;
+            D += depths[g] * vis;
+            // Median depth:
+            if (T > 0.5f && next_T < 0.5f) {
+                float dep = depth_batch[t];
+                median_D = dep;
+                median_weight = vis;
+                median_id = g;
+            }
             T = next_T;
             cur_idx = batch_start + t;
         }
@@ -378,7 +393,11 @@ __global__ void rasterize_forward(
         final_color.y = pix_out.y + T * background.y;
         final_color.z = pix_out.z + T * background.z;
         out_img[pix_id] = final_color;
-        out_depth[pix_id] = dep_out;
+        out_depth[pix_id] = D;
+        out_median_depth[pix_id] = median_D;
+        out_median_depth[img_size.x * img_size.y + pix_id] = median_weight;
+        out_median_depth[2 * img_size.x * img_size.y + pix_id] = median_id;
+        out_opacity[pix_id] = 1-T;
     }
 }
 

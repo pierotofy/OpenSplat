@@ -10,9 +10,11 @@
 #include "ssim.hpp"
 #include "input_data.hpp"
 #include "optim_scheduler.hpp"
+#include "happly.h"
 
 using namespace torch::indexing;
 using namespace torch::autograd;
+using namespace happly;
 
 torch::Tensor randomQuatTensor(long long n);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
@@ -75,7 +77,8 @@ struct Model{
     delete meansOptScheduler;
   }
 
-  std::tuple<torch::Tensor, torch::Tensor> forward(Camera& cam, int step);
+  std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
+  forward(Camera& cam, int step, bool training = true);
   void optimizersZeroGrad();
   void optimizersStep();
   void schedulersStep(int step);
@@ -83,8 +86,11 @@ struct Model{
   void afterTrain(int step);
   void save(const std::string &filename);
   void savePly(const std::string &filename);
+  // void loadPly(const std::string &filename);
   void saveSplat(const std::string &filename);
   void saveDebugPly(const std::string &filename);
+  void extractMesh(const std::string &filename, const InputData &inputData, const int step);
+  // void extractMeshBounded(const std::string &filename, const InputData &inputData, const int step, const int mesh_res = 1024);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
@@ -109,6 +115,7 @@ struct Model{
   torch::Tensor xys; // set in forward()
   int lastHeight; // set in forward()
   int lastWidth; // set in forward()
+  float lastScaleFactor; // set in forward()
 
   torch::Tensor xysGradNorm; // set in afterTrain()
   torch::Tensor visCounts; // set in afterTrain()  

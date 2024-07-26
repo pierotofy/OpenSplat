@@ -37,6 +37,7 @@ struct Camera{
     bool hasDistortionParameters();
     std::vector<float> undistortionParameters();
     torch::Tensor getImage(int downscaleFactor);
+    torch::Tensor getViewMatrix(const torch::Device& device) const;
 
     void loadImage(float downscaleFactor);
     torch::Tensor K;

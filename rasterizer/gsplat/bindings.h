@@ -112,6 +112,8 @@ std::tuple<
     torch::Tensor,
     torch::Tensor,
     torch::Tensor,
+    torch::Tensor,
+    torch::Tensor,
     torch::Tensor
 > rasterize_forward_tensor(
     const std::tuple<int, int, int> tile_bounds,

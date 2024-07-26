@@ -43,6 +43,8 @@ __global__ void rasterize_forward(
     int* __restrict__ final_index,
     float3* __restrict__ out_img,
     float* __restrict__ out_depth,
+    float* __restrict__ out_median_depth,
+    float* __restrict__ out_opacity,
     const float3& __restrict__ background
 );
 

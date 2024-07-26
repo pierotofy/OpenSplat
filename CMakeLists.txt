@@ -163,6 +163,8 @@ endif()
 
 find_package(Torch REQUIRED)
 find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
+find_package (Eigen3 REQUIRED NO_MODULE)
+find_package(VDBFusion REQUIRED)
 
 if (NOT WIN32 AND NOT APPLE)
     set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
@@ -228,6 +230,8 @@ target_link_libraries(opensplat PRIVATE
     nlohmann_json::nlohmann_json
     cxxopts::cxxopts
     nanoflann::nanoflann
+    Eigen3::Eigen
+    VDBFusion::vdbfusion
 )
 if (NOT WIN32)
     target_link_libraries(opensplat PUBLIC pthread)

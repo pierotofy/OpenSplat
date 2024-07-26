@@ -334,7 +334,7 @@ torch::Tensor get_tile_bin_edges_tensor(
     return tile_bins;
 }
 
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 rasterize_forward_tensor(
     const std::tuple<int, int, int> tile_bounds,
     const std::tuple<int, int, int> block,
@@ -384,10 +384,11 @@ rasterize_forward_tensor(
     torch::Tensor final_idx = torch::zeros(
         {img_height, img_width}, xys.options().dtype(torch::kInt32)
     );
-
     torch::Tensor out_depth = torch::zeros(
         {img_height, img_width}, xys.options().dtype(torch::kFloat32)
     );
+    torch::Tensor out_median_depth = torch::zeros({3, img_height, img_width}, xys.options().dtype(torch::kFloat32));
+    torch::Tensor out_opacity = torch::zeros({img_height, img_width}, xys.options().dtype(torch::kFloat32));
 
     rasterize_forward<<<tile_bounds_dim3, block_dim3>>>(
         tile_bounds_dim3,
@@ -403,10 +404,12 @@ rasterize_forward_tensor(
         final_idx.contiguous().data_ptr<int>(),
         (float3 *)out_img.contiguous().data_ptr<float>(),
         out_depth.contiguous().data_ptr<float>(),
+        out_median_depth.contiguous().data_ptr<float>(),
+        out_opacity.contiguous().data_ptr<float>(),
         *(float3 *)background.contiguous().data_ptr<float>()
     );
 
-    return std::make_tuple(out_img, final_Ts, final_idx, out_depth);
+    return std::make_tuple(out_img, final_Ts, final_idx, out_depth, out_median_depth, out_opacity);
 }
 
 
