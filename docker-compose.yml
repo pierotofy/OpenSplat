@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   colmap:
     image: colmap/colmap:latest
@@ -25,6 +23,6 @@ services:
       - colmap
     entrypoint: |
       /bin/bash -c "
-      while ! docker-compose ps | grep -q 'colmap.*Exit'; do sleep 1; done;
+      while [ ! -f /code/data/dense/0/fused.ply ]; do sleep 1; done;
       ./build/opensplat /code/data/ -n 2000 && mv /code/data/splat.py /code/result/
       "
