@@ -23,4 +23,8 @@ services:
     stdin_open: true
     depends_on:
       - colmap
-    entrypoint: ["/bin/bash", "-c", "while ! docker-compose ps | grep -q 'colmap.*Exit'; do sleep 1; done; ./build/opensplat /code/data/dense/0/ -n 2000"]
+    entrypoint: |
+      /bin/bash -c "
+      while ! docker-compose ps | grep -q 'colmap.*Exit'; do sleep 1; done;
+      ./build/opensplat /code/data/ -n 2000 && mv /code/data/splat.py /code/result/
+      "

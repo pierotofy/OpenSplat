@@ -213,9 +213,10 @@ cd build
 ```
 
 ### Docker
+This can automatically run colmap and gaussian splatting from images.
+Put your own images in Opensplat/data/images, then run below.
 ```bash
 docker compose up -d
-docker compose exec opensplat /bin/bash
 ```
 
 The program will generate an output `splat.ply` file which can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer. You can also edit/cleanup the scene using https://playcanvas.com/supersplat/editor. The program will also output a `cameras.json` file in the same directory which can be used by some viewers.
