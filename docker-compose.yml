@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  opensplat:
+    build: .
+    volumes:
+      - ./result:/code/result
+    tty: true
+    stdin_open: true
