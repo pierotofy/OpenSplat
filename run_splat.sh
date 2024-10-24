@@ -19,7 +19,7 @@ if [ -f "$1" && ]; then
     # create 8 bit images using ffmpeg
     IMAGES_DIR=$(dirname "$1")/images
     mkdir -p $IMAGES_DIR
-    ffmpeg -ss 00:00:00 -to 00:00:10 -i "$1" -r 10 -vf "format=rgb24" ${IMAGES_DIR}/image%08d.png
+    ffmpeg -i "$1" -r 5 -vf "format=rgb24" ${IMAGES_DIR}/image%08d.png
 elif [ -d "$1" ]; then
     IMAGES_DIR="$1"
 else
