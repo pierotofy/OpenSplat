@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  colmap:
+    image: colmap/colmap:latest
+    volumes:
+      - ./data:/code/data
+    working_dir: /working
+    tty: true
+    stdin_open: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    command: colmap automatic_reconstructor --image_path ./images/ --workspace_path .   
   opensplat:
     build: .
     volumes:
@@ -8,3 +21,6 @@ services:
       - ./result:/code/result
     tty: true
     stdin_open: true
+    depends_on:
+      - colmap
+    entrypoint: ["/bin/bash", "-c", "while ! docker-compose ps | grep -q 'colmap.*Exit'; do sleep 1; done; ./build/opensplat /code/data/dense/0/ -n 2000"]

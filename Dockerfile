@@ -41,7 +41,6 @@ RUN apt-get update && \
     unzip \
     wget \
     ffmpeg \
-    colmap \
     sudo && \
     apt-get autoremove -y --purge && \
     apt-get clean && \
