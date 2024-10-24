@@ -40,6 +40,8 @@ RUN apt-get update && \
     libopencv-dev \
     unzip \
     wget \
+    ffmpeg \
+    colmap \
     sudo && \
     apt-get autoremove -y --purge && \
     apt-get clean && \
