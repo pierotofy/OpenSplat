@@ -4,6 +4,7 @@ services:
   opensplat:
     build: .
     volumes:
+      - ./data:/code/data
       - ./result:/code/result
     tty: true
     stdin_open: true
