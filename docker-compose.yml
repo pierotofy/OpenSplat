@@ -3,15 +3,20 @@ services:
     image: colmap/colmap:latest
     volumes:
       - ./data:/code/data
-    working_dir: /working
+    working_dir: /code
     tty: true
     stdin_open: true
     deploy:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]
-    command: colmap automatic_reconstructor --image_path ./images/ --workspace_path .   
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    command: colmap automatic_reconstructor --image_path ./data/images/ --workspace_path ./data/
   opensplat:
     build: .
     volumes:
@@ -24,5 +29,5 @@ services:
     entrypoint: |
       /bin/bash -c "
       while [ ! -f /code/data/dense/0/fused.ply ]; do sleep 1; done;
-      ./build/opensplat /code/data/ -n 2000 && mv /code/data/splat.py /code/result/
+      ./build/opensplat /code/data/ -n 5 && mv splat.ply result/
       "
