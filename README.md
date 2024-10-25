@@ -15,6 +15,11 @@ We even have a [song](https://youtu.be/1bma7XJkoDM) 🎵
 
 ## Getting Started
 
+## Run using Docker (recommended)
+If you want to test using Docker, it automatically build and run all the stuff.
+Please refer [Run on Docker](#run-on-docker) directly.
+
+## Test on local machine
 If you're on Windows, you can [buy](http://sites.fastspring.com/masseranolabs/product/opensplatforwindows) the pre-built program. This saves you time and helps support the project ❤️. Then jump directly to the [run](#run) section. As an alternative, check the [build](#build) section below.
 
 If you're on macOS or Linux check the [build](#build) section below. 
@@ -198,27 +203,30 @@ To get started, download a dataset and extract it to a folder: [ [banana](https:
 
 Then run from a command line prompt:
 
-### Windows
+### Run on Docker
+This can automatically run colmap and gaussian splatting from images.
+Put your own images in Opensplat/data/images, then run below.
+```bash
+docker compose up
+```
+When finish computation, it outputs splat.ply in result/ directory.
+
+### Run on Windows
 
 ```bash
 cd c:\path\to\opensplat
 opensplat.exe c:\path\to\banana -n 2000
 ```
 
-### macOS / Linux
+### Run on macOS / Linux
 
 ```bash
 cd build
 ./opensplat /path/to/banana -n 2000
 ```
 
-### Docker
-This can automatically run colmap and gaussian splatting from images.
-Put your own images in Opensplat/data/images, then run below.
-```bash
-docker compose up
-```
 
+### View the result
 The program will generate an output `splat.ply` file which can then be dragged and dropped in one of the many [viewers](https://github.com/MrNeRF/awesome-3D-gaussian-splatting?tab=readme-ov-file#viewers) such as  https://playcanvas.com/viewer. You can also edit/cleanup the scene using https://playcanvas.com/supersplat/editor. The program will also output a `cameras.json` file in the same directory which can be used by some viewers.
 
 To run on your own data, choose the path to an existing [COLMAP](https://colmap.github.io/), [OpenSfM](https://github.com/mapillary/OpenSfM), [ODM](https://github.com/OpenDroneMap/ODM) or [nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html) project. The project must have sparse points included (random initialization is not supported, see https://github.com/pierotofy/OpenSplat/issues/7).

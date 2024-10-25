@@ -29,5 +29,5 @@ services:
     entrypoint: |
       /bin/bash -c "
       while [ ! -f /code/data/dense/0/fused.ply ]; do sleep 1; done;
-      ./build/opensplat /code/data/ -n 5 && mv splat.ply result/
+      ./build/opensplat /code/data/ -n 2000 && mv splat.ply result/
       "
