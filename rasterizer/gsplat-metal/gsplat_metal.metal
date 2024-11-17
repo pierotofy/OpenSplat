@@ -959,7 +959,7 @@ kernel void rasterize_backward_kernel(
             float2 v_xy_local = {0.f, 0.f};
             float v_opacity_local = 0.f;
             //initialize everything to 0, only set if the lane is valid
-            if(valid){
+            if(valid && alpha<0.99f){
                 // compute the current T for this gaussian
                 float ra = 1.f / (1.f - alpha);
                 T *= ra;
