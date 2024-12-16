@@ -163,6 +163,7 @@ endif()
 
 find_package(Torch REQUIRED)
 find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
+find_package(Pangolin QUIET)
 
 if (NOT WIN32 AND NOT APPLE)
     set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
@@ -216,7 +217,20 @@ endif()
 add_library(gsplat_cpu rasterizer/gsplat-cpu/gsplat_cpu.cpp)
 target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 
-add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp input_data.cpp tensor_math.cpp)
+set(OPENSPLAT_SRC_FILES opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp
+kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp
+rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp input_data.cpp
+tensor_math.cpp)
+
+if (Pangolin_FOUND)
+    message(STATUS "Found Pangolin. Including Pangolin-related files.")
+    list(APPEND OPENSPLAT_SRC_FILES visualizer.cpp)
+    add_definitions(-DUSE_VISUALIZATION)
+else()
+    message(WARNING "Pangolin not found. Skipping Pangolin-related files.")
+endif()
+
+add_executable(opensplat ${OPENSPLAT_SRC_FILES})
 install(TARGETS opensplat DESTINATION bin)
 set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
 target_include_directories(opensplat PRIVATE
@@ -224,6 +238,9 @@ target_include_directories(opensplat PRIVATE
     ${GPU_INCLUDE_DIRS}
 )
 target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+if (Pangolin_FOUND)
+    target_link_libraries(opensplat PUBLIC ${Pangolin_LIBRARIES})
+endif()
 target_link_libraries(opensplat PRIVATE
     nlohmann_json::nlohmann_json
     cxxopts::cxxopts

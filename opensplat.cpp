@@ -7,6 +7,10 @@
 #include "constants.hpp"
 #include <cxxopts.hpp>
 
+#ifdef USE_VISUALIZATION
+#include "visualizer.hpp"
+#endif
+
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 
@@ -99,6 +103,11 @@ int main(int argc, char *argv[]){
         displayStep = 1;
     }
 
+#ifdef USE_VISUALIZATION
+    Visualizer visualizer;
+    visualizer.Initialize(numIters);
+#endif
+
     try{
         InputData inputData = inputDataFromX(projectRoot);
 
@@ -152,6 +161,15 @@ int main(int argc, char *argv[]){
                 cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
                 cv::imwrite((fs::path(valRender) / (std::to_string(step) + ".png")).string(), image);
             }
+
+#ifdef USE_VISUALIZATION
+            visualizer.SetInitialGaussianNum(inputData.points.xyz.size(0));
+            visualizer.SetLoss(step, mainLoss.item<float>());
+            visualizer.SetGaussians(model.means, model.scales, model.featuresDc,
+                                    model.opacities);
+            visualizer.SetImage(rgb, gt);
+            visualizer.Draw();
+#endif
         }
 
         inputData.saveCameras((fs::path(outputScene).parent_path() / "cameras.json").string(), keepCrs);
