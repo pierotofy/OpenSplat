@@ -5,6 +5,7 @@ set(OPENSPLAT_BUILD_SIMPLE_TRAINER OFF CACHE BOOL "Build simple trainer applicat
 set(GPU_RUNTIME "CUDA" CACHE STRING "HIP or CUDA or MPS")
 set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation directory")
 set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
+set(OPENSPLAT_BUILD_VISUALIZER OFF CACHE BOOL "Build visualizer application")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Read version
@@ -163,7 +164,9 @@ endif()
 
 find_package(Torch REQUIRED)
 find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
-find_package(Pangolin QUIET)
+if (OPENSPLAT_BUILD_VISUALIZER)
+    find_package(Pangolin REQUIRED)
+endif()
 
 if (NOT WIN32 AND NOT APPLE)
     set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
@@ -222,12 +225,14 @@ kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussia
 rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp input_data.cpp
 tensor_math.cpp)
 
-if (Pangolin_FOUND)
-    message(STATUS "Found Pangolin. Including Pangolin-related files.")
-    list(APPEND OPENSPLAT_SRC_FILES visualizer.cpp)
-    add_definitions(-DUSE_VISUALIZATION)
-else()
-    message(WARNING "Pangolin not found. Skipping Pangolin-related files.")
+if (OPENSPLAT_BUILD_VISUALIZER)
+    if (Pangolin_FOUND)
+        message(STATUS "Found Pangolin. Building visualizer (beta)")
+        list(APPEND OPENSPLAT_SRC_FILES visualizer.cpp)
+        add_definitions(-DUSE_VISUALIZATION)
+    else()
+        message(FATAL "Pangolin not found. Cannot build visualizer (beta)")
+    endif()
 endif()
 
 add_executable(opensplat ${OPENSPLAT_SRC_FILES})
