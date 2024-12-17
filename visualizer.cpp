@@ -9,6 +9,7 @@
 bool Visualizer::Initialize(int iter_num) {
   pangolin::CreateWindowAndBind("OpenSplat", 1200, 1000);
   glEnable(GL_DEPTH_TEST);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   cam_state_ = std::make_unique<pangolin::OpenGlRenderState>(
       pangolin::ProjectionMatrix(1200, 1000, 420, 420, 600, 500, 0.1f, 1000),
@@ -38,7 +39,7 @@ bool Visualizer::Initialize(int iter_num) {
 
   step_ = std::make_unique<pangolin::Var<int>>("panel.step", 0);
   init_gaussian_num_ =
-      std::make_unique<pangolin::Var<int>>("panel.init gaussian num", 19190);
+      std::make_unique<pangolin::Var<int>>("panel.init gaussian num", 0);
   gaussian_num_ = std::make_unique<pangolin::Var<int>>("panel.gaussian num", 0);
   loss_ = std::make_unique<pangolin::Var<float>>("panel.loss", 0.0f);
   pause_button_ =
@@ -49,6 +50,13 @@ bool Visualizer::Initialize(int iter_num) {
 
 void Visualizer::SetLoss(int step, float loss) {
   loss_log_.Log(loss);
+
+  if (loss_viewer_) {
+    pangolin::XYRangef& range = loss_viewer_->GetView();
+    if (loss > range.y.max) {
+      range.y.max = loss;
+    }
+  }
 
   if (loss_) {
     *loss_ = loss;
@@ -142,6 +150,7 @@ bool Visualizer::DrawImage() {
   unsigned char* data = concatenated_img.data_ptr<unsigned char>();
   imageTexture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
 
+  render_viewer_->SetAspect(static_cast<float>(width) / height);
   render_viewer_->Activate();
   glColor3f(1.0, 1.0, 1.0);
   imageTexture.RenderToViewport(true);
