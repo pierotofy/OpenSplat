@@ -152,7 +152,7 @@ int main(int argc, char *argv[]){
 
             if (saveEvery > 0 && step % saveEvery == 0){
                 fs::path p(outputScene);
-                model.save((p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string()));
+                model.save(p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string(), step);
             }
 
             if (!valRender.empty() && step % 10 == 0){
@@ -173,8 +173,8 @@ int main(int argc, char *argv[]){
         }
 
         inputData.saveCameras((fs::path(outputScene).parent_path() / "cameras.json").string(), keepCrs);
-        model.save(outputScene);
-        // model.saveDebugPly("debug.ply");
+        model.save(outputScene, numIters);
+        // model.saveDebugPly("debug.ply", numIters);
 
         // Validate
         if (valCam != nullptr){

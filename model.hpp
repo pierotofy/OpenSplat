@@ -81,10 +81,10 @@ struct Model{
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
   void afterTrain(int step);
-  void save(const std::string &filename);
-  void savePly(const std::string &filename);
+  void save(const std::string &filename, int step);
+  void savePly(const std::string &filename, int step);
   void saveSplat(const std::string &filename);
-  void saveDebugPly(const std::string &filename);
+  void saveDebugPly(const std::string &filename, int step);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
