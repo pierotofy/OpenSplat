@@ -20,6 +20,7 @@ int main(int argc, char *argv[]){
         ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
         ("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value("splat.ply"))
         ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
+        ("load-snapshot", "Continue training from a PLY file", cxxopts::value<std::string>()->default_value(""))
         ("val", "Withhold a camera shot for validating the scene loss")
         ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
         ("val-render", "Path of the directory where to render validation images", cxxopts::value<std::string>()->default_value(""))
@@ -69,6 +70,7 @@ int main(int argc, char *argv[]){
     const std::string projectRoot = result["input"].as<std::string>();
     const std::string outputScene = result["output"].as<std::string>();
     const int saveEvery = result["save-every"].as<int>(); 
+    const std::string loadSnapshot = result["load-snapshot"].as<std::string>();
     const bool validate = result.count("val") > 0 || result.count("val-render") > 0;
     const std::string valImage = result["val-image"].as<std::string>();
     const std::string valRender = result["val-render"].as<std::string>();
@@ -132,7 +134,11 @@ int main(int argc, char *argv[]){
         InfiniteRandomIterator<size_t> camsIter( camIndices );
 
         int imageSize = -1;
-        for (size_t step = 1; step <= numIters; step++){
+        size_t step = 1;
+        if (loadSnapshot != ""){
+            step = model.loadPly(loadSnapshot) + 1;
+        }
+        for (; step <= numIters; step++){
             Camera& cam = cams[ camsIter.next() ];
 
             model.optimizersZeroGrad();

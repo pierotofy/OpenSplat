@@ -54,14 +54,7 @@ struct Model{
     // backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
     backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device); // Nerf Studio default
 
-    meansOpt = new torch::optim::Adam({means}, torch::optim::AdamOptions(0.00016));
-    scalesOpt = new torch::optim::Adam({scales}, torch::optim::AdamOptions(0.005));
-    quatsOpt = new torch::optim::Adam({quats}, torch::optim::AdamOptions(0.001));
-    featuresDcOpt = new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025));
-    featuresRestOpt = new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125));
-    opacitiesOpt = new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05));
-
-    meansOptScheduler = new OptimScheduler(meansOpt, 0.0000016f, maxSteps);
+    createOptimizers();
   }
 
   ~Model(){
@@ -74,6 +67,17 @@ struct Model{
 
     delete meansOptScheduler;
   }
+  
+  void createOptimizers(){
+    meansOpt = new torch::optim::Adam({means}, torch::optim::AdamOptions(0.00016));
+    scalesOpt = new torch::optim::Adam({scales}, torch::optim::AdamOptions(0.005));
+    quatsOpt = new torch::optim::Adam({quats}, torch::optim::AdamOptions(0.001));
+    featuresDcOpt = new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025));
+    featuresRestOpt = new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125));
+    opacitiesOpt = new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05));
+
+    meansOptScheduler = new OptimScheduler(meansOpt, 0.0000016f, maxSteps);
+  }
 
   torch::Tensor forward(Camera& cam, int step);
   void optimizersZeroGrad();
@@ -85,6 +89,7 @@ struct Model{
   void savePly(const std::string &filename, int step);
   void saveSplat(const std::string &filename);
   void saveDebugPly(const std::string &filename, int step);
+  int loadPly(const std::string &filename);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
