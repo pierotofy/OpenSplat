@@ -233,6 +233,14 @@ To generate compressed splats (.splat files), use the `-o` option:
 ./opensplat /path/to/banana -o banana.splat
 ```
 
+### Resume
+
+You can resume training of a .PLY file by using the `--resume` option:
+
+```bash
+./opensplat /path/to/banana --resume ./splat.ply
+```
+
 ### AMD GPU Notes
 
 To train a model with AMD GPU using docker container, you can use the following command as a reference:
