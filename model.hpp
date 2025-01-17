@@ -54,30 +54,15 @@ struct Model{
     // backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
     backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device); // Nerf Studio default
 
-    createOptimizers();
+    setupOptimizers();
   }
 
   ~Model(){
-    delete meansOpt;
-    delete scalesOpt;
-    delete quatsOpt;
-    delete featuresDcOpt;
-    delete featuresRestOpt;
-    delete opacitiesOpt;
-
-    delete meansOptScheduler;
+    releaseOptimizers();
   }
   
-  void createOptimizers(){
-    meansOpt = new torch::optim::Adam({means}, torch::optim::AdamOptions(0.00016));
-    scalesOpt = new torch::optim::Adam({scales}, torch::optim::AdamOptions(0.005));
-    quatsOpt = new torch::optim::Adam({quats}, torch::optim::AdamOptions(0.001));
-    featuresDcOpt = new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025));
-    featuresRestOpt = new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125));
-    opacitiesOpt = new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05));
-
-    meansOptScheduler = new OptimScheduler(meansOpt, 0.0000016f, maxSteps);
-  }
+  void setupOptimizers();
+  void releaseOptimizers();
 
   torch::Tensor forward(Camera& cam, int step);
   void optimizersZeroGrad();
@@ -101,14 +86,14 @@ struct Model{
   torch::Tensor featuresRest;
   torch::Tensor opacities;
 
-  torch::optim::Adam *meansOpt;
-  torch::optim::Adam *scalesOpt;
-  torch::optim::Adam *quatsOpt;
-  torch::optim::Adam *featuresDcOpt;
-  torch::optim::Adam *featuresRestOpt;
-  torch::optim::Adam *opacitiesOpt;
+  torch::optim::Adam *meansOpt = nullptr;
+  torch::optim::Adam *scalesOpt = nullptr;
+  torch::optim::Adam *quatsOpt = nullptr;
+  torch::optim::Adam *featuresDcOpt = nullptr;
+  torch::optim::Adam *featuresRestOpt = nullptr;
+  torch::optim::Adam *opacitiesOpt = nullptr;
 
-  OptimScheduler *meansOptScheduler;
+  OptimScheduler *meansOptScheduler = nullptr;
 
   torch::Tensor radii; // set in forward()
   torch::Tensor xys; // set in forward()
