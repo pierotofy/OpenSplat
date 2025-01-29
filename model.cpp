@@ -164,12 +164,10 @@ torch::Tensor Model::forward(Camera& cam, int step){
         #endif
     }
     
+    xys.retain_grad();
 
     if (radii.sum().item<float>() == 0.0f)
         return backgroundColor.repeat({height, width, 1});
-
-    // TODO: is this needed?
-    xys.retain_grad();
 
     torch::Tensor viewDirs = means.detach() - T.transpose(0, 1).to(device);
     viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
@@ -305,6 +303,9 @@ void Model::removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tens
 
 void Model::afterTrain(int step){
     torch::NoGradGuard noGrad;
+
+    // When radii.sum() == 0
+    if (!xys.grad().defined()) return;
 
     if (step < stopSplitAt){
         torch::Tensor visibleMask = (radii > 0).flatten();

@@ -51,8 +51,7 @@ struct Model{
     featuresRest = shs.index({Slice(), Slice(1, None), Slice()}).to(device).requires_grad_();
     opacities = torch::logit(0.1f * torch::ones({numPoints, 1})).to(device).requires_grad_();
     
-    // backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
-    backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device); // Nerf Studio default
+    backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device).requires_grad_(); // Nerf Studio default
 
     setupOptimizers();
   }
