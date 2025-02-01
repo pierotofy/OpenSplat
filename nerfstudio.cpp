@@ -15,6 +15,7 @@ namespace ns{
 
 void to_json(json &j, const Frame &f){
     j = json{ {"file_path", f.filePath }, 
+                {"mask_path", f.maskPath },
                 {"w", f.width }, 
                 {"h", f.height },
                 {"fl_x", f.fx },
@@ -33,6 +34,7 @@ void to_json(json &j, const Frame &f){
 
 void from_json(const json& j, Frame &f){
     j.at("file_path").get_to(f.filePath);
+    if (j.contains("mask_path")) j.at("mask_path").get_to(f.maskPath);
     j.at("transform_matrix").get_to(f.transformMatrix);
     if (j.contains("w")) j.at("w").get_to(f.width);
     if (j.contains("h")) j.at("h").get_to(f.height);
@@ -153,7 +155,7 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
                             static_cast<float>(f.k1), static_cast<float>(f.k2), static_cast<float>(f.k3), 
                             static_cast<float>(f.p1), static_cast<float>(f.p2),  
                             
-                            poses[i], (nsRoot / f.filePath).string(), "")); // TODO: Get mask, if it exists. See reference: https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/models/splatfacto.py
+                            poses[i], (nsRoot / f.filePath).string(), (nsRoot / f.maskPath).string()));
     }
 
     torch::Tensor points = pSet->pointsTensor().clone();

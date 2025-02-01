@@ -15,6 +15,7 @@ namespace ns{
 
     struct Frame{
         std::string filePath = "";
+        std::string maskPath = "";
         int width = 0;
         int height = 0;
         double fx = 0;
