@@ -51,7 +51,7 @@ struct Camera{
     std::unordered_map<int, torch::Tensor> maskPyramids;
 
   private:
-    torch::Tensor undistortImage(cv::Mat &cImg, torch::Tensor &_K, bool shouldUpdateK, const torch::Dtype dataType);
+    torch::Tensor undistortTensor(cv::Mat &cImg, torch::Tensor &_K, bool shouldUpdateK, const torch::Dtype dataType);
     torch::Tensor getScaledStoredTensor(int downscaleFactor, torch::Tensor &tensor, std::unordered_map<int, torch::Tensor> &map, const torch::Dtype dataType, const float normalizeBy);
 };
 

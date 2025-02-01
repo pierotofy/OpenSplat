@@ -33,7 +33,7 @@ torch::Tensor Camera::getIntrinsicsMatrix(){
                           {0.0f, 0.0f, 1.0f}}, torch::kFloat32);
 }
 
-torch::Tensor Camera::undistortImage(cv::Mat &cImg, torch::Tensor &_K, bool shouldUpdateK, const torch::Dtype dataType){
+torch::Tensor Camera::undistortTensor(cv::Mat &cImg, torch::Tensor &_K, bool shouldUpdateK, const torch::Dtype dataType){
     cv::Rect roi;
 
     torch::Tensor t;
@@ -90,7 +90,7 @@ void Camera::loadImage(float downscaleFactor){
     }
 
     K = getIntrinsicsMatrix();
-    image = undistortImage(cImg, K, true, torch::kFloat32) / 255.0f;
+    image = undistortTensor(cImg, K, true, torch::kFloat32) / 255.0f;
 
     // Update parameters
     height = image.size(0);
@@ -116,7 +116,7 @@ void Camera::loadMask(float downscaleFactor){
         }
 
         torch::Tensor _K = getIntrinsicsMatrix();
-        mask = ~undistortImage(cImg, _K, false, torch::kBool);
+        mask = ~undistortTensor(cImg, _K, false, torch::kBool);
     }
 }
 
