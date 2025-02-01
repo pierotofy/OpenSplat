@@ -812,29 +812,31 @@ inline int warp_reduce_all_or(int val, const int warp_size) {
     return val;
 }
 
-inline float warp_reduce_sum(float val, const int warp_size) {
-    for ( int offset = warp_size / 2; offset > 0; offset /= 2 )
-        val += simd_shuffle_and_fill_down(val, 0., offset);
-
+inline float warp_reduce_sum(float val, const int warp_size, const uint lane) {
+    for (int offset = warp_size / 2; offset > 0; offset /= 2) {
+        float other = 0.0f;
+        if (lane + offset <= warp_size)
+            other = simd_shuffle_xor(val, offset);
+        val += other;
+    }
     return val;
 }
 
-inline float3 warpSum3(float3 val, uint warp_size){
-    val.x = warp_reduce_sum(val.x, warp_size);
-    val.y = warp_reduce_sum(val.y, warp_size);
-    val.z = warp_reduce_sum(val.z, warp_size);
+inline float3 warpSum3(float3 val, const int warp_size, const uint lane) {
+    val.x = warp_reduce_sum(val.x, warp_size, lane);
+    val.y = warp_reduce_sum(val.y, warp_size, lane);
+    val.z = warp_reduce_sum(val.z, warp_size, lane);
     return val;
 }
 
-inline float2 warpSum2(float2 val, uint warp_size){
-    val.x = warp_reduce_sum(val.x, warp_size);
-    val.y = warp_reduce_sum(val.y, warp_size);
+inline float2 warpSum2(float2 val, const int warp_size, const uint lane) {
+    val.x = warp_reduce_sum(val.x, warp_size, lane);
+    val.y = warp_reduce_sum(val.y, warp_size, lane);
     return val;
 }
 
-inline float warpSum(float val, uint warp_size){
-    val = warp_reduce_sum(val, warp_size);
-    return val;
+inline float warpSum(float val, const int warp_size, const uint lane) {
+    return warp_reduce_sum(val, warp_size, lane);
 }
 
 kernel void rasterize_backward_kernel(
@@ -993,10 +995,10 @@ kernel void rasterize_backward_kernel(
                 v_opacity_local = vis * v_alpha;
             }
 
-            v_rgb_local = warpSum3(v_rgb_local, warp_size);
-            v_conic_local = warpSum3(v_conic_local, warp_size);
-            v_xy_local = warpSum2(v_xy_local, warp_size);
-            v_opacity_local = warpSum(v_opacity_local, warp_size);
+            v_rgb_local = warpSum3(v_rgb_local, warp_size, wr);
+            v_conic_local = warpSum3(v_conic_local, warp_size, wr);
+            v_xy_local = warpSum2(v_xy_local, warp_size, wr);
+            v_opacity_local = warpSum(v_opacity_local, warp_size, wr);
 
             if (wr == 0) {
                 int32_t g = id_batch[t];
