@@ -33,6 +33,34 @@ torch::Tensor Camera::getIntrinsicsMatrix(){
                           {0.0f, 0.0f, 1.0f}}, torch::kFloat32);
 }
 
+torch::Tensor Camera::undistortImage(cv::Mat &cImg, torch::Tensor &_K, bool shouldUpdateK, const torch::Dtype dataType){
+    cv::Rect roi;
+
+    torch::Tensor t;
+    if (hasDistortionParameters()){
+        // Undistort
+        std::vector<float> distCoeffs = undistortionParameters();
+        cv::Mat cK = floatNxNtensorToMat(_K);
+        cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
+
+        cv::Mat undistorted = cv::Mat::zeros(cImg.rows, cImg.cols, cImg.type());
+        cv::undistort(cImg, undistorted, cK, distCoeffs, newK);
+
+        t = imageToTensor(undistorted, dataType);
+        if (shouldUpdateK){
+            K = floatNxNMatToTensor(newK);
+        }
+    }else{
+        roi = cv::Rect(0, 0, cImg.cols, cImg.rows);
+        t = imageToTensor(cImg, dataType);
+    }
+
+    // Crop to ROI
+    t = t.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
+
+    return t;
+}
+
 void Camera::loadImage(float downscaleFactor){
     // Populates image and K, then updates the camera parameters
     // Caution: this function has destructive behaviors
@@ -62,26 +90,7 @@ void Camera::loadImage(float downscaleFactor){
     }
 
     K = getIntrinsicsMatrix();
-    cv::Rect roi;
-
-    if (hasDistortionParameters()){
-        // Undistort
-        std::vector<float> distCoeffs = undistortionParameters();
-        cv::Mat cK = floatNxNtensorToMat(K);
-        cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
-
-        cv::Mat undistorted = cv::Mat::zeros(cImg.rows, cImg.cols, cImg.type());
-        cv::undistort(cImg, undistorted, cK, distCoeffs, newK);
-        
-        image = imageToTensor(undistorted);
-        K = floatNxNMatToTensor(newK);
-    }else{
-        roi = cv::Rect(0, 0, cImg.cols, cImg.rows);
-        image = imageToTensor(cImg);
-    }
-
-    // Crop to ROI
-    image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
+    image = undistortImage(cImg, K, true, torch::kFloat32) / 255.0f;
 
     // Update parameters
     height = image.size(0);
@@ -92,24 +101,55 @@ void Camera::loadImage(float downscaleFactor){
     cy = K[1][2].item<float>();
 }
 
-torch::Tensor Camera::getImage(int downscaleFactor){
-    if (downscaleFactor <= 1) return image;
+void Camera::loadMask(float downscaleFactor){
+    // Populates mask
+    // Caution: this function should only be called after
+    // loadImage, which initialises the required variables
+    if (maskPath != ""){
+        std::cout << "Loading mask " << maskPath << std::endl;
+
+        cv::Mat cImg = imreadRGB(maskPath);
+
+        if (downscaleFactor > 1.0f){
+            float scaleFactor = 1.0f / downscaleFactor;
+            cv::resize(cImg, cImg, cv::Size(), scaleFactor, scaleFactor, cv::INTER_AREA);
+        }
+
+        torch::Tensor _K = getIntrinsicsMatrix();
+        mask = ~undistortImage(cImg, _K, false, torch::kBool);
+    }
+}
+
+torch::Tensor Camera::getScaledStoredTensor(int downscaleFactor, torch::Tensor &tensor, std::unordered_map<int, torch::Tensor> &map, const torch::Dtype dataType, const float normalizeBy){
+    if (downscaleFactor <= 1) return tensor;
     else{
 
         // torch::jit::script::Module container = torch::jit::load("gt.pt");
         // return container.attr("val").toTensor();
 
-        if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
-            return imagePyramids[downscaleFactor];
+        if (map.find(downscaleFactor) != map.end()){
+            return map[downscaleFactor];
         }
 
         // Rescale, store and return
-        cv::Mat cImg = tensorToImage(image);
+        cv::Mat cImg = tensorToImage(tensor);
         cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
-        torch::Tensor t = imageToTensor(cImg);
-        imagePyramids[downscaleFactor] = t;
+        torch::Tensor t = imageToTensor(cImg, dataType);
+        if (normalizeBy != 1.0f){
+            t /= normalizeBy;
+        }
+        map[downscaleFactor] = t;
         return t;
     }
+}
+
+torch::Tensor Camera::getImage(int downscaleFactor){
+    return getScaledStoredTensor(downscaleFactor, image, imagePyramids, torch::kFloat32, 255.0f);
+}
+
+torch::Tensor Camera::getMask(int downscaleFactor){
+    torch::Tensor t = getScaledStoredTensor(downscaleFactor, mask, maskPyramids, torch::kBool, 1.0f);
+    return t;
 }
 
 bool Camera::hasDistortionParameters(){

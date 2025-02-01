@@ -122,7 +122,7 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
                             static_cast<float>(c.k1), static_cast<float>(c.k2), static_cast<float>(c.k3), 
                             static_cast<float>(c.p1), static_cast<float>(c.p2),  
                             
-                            poses[i++], images[filename]));
+                            poses[i++], images[filename], "")); // TODO: Is it possible to have image masks from this format?
     }
 
     size_t numPoints = points.size();

@@ -24,6 +24,8 @@ InputData inputDataFromColmap(const std::string &projectRoot){
     if (!fs::exists(imagesPath)) throw std::runtime_error(imagesPath.string() + " does not exist");
     if (!fs::exists(pointsPath)) throw std::runtime_error(pointsPath.string() + " does not exist");
 
+    const bool maskDirExists = fs::exists(fs::path(projectRoot) / "masks");
+
     std::ifstream camf(camerasPath.string(), std::ios::binary);
     if (!camf.is_open()) throw std::runtime_error("Cannot open " + camerasPath.string());
     std::ifstream imgf(imagesPath.string(), std::ios::binary);
@@ -114,6 +116,7 @@ InputData inputDataFromColmap(const std::string &projectRoot){
 
         // TODO: should "images" be an option?
         cam.filePath = (fs::path(projectRoot) / "images" / filePath).string();
+        if (maskDirExists) cam.maskPath = (fs::path(projectRoot) / "masks" / (filePath + ".png")).string();
 
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);

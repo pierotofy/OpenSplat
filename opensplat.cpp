@@ -115,6 +115,7 @@ int main(int argc, char *argv[]){
 
         parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
             cam.loadImage(downScaleFactor);
+            cam.loadMask(downScaleFactor);
         });
 
         // Withhold a validation camera if necessary
@@ -146,7 +147,13 @@ int main(int argc, char *argv[]){
             model.optimizersZeroGrad();
 
             torch::Tensor rgb = model.forward(cam, step);
-            torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
+            const int downscaleFactor = model.getDownscaleFactor(step);
+            torch::Tensor gt = cam.getImage(downscaleFactor);
+            torch::Tensor mask = cam.getMask(downscaleFactor);
+            if (mask.numel() != 0){ // NOTE: defined() might also work
+                rgb = rgb.masked_fill(mask, 0);
+                gt = gt.masked_fill(mask, 0);
+            }
             gt = gt.to(device);
 
             torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);

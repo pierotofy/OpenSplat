@@ -153,7 +153,7 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
                             static_cast<float>(f.k1), static_cast<float>(f.k2), static_cast<float>(f.k3), 
                             static_cast<float>(f.p1), static_cast<float>(f.p2),  
                             
-                            poses[i], (nsRoot / f.filePath).string()));
+                            poses[i], (nsRoot / f.filePath).string(), "")); // TODO: Get mask, if it exists. See reference: https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/models/splatfacto.py
     }
 
     torch::Tensor points = pSet->pointsTensor().clone();
