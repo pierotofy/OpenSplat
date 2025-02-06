@@ -1,0 +1,3 @@
+repository='external project URL'
+module='https://github.com/jlblancoc/nanoflann/archive/refs/tags/v1.5.5.zip'
+tag=''

@@ -1,0 +1,3 @@
+repository='external project URL'
+module='https://github.com/g-truc/glm/archive/refs/tags/1.0.1.zip'
+tag=''

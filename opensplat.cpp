@@ -41,7 +41,7 @@ int main(int argc, char *argv[]){
         ("version", "Print version")
         ;
     options.parse_positional({ "input" });
-    options.positional_help("[colmap/nerfstudio/opensfm/odm project path]");
+    options.positional_help("[colmap/nerfstudio/opensfm/odm/openmvg project path]");
     cxxopts::ParseResult result;
     try {
         result = options.parse(argc, argv);

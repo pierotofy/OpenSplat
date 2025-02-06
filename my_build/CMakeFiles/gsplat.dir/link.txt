@@ -1,0 +1,2 @@
+/usr/bin/ar qc libgsplat.a CMakeFiles/gsplat.dir/rasterizer/gsplat/forward.cu.o CMakeFiles/gsplat.dir/rasterizer/gsplat/backward.cu.o CMakeFiles/gsplat.dir/rasterizer/gsplat/bindings.cu.o
+/usr/bin/ranlib libgsplat.a
