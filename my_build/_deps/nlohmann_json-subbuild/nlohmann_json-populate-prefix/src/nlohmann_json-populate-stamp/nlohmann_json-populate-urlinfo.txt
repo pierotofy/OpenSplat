@@ -1,3 +1,0 @@
-repository='external project URL'
-module='https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.zip'
-tag=''

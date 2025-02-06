@@ -1,3 +1,0 @@
-/home/evanokeeffe/Modelling/OpenSplat/my_build/_deps/cxxopts-subbuild/CMakeFiles/cxxopts-populate.dir
-/home/evanokeeffe/Modelling/OpenSplat/my_build/_deps/cxxopts-subbuild/CMakeFiles/edit_cache.dir
-/home/evanokeeffe/Modelling/OpenSplat/my_build/_deps/cxxopts-subbuild/CMakeFiles/rebuild_cache.dir

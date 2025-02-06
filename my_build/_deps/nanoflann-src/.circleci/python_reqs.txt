@@ -1,3 +1,0 @@
-# Requisites for the clang-format linter script
-argparse
-colorlog

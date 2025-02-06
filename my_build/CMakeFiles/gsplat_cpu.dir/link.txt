@@ -1,2 +1,0 @@
-/usr/bin/ar qc libgsplat_cpu.a CMakeFiles/gsplat_cpu.dir/rasterizer/gsplat-cpu/gsplat_cpu.cpp.o
-/usr/bin/ranlib libgsplat_cpu.a
