@@ -18,17 +18,18 @@ namespace omvg{
         int width = 0;
         int height = 0;
 
-        double fx = 0;
-        double fy = 0;
+        float fx = 0;
+        float fy = 0;
 
-        double cx = 0;
-        double cy = 0;
+        float cx = 0;
+        float cy = 0;
 
-        double k1 = 0;
-        double k2 = 0;
-        double p1 = 0;
-        double p2 = 0;
-        double k3 = 0;
+        float k1 = 0;
+        float k2 = 0;
+        float k3 = 0;
+        float t1 = 0;
+        float t2 = 0;
+        
     };
     bool read_intrinsics(const json& data, std::unordered_map<uint32_t, Intrinsic> &intrinsics);
     
@@ -46,8 +47,8 @@ namespace omvg{
 
     
     struct Pose{
-        std::vector<double> rotation;
-        std::vector<double> center;
+        std::vector<float> rotation;
+        std::vector<float> center;
     };
     bool read_poses(const json& data, std::unordered_map<uint32_t, Pose> &poses);
 

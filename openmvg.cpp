@@ -56,11 +56,11 @@ bool read_intrinsics(const json& data, std::unordered_map<uint32_t, Intrinsic> &
         intrinsic.width = intrin["value"]["ptr_wrapper"]["data"]["width"].get<uint32_t>();
         intrinsic.height = intrin["value"]["ptr_wrapper"]["data"]["height"].get<uint32_t>();
         
-        intrinsic.fx = intrin["value"]["ptr_wrapper"]["data"]["focal_length"].get<double>();
-        intrinsic.fy = intrin["value"]["ptr_wrapper"]["data"]["focal_length"].get<double>();
+        intrinsic.fx = intrin["value"]["ptr_wrapper"]["data"]["focal_length"].get<float>();
+        intrinsic.fy = intrin["value"]["ptr_wrapper"]["data"]["focal_length"].get<float>();
 
-        intrinsic.cx = intrin["value"]["ptr_wrapper"]["data"]["principal_point"][0].get<double>();
-        intrinsic.cy = intrin["value"]["ptr_wrapper"]["data"]["principal_point"][1].get<double>();
+        intrinsic.cx = intrin["value"]["ptr_wrapper"]["data"]["principal_point"][0].get<float>();
+        intrinsic.cy = intrin["value"]["ptr_wrapper"]["data"]["principal_point"][1].get<float>();
 
         // find the key needed
         std::string key;
@@ -76,11 +76,11 @@ bool read_intrinsics(const json& data, std::unordered_map<uint32_t, Intrinsic> &
         int counter = 0;
         for(auto param: intrin["value"]["ptr_wrapper"]["data"][key]){
             switch(counter){
-                case 0:{ intrinsic.k1 = param.get<double>(); break;}
-                case 1:{ intrinsic.k2 = param.get<double>(); break;}
-                case 2:{ intrinsic.p1 = param.get<double>(); break;}
-                case 3:{ intrinsic.p2 = param.get<double>(); break;}
-                case 4:{ intrinsic.k3 = param.get<double>(); break;}
+                case 0:{ intrinsic.k1 = param.get<float>(); break;}
+                case 1:{ intrinsic.k2 = param.get<float>(); break;}
+                case 2:{ intrinsic.k3 = param.get<float>(); break;}
+                case 3:{ intrinsic.t1 = param.get<float>(); break;}
+                case 4:{ intrinsic.t2 = param.get<float>(); break;}
                 default:{break;}
             }
             counter++;
@@ -186,11 +186,11 @@ bool read_poses(const json& data, std::unordered_map<uint32_t, Pose> &poses){
         Pose pose;
         for(auto row: value["rotation"]){
             for(auto r: row){
-                pose.rotation.push_back( r.get<double>() );
+                pose.rotation.push_back( r.get<float>() );
             }
         }
         for(auto c: value["center"]){
-            pose.center.push_back( c.get<double>() );
+            pose.center.push_back( c.get<float>() );
         }
 
         poses[id] = pose;
@@ -238,19 +238,89 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
     if(!intrinsics_ok){
         std::cerr << "Intrinsics didn't read properly" << std::endl;
     }
+    if(!views_ok){
+        std::cerr << "Views didn't read properly" << std::endl;
+    }
+    if(!poses_ok){
+        std::cerr << "Poses didn't read properly" << std::endl;
+    }
 
     std::cout << "Found " << intrinsics.size() << " intrinsics" << std::endl;
     std::cout << "Found " << views.size() << " views" << std::endl;
     std::cout << "Found " << poses.size() << " poses" << std::endl;
 
     // start putting the information into the tensors
-    
 
+    torch::Tensor unorientedPoses = torch::zeros({static_cast<long int>(poses.size()), 4, 4}, torch::kFloat32);
+    std::unordered_map<uint32_t,uint32_t> pose_indexes;
+    size_t i = 0;
+    for (const auto &p : poses){
+        std::uint32_t pose_id = p.first;
+        Pose pose = p.second;
+
+        torch::Tensor rotation = rodriguesToRotation(torch::from_blob(pose.rotation.data(), {static_cast<long>(pose.rotation.size())}, torch::kFloat32));
+        torch::Tensor translation = torch::from_blob(pose.center.data(), {static_cast<long>(pose.center.size())}, torch::kFloat32);
+        torch::Tensor w2c = torch::eye(4, torch::kFloat32);
+        w2c.index_put_({Slice(None, 3), Slice(None, 3)}, rotation);
+        w2c.index_put_({Slice(None, 3), Slice(3,4)}, translation.reshape({3, 1}));
+
+        unorientedPoses[i] = torch::linalg::inv(w2c);
+
+        std::cout << pose_id << " " << i;
+
+        // because the maps are unordered, need this to keep track of which pose in the tensor is the pose we need
+        pose_indexes[pose_id] = i;
+
+        // Convert OpenSfM's camera CRS (OpenCV) to OpenGL
+        unorientedPoses[i].index_put_({Slice(0, 3), Slice(1,3)}, unorientedPoses[i].index({Slice(0, 3), Slice(1,3)}) * -1.0f);
+        i++;
+
+    }
+
+    std::cout << "  " << std::endl;
+
+    auto r = autoScaleAndCenterPoses(unorientedPoses);
+    torch::Tensor tposes = std::get<0>(r);
+    ret.translation = std::get<1>(r);
+    ret.scale = std::get<2>(r);
+
+    for (const auto &item : views){
+        std::uint32_t view_id = item.first;
+        View v = item.second;
+
+        Intrinsic intrinsic = intrinsics.at(v.id_intrinsic);
+        
+        if (intrinsic.projectionType != "pinhole" && intrinsic.projectionType != "pinhole_brown_t2"){
+            throw std::runtime_error("Camera projection type " + intrinsic.projectionType + " is not supported");
+        }
+
+        fs::path thisRoot(image_root_path);
+        fs::path image_path =  thisRoot/ v.s_Img_path;
+
+
+        std::uint32_t current_pose = pose_indexes.at(v.id_pose);
+
+        std::cout << view_id << " " << v.s_Img_path << " pose " << current_pose << std::endl;
+
+        float normalizer = static_cast<float>((std::max)(intrinsic.width, intrinsic.height));
+        ret.cameras.emplace_back(Camera(intrinsic.width, intrinsic.height, 
+                            static_cast<float>(intrinsic.fx * normalizer), static_cast<float>(intrinsic.fy * normalizer), 
+                            static_cast<float>(static_cast<float>(intrinsic.width) / 2.0f + normalizer * intrinsic.cx), 
+                            static_cast<float>(static_cast<float>(intrinsic.height) / 2.0f + normalizer * intrinsic.cy), 
+                            static_cast<float>(intrinsic.k1), static_cast<float>(intrinsic.k2), static_cast<float>(intrinsic.k3), 
+                            static_cast<float>(intrinsic.t1), static_cast<float>(intrinsic.t2),  
+                            
+                            tposes[current_pose], image_path.string()));
+    }
 
     PointSet *pSet = readPointSet(colorPointCloud.string());
+
     torch::Tensor points = pSet->pointsTensor().clone();
+    
+    ret.points.xyz = (points - ret.translation) * ret.scale;
+    ret.points.rgb = pSet->colorsTensor().clone();
 
-
+    RELEASE_POINTSET(pSet);
 
     return ret;
 }
