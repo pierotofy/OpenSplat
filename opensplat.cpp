@@ -7,6 +7,10 @@
 #include "constants.hpp"
 #include <cxxopts.hpp>
 
+#ifdef USE_VISUALIZATION
+#include "visualizer.hpp"
+#endif
+
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 
@@ -16,6 +20,7 @@ int main(int argc, char *argv[]){
         ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
         ("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value("splat.ply"))
         ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
+        ("resume", "Resume training from this PLY file", cxxopts::value<std::string>()->default_value(""))
         ("val", "Withhold a camera shot for validating the scene loss")
         ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
         ("val-render", "Path of the directory where to render validation images", cxxopts::value<std::string>()->default_value(""))
@@ -65,6 +70,7 @@ int main(int argc, char *argv[]){
     const std::string projectRoot = result["input"].as<std::string>();
     const std::string outputScene = result["output"].as<std::string>();
     const int saveEvery = result["save-every"].as<int>(); 
+    const std::string resume = result["resume"].as<std::string>();
     const bool validate = result.count("val") > 0 || result.count("val-render") > 0;
     const std::string valImage = result["val-image"].as<std::string>();
     const std::string valRender = result["val-render"].as<std::string>();
@@ -99,6 +105,11 @@ int main(int argc, char *argv[]){
         displayStep = 1;
     }
 
+#ifdef USE_VISUALIZATION
+    Visualizer visualizer;
+    visualizer.Initialize(numIters);
+#endif
+
     try{
         InputData inputData = inputDataFromX(projectRoot);
 
@@ -123,7 +134,13 @@ int main(int argc, char *argv[]){
         InfiniteRandomIterator<size_t> camsIter( camIndices );
 
         int imageSize = -1;
-        for (size_t step = 1; step <= numIters; step++){
+        size_t step = 1;
+
+        if (resume != ""){
+            step = model.loadPly(resume) + 1;
+        }
+
+        for (; step <= numIters; step++){
             Camera& cam = cams[ camsIter.next() ];
 
             model.optimizersZeroGrad();
@@ -143,7 +160,7 @@ int main(int argc, char *argv[]){
 
             if (saveEvery > 0 && step % saveEvery == 0){
                 fs::path p(outputScene);
-                model.save((p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string()));
+                model.save(p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string(), step);
             }
 
             if (!valRender.empty() && step % 10 == 0){
@@ -152,11 +169,20 @@ int main(int argc, char *argv[]){
                 cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
                 cv::imwrite((fs::path(valRender) / (std::to_string(step) + ".png")).string(), image);
             }
+
+#ifdef USE_VISUALIZATION
+            visualizer.SetInitialGaussianNum(inputData.points.xyz.size(0));
+            visualizer.SetLoss(step, mainLoss.item<float>());
+            visualizer.SetGaussians(model.means, model.scales, model.featuresDc,
+                                    model.opacities);
+            visualizer.SetImage(rgb, gt);
+            visualizer.Draw();
+#endif
         }
 
         inputData.saveCameras((fs::path(outputScene).parent_path() / "cameras.json").string(), keepCrs);
-        model.save(outputScene);
-        // model.saveDebugPly("debug.ply");
+        model.save(outputScene, numIters);
+        // model.saveDebugPly("debug.ply", numIters);
 
         // Validate
         if (valCam != nullptr){

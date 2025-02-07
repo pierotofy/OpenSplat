@@ -5,6 +5,7 @@ set(OPENSPLAT_BUILD_SIMPLE_TRAINER OFF CACHE BOOL "Build simple trainer applicat
 set(GPU_RUNTIME "CUDA" CACHE STRING "HIP or CUDA or MPS")
 set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation directory")
 set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
+set(OPENSPLAT_BUILD_VISUALIZER OFF CACHE BOOL "Build visualizer application")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Read version
@@ -163,6 +164,9 @@ endif()
 
 find_package(Torch REQUIRED)
 find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
+if (OPENSPLAT_BUILD_VISUALIZER)
+    find_package(Pangolin REQUIRED)
+endif()
 
 if (NOT WIN32 AND NOT APPLE)
     set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
@@ -216,7 +220,23 @@ endif()
 add_library(gsplat_cpu rasterizer/gsplat-cpu/gsplat_cpu.cpp)
 target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 
-add_executable(opensplat opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp openmvg.cpp input_data.cpp tensor_math.cpp)
+set(OPENSPLAT_SRC_FILES opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp
+kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp
+rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp openmvg.cpp input_data.cpp
+tensor_math.cpp)
+
+if (OPENSPLAT_BUILD_VISUALIZER)
+    if (Pangolin_FOUND)
+        message(STATUS "Found Pangolin. Building visualizer (beta)")
+        list(APPEND OPENSPLAT_SRC_FILES visualizer.cpp)
+        add_definitions(-DUSE_VISUALIZATION)
+    else()
+        message(FATAL "Pangolin not found. Cannot build visualizer (beta)")
+    endif()
+endif()
+
+add_executable(opensplat ${OPENSPLAT_SRC_FILES})
+
 install(TARGETS opensplat DESTINATION bin)
 set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
 target_include_directories(opensplat PRIVATE
@@ -224,6 +244,9 @@ target_include_directories(opensplat PRIVATE
     ${GPU_INCLUDE_DIRS}
 )
 target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+if (Pangolin_FOUND)
+    target_link_libraries(opensplat PUBLIC ${Pangolin_LIBRARIES})
+endif()
 target_link_libraries(opensplat PRIVATE
     nlohmann_json::nlohmann_json
     cxxopts::cxxopts
