@@ -44,7 +44,6 @@ void Camera::loadImage(float downscaleFactor){
     if (image.numel()) std::runtime_error("loadImage already called");
     std::cout << "Loading " << filePath << std::endl;
 
-    float scaleFactor = 1.0f / downscaleFactor;
     cv::Mat cImg = imreadRGB(filePath);
     
     float rescaleF = 1.0f;
@@ -52,14 +51,18 @@ void Camera::loadImage(float downscaleFactor){
     if (cImg.rows != height || cImg.cols != width){
         rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(height);
     }
-    fx *= scaleFactor * rescaleF;
-    fy *= scaleFactor * rescaleF;
-    cx *= scaleFactor * rescaleF;
-    cy *= scaleFactor * rescaleF;
+    fx *= rescaleF;
+    fy *= rescaleF;
+    cx *= rescaleF;
+    cy *= rescaleF;
 
     if (downscaleFactor > 1.0f){
-        float f = 1.0f / downscaleFactor;
-        cv::resize(cImg, cImg, cv::Size(), f, f, cv::INTER_AREA);
+        float scaleFactor = 1.0f / downscaleFactor;
+        cv::resize(cImg, cImg, cv::Size(), scaleFactor, scaleFactor, cv::INTER_AREA);
+        fx *= scaleFactor;
+        fy *= scaleFactor;
+        cx *= scaleFactor;
+        cy *= scaleFactor;
     }
 
     K = getIntrinsicsMatrix();

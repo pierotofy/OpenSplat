@@ -52,29 +52,17 @@ struct Model{
     featuresRest = shs.index({Slice(), Slice(1, None), Slice()}).to(device).requires_grad_();
     opacities = torch::logit(0.1f * torch::ones({numPoints, 1})).to(device).requires_grad_();
     
-    // backgroundColor = torch::tensor({0.0f, 0.0f, 0.0f}, device); // Black
-    backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device); // Nerf Studio default
+    backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device).requires_grad_(); // Nerf Studio default
 
-    meansOpt = new torch::optim::Adam({means}, torch::optim::AdamOptions(0.00016));
-    scalesOpt = new torch::optim::Adam({scales}, torch::optim::AdamOptions(0.005));
-    quatsOpt = new torch::optim::Adam({quats}, torch::optim::AdamOptions(0.001));
-    featuresDcOpt = new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025));
-    featuresRestOpt = new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125));
-    opacitiesOpt = new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05));
-
-    meansOptScheduler = new OptimScheduler(meansOpt, 0.0000016f, maxSteps);
+    setupOptimizers();
   }
 
   ~Model(){
-    delete meansOpt;
-    delete scalesOpt;
-    delete quatsOpt;
-    delete featuresDcOpt;
-    delete featuresRestOpt;
-    delete opacitiesOpt;
-
-    delete meansOptScheduler;
+    releaseOptimizers();
   }
+  
+  void setupOptimizers();
+  void releaseOptimizers();
 
   torch::Tensor forward(Camera& cam, int step);
   void optimizersZeroGrad();
@@ -82,10 +70,11 @@ struct Model{
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
   void afterTrain(int step);
-  void save(const std::string &filename);
-  void savePly(const std::string &filename);
+  void save(const std::string &filename, int step);
+  void savePly(const std::string &filename, int step);
   void saveSplat(const std::string &filename);
-  void saveDebugPly(const std::string &filename);
+  void saveDebugPly(const std::string &filename, int step);
+  int loadPly(const std::string &filename);
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
@@ -97,14 +86,14 @@ struct Model{
   torch::Tensor featuresRest;
   torch::Tensor opacities;
 
-  torch::optim::Adam *meansOpt;
-  torch::optim::Adam *scalesOpt;
-  torch::optim::Adam *quatsOpt;
-  torch::optim::Adam *featuresDcOpt;
-  torch::optim::Adam *featuresRestOpt;
-  torch::optim::Adam *opacitiesOpt;
+  torch::optim::Adam *meansOpt = nullptr;
+  torch::optim::Adam *scalesOpt = nullptr;
+  torch::optim::Adam *quatsOpt = nullptr;
+  torch::optim::Adam *featuresDcOpt = nullptr;
+  torch::optim::Adam *featuresRestOpt = nullptr;
+  torch::optim::Adam *opacitiesOpt = nullptr;
 
-  OptimScheduler *meansOptScheduler;
+  OptimScheduler *meansOptScheduler = nullptr;
 
   torch::Tensor radii; // set in forward()
   torch::Tensor xys; // set in forward()

@@ -140,6 +140,8 @@ If building CPU-only, remove `-DGPU_RUNTIME=MPS`.
 
 :warning: You will probably get a *libc10.dylib can’t be opened because Apple cannot check it for malicious software* error on first run. Open **System Settings** and go to **Privacy & Security** and find the **Allow** button. You might need to repeat this several times until all torch libraries are loaded.
 
+:warning: If you get a *Library not loaded: @rpath/libomp.dylib* error, try running `brew link libomp --force` before running OpenSplat.
+
 ## Docker Build
 
 ### CUDA
@@ -229,6 +231,14 @@ To generate compressed splats (.splat files), use the `-o` option:
 
 ```bash
 ./opensplat /path/to/banana -o banana.splat
+```
+
+### Resume
+
+You can resume training of a .PLY file by using the `--resume` option:
+
+```bash
+./opensplat /path/to/banana --resume ./splat.ply
 ```
 
 ### AMD GPU Notes
