@@ -62,8 +62,6 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
 
-find_package(TBB REQUIRED)
-
 if(GPU_RUNTIME STREQUAL "CUDA")
     find_package(CUDAToolkit)
     if (NOT CUDAToolkit_FOUND)
@@ -101,7 +99,6 @@ if(GPU_RUNTIME STREQUAL "CUDA")
 
             list(GET LIST_GPU_CODE 0 TARGET_GPU_CODE)
             set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=${TARGET_GPU_CODE}")
-            string(APPEND CMAKE_CUDA_FLAGS " --expt-relaxed-constexpr ")
             
             set(IDX 0)
             foreach(GPU_ARCH ${LIST_GPU_ARCH})
@@ -168,7 +165,7 @@ find_package(Torch REQUIRED)
 find_package(OpenCV HINTS "${OPENCV_DIR}" REQUIRED)
 
 if (NOT WIN32 AND NOT APPLE)
-    set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/usr/local/cuda/bin/nvcc")
+    set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 endif()
 set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui opencv_calib3d)
 
@@ -226,7 +223,7 @@ target_include_directories(opensplat PRIVATE
     ${PROJECT_SOURCE_DIR}/rasterizer
     ${GPU_INCLUDE_DIRS}
 )
-target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS} TBB::tbb)
+target_link_libraries(opensplat PUBLIC ${STDPPFS_LIBRARY} ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(opensplat PRIVATE
     nlohmann_json::nlohmann_json
     cxxopts::cxxopts
