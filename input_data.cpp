@@ -10,6 +10,7 @@ using json = nlohmann::json;
 namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
 namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot); }
 namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot); }
+namespace omvg { InputData inputDataFromOpenMVG(const std::string &projectRoot); }
 
 InputData inputDataFromX(const std::string &projectRoot){
     fs::path root(projectRoot);
@@ -22,8 +23,11 @@ InputData inputDataFromX(const std::string &projectRoot){
         return osfm::inputDataFromOpenSfM(projectRoot);
     }else if (fs::exists(root / "opensfm" / "reconstruction.json")){
         return osfm::inputDataFromOpenSfM((root / "opensfm").string());
-    }else{
-        throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio project folder)");
+    }else if (fs::exists(root / "sfm_data.json")){
+        return omvg::inputDataFromOpenMVG((root).string());
+    }
+    else{
+        throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio or openmvg project folder)");
     }
 }
 

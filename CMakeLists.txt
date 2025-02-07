@@ -100,7 +100,7 @@ if(GPU_RUNTIME STREQUAL "CUDA")
 
             list(GET LIST_GPU_CODE 0 TARGET_GPU_CODE)
             set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=${TARGET_GPU_CODE}")
-
+            
             set(IDX 0)
             foreach(GPU_ARCH ${LIST_GPU_ARCH})
                 string(REGEX MATCH "compute_([0-9]+)" GPU_ARCH_VERSION "${GPU_ARCH}")
@@ -222,7 +222,7 @@ target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 
 set(OPENSPLAT_SRC_FILES opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp
 kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp
-rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp input_data.cpp
+rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp openmvg.cpp input_data.cpp
 tensor_math.cpp)
 
 if (OPENSPLAT_BUILD_VISUALIZER)
@@ -236,6 +236,7 @@ if (OPENSPLAT_BUILD_VISUALIZER)
 endif()
 
 add_executable(opensplat ${OPENSPLAT_SRC_FILES})
+
 install(TARGETS opensplat DESTINATION bin)
 set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
 target_include_directories(opensplat PRIVATE
