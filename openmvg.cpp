@@ -177,6 +177,9 @@ bool read_poses(const json& data, std::unordered_map<uint32_t, Pose> &poses){
             }
         }
     */
+    /*
+        OpenMVG rotation data is stored as columns, must convert to rows
+    */
     auto scene_poses = data["extrinsics"];
     for(auto item: scene_poses){
         
@@ -184,11 +187,31 @@ bool read_poses(const json& data, std::unordered_map<uint32_t, Pose> &poses){
         auto value = item["value"];
 
         Pose pose;
+        std::vector<float> omvg_rotation;
+
         for(auto row: value["rotation"]){
             for(auto r: row){
-                pose.rotation.push_back( r.get<float>() );
+                omvg_rotation.push_back( r.get<float>() );
             }
         }
+
+        pose.rotation = std::vector<float>(9);
+
+        // convert cols to rows
+
+        pose.rotation[0] = omvg_rotation[0];
+        pose.rotation[1] = omvg_rotation[3];
+        pose.rotation[2] = omvg_rotation[6];
+
+        pose.rotation[3] = omvg_rotation[1];
+        pose.rotation[4] = omvg_rotation[4];
+        pose.rotation[5] = omvg_rotation[7];
+
+        pose.rotation[6] = omvg_rotation[2];
+        pose.rotation[7] = omvg_rotation[5];
+        pose.rotation[8] = omvg_rotation[8];
+        
+
         for(auto c: value["center"]){
             pose.center.push_back( c.get<float>() );
         }
@@ -258,23 +281,25 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
         std::uint32_t pose_id = p.first;
         Pose pose = p.second;
 
-        torch::Tensor rotation = rodriguesToRotation(torch::from_blob(pose.rotation.data(), {static_cast<long>(pose.rotation.size())}, torch::kFloat32));
-        torch::Tensor translation = torch::from_blob(pose.center.data(), {static_cast<long>(pose.center.size())}, torch::kFloat32);
-        torch::Tensor w2c = torch::eye(4, torch::kFloat32);
-        w2c.index_put_({Slice(None, 3), Slice(None, 3)}, rotation);
-        w2c.index_put_({Slice(None, 3), Slice(3,4)}, translation.reshape({3, 1}));
+        torch::Tensor R = torch::from_blob(pose.rotation.data(), {static_cast<long>(pose.rotation.size())}, torch::kFloat32);
+        R = R.reshape({3, 3});
 
-        unorientedPoses[i] = torch::linalg::inv(w2c);
-
-        std::cout << pose_id << " " << i;
+        torch::Tensor T = torch::from_blob(pose.center.data(), {static_cast<long>(pose.center.size())}, torch::kFloat32);
+        T = T.reshape({3, 1});
+        
+        torch::Tensor Rinv = R.transpose(0, 1);
+        torch::Tensor Tinv = torch::matmul(-Rinv, T);
 
         // because the maps are unordered, need this to keep track of which pose in the tensor is the pose we need
         pose_indexes[pose_id] = i;
 
-        // Convert OpenSfM's camera CRS (OpenCV) to OpenGL
+        unorientedPoses[i].index_put_({Slice(None, 3), Slice(None, 3)}, R);
+        unorientedPoses[i].index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
+        unorientedPoses[i][3][3] = 1.0f;
+
+        // Convert OpenMVG's camera CRS (OpenCV) to OpenGL
         unorientedPoses[i].index_put_({Slice(0, 3), Slice(1,3)}, unorientedPoses[i].index({Slice(0, 3), Slice(1,3)}) * -1.0f);
         i++;
-
     }
 
     std::cout << "  " << std::endl;
@@ -297,10 +322,7 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
         fs::path thisRoot(image_root_path);
         fs::path image_path =  thisRoot/ v.s_Img_path;
 
-
         std::uint32_t current_pose = pose_indexes.at(v.id_pose);
-
-        std::cout << view_id << " " << v.s_Img_path << " pose " << current_pose << std::endl;
 
         float normalizer = static_cast<float>((std::max)(intrinsic.width, intrinsic.height));
         ret.cameras.emplace_back(Camera(intrinsic.width, intrinsic.height, 
