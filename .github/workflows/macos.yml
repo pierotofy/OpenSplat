@@ -49,12 +49,10 @@ jobs:
           if [[ "${{ matrix.os }}" == "macos-13" ]]; then
             # brew install in macos-13 runner image is broken
             # https://github.com/actions/runner-images/issues/9471
-            brew unlink python@3.11
             brew unlink python@3.12
             brew uninstall --force azure-cli
             brew uninstall --force aws-sam-cli
             brew uninstall --force pipx
-            brew uninstall --force python@3.11
             brew install --overwrite python@3.12
           fi          
           brew install \
