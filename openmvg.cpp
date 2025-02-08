@@ -177,9 +177,11 @@ bool read_poses(const json& data, std::unordered_map<uint32_t, Pose> &poses){
             }
         }
     */
+
     /*
         OpenMVG rotation data is stored as columns, must convert to rows
     */
+
     auto scene_poses = data["extrinsics"];
     for(auto item: scene_poses){
         
@@ -280,7 +282,7 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
     for (const auto &p : poses){
         std::uint32_t pose_id = p.first;
         Pose pose = p.second;
-
+      
         torch::Tensor R = torch::from_blob(pose.rotation.data(), {static_cast<long>(pose.rotation.size())}, torch::kFloat32);
         R = R.reshape({3, 3});
 
