@@ -270,7 +270,7 @@ if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
         ${PROJECT_SOURCE_DIR}/rasterizer
         ${GPU_INCLUDE_DIRS}
     )
-    target_link_libraries(simple_trainer PUBLIC ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS} TBB::tbb)
+    target_link_libraries(simple_trainer PUBLIC ${GPU_LIBRARIES} ${GSPLAT_LIBS} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
     target_link_libraries(simple_trainer PRIVATE
         nlohmann_json::nlohmann_json
         cxxopts::cxxopts
