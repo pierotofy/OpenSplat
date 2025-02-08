@@ -5,7 +5,6 @@
 #include "tensor_math.hpp"
 #include <stdexcept>
 #include <string>
-#include <bits/stdc++.h>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
