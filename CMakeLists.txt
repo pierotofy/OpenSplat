@@ -302,3 +302,5 @@ if (MSVC)
         ${DLLS_TO_COPY}
         $<TARGET_FILE_DIR:opensplat>)
 endif (MSVC)
+
+add_compile_definitions(GLOG_USE_GLOG_EXPORT)
