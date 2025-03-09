@@ -12,6 +12,12 @@ CUDA_VER_ID="${CUDA_VER_ARR[0]}_${CUDA_VER_ARR[1]}"
 CUDA_VER_SHORT="cu${CUDA_VER_ARR[0]}${CUDA_VER_ARR[1]}"
 
 case ${CUDA_VER_SHORT} in
+  cu124)
+    CUDA=12.4
+    APT_KEY=${OS}-${CUDA/./-}-local
+    FILENAME=cuda-repo-${APT_KEY}_${CUDA}.1-550.54.15-1_amd64.deb
+    URL=https://developer.download.nvidia.com/compute/cuda/${CUDA}.1/local_installers
+    ;;
   cu121)
     CUDA=12.1
     APT_KEY=${OS}-${CUDA/./-}-local
