@@ -93,7 +93,7 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
         w2c.index_put_({Slice(None, 3), Slice(None, 3)}, rotation);
         w2c.index_put_({Slice(None, 3), Slice(3,4)}, translation.reshape({3, 1}));
 
-        unorientedPoses[i] = torch::linalg::inv(w2c);
+        unorientedPoses[i] = torch::linalg_inv(w2c);
 
         // Convert OpenSfM's camera CRS (OpenCV) to OpenGL
         unorientedPoses[i].index_put_({Slice(0, 3), Slice(1,3)}, unorientedPoses[i].index({Slice(0, 3), Slice(1,3)}) * -1.0f);

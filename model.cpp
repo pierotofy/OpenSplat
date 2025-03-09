@@ -310,7 +310,7 @@ void Model::afterTrain(int step){
     if (step < stopSplitAt){
         torch::Tensor visibleMask = (radii > 0).flatten();
         
-        torch::Tensor grads = torch::linalg::vector_norm(xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
+        torch::Tensor grads = torch::linalg_vector_norm(xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
         if (!xysGradNorm.numel()){
             xysGradNorm = grads;
             visCounts = torch::ones_like(xysGradNorm);
@@ -352,7 +352,7 @@ void Model::afterTrain(int step){
 
             torch::Tensor centeredSamples = torch::randn({nSplitSamples * nSplits, 3}, device);  // Nx3 of axis-aligned scales
             torch::Tensor scaledSamples = torch::exp(scales.index({splits}).repeat({nSplitSamples, 1})) * centeredSamples;
-            torch::Tensor qs = quats.index({splits}) / torch::linalg::vector_norm(quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
+            torch::Tensor qs = quats.index({splits}) / torch::linalg_vector_norm(quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
             torch::Tensor rots = quatToRotMat(qs.repeat({nSplitSamples, 1}));
             torch::Tensor rotatedSamples = torch::bmm(rots, scaledSamples.index({"...", None})).squeeze();
             torch::Tensor splitMeans = rotatedSamples + means.index({splits}).repeat({nSplitSamples, 1});
