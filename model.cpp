@@ -310,17 +310,14 @@ void Model::afterTrain(int step){
     if (step < stopSplitAt){
         torch::Tensor visibleMask = (radii > 0).flatten();
         
-        torch::Tensor grads = xys.grad().detach();
-        torch::Tensor gradsNorm = torch::sqrt(torch::sum(grads.pow(2), -1, false)); // Calculate L2 norm manually
-
+        torch::Tensor grads = torch::linalg::vector_norm(xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
         if (!xysGradNorm.numel()){
-            xysGradNorm = gradsNorm;
+            xysGradNorm = grads;
             visCounts = torch::ones_like(xysGradNorm);
         }else{
             visCounts.index_put_({visibleMask}, visCounts.index({visibleMask}) + 1);
-            xysGradNorm.index_put_({visibleMask}, gradsNorm.index({visibleMask}) + xysGradNorm.index({visibleMask}));
+            xysGradNorm.index_put_({visibleMask}, grads.index({visibleMask}) + xysGradNorm.index({visibleMask}));
         }
-
 
         if (!max2DSize.numel()){
             max2DSize = torch::zeros_like(radii, torch::kFloat32);
@@ -355,14 +352,11 @@ void Model::afterTrain(int step){
 
             torch::Tensor centeredSamples = torch::randn({nSplitSamples * nSplits, 3}, device);  // Nx3 of axis-aligned scales
             torch::Tensor scaledSamples = torch::exp(scales.index({splits}).repeat({nSplitSamples, 1})) * centeredSamples;
-            torch::Tensor qs = quats.index({splits});
-            torch::Tensor norms = torch::sqrt(torch::sum(qs.pow(2), -1, true)); // Calculate norm
-            qs = qs / norms; // Normalize the quaternions
-
+            torch::Tensor qs = quats.index({splits}) / torch::linalg::vector_norm(quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
             torch::Tensor rots = quatToRotMat(qs.repeat({nSplitSamples, 1}));
             torch::Tensor rotatedSamples = torch::bmm(rots, scaledSamples.index({"...", None})).squeeze();
             torch::Tensor splitMeans = rotatedSamples + means.index({splits}).repeat({nSplitSamples, 1});
-
+            
             torch::Tensor splitFeaturesDc = featuresDc.index({splits}).repeat({nSplitSamples, 1});
             torch::Tensor splitFeaturesRest = featuresRest.index({splits}).repeat({nSplitSamples, 1, 1});
             
