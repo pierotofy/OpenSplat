@@ -152,7 +152,10 @@ int main(int argc, char *argv[]){
             torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);
             mainLoss.backward();
             
-            if (step % displayStep == 0) std::cout << "Step " << step << ": " << mainLoss.item<float>() << std::endl;
+            if (step % displayStep == 0) {
+                const float percentage = static_cast<float>(step) / numIters;
+                std::cout << "Step " << step << ": " << mainLoss.item<float>() << " (" << floor(percentage * 100) << "%)" <<  std::endl;
+            }
 
             model.optimizersStep();
             model.schedulersStep(step);

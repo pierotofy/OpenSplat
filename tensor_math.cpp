@@ -68,7 +68,8 @@ torch::Tensor rotationMatrix(const torch::Tensor &a, const torch::Tensor &b){
 }
 
 torch::Tensor rodriguesToRotation(const torch::Tensor &rodrigues){
-    float theta = torch::linalg::vector_norm(rodrigues, 2, { -1 }, true, torch::kFloat32).item<float>();
+    torch::Tensor rodriguesNorm = torch::sqrt(torch::sum(rodrigues.pow(2), -1, true));  // Calculate L2 norm manually
+    float theta = rodriguesNorm.item<float>();  // Get the scalar value from the tensor
     if (theta < FLOAT_EPS){
         return torch::eye(3, torch::kFloat32);
     }
