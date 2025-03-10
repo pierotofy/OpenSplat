@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.os }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
+    name: ${{ matrix.os }}-rocm-${{ matrix.rocm-version }}-torch-${{ matrix.torch-version }}-${{ matrix.cmake-build-type }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

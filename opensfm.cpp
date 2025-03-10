@@ -84,31 +84,21 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
 
     torch::Tensor unorientedPoses = torch::zeros({static_cast<long int>(shots.size()), 4, 4}, torch::kFloat32);
     size_t i = 0;
-    for (const auto &s : shots) {
+    for (const auto &s : shots){
         Shot shot = s.second;
 
         torch::Tensor rotation = rodriguesToRotation(torch::from_blob(shot.rotation.data(), {static_cast<long>(shot.rotation.size())}, torch::kFloat32));
         torch::Tensor translation = torch::from_blob(shot.translation.data(), {static_cast<long>(shot.translation.size())}, torch::kFloat32);
-
         torch::Tensor w2c = torch::eye(4, torch::kFloat32);
         w2c.index_put_({Slice(None, 3), Slice(None, 3)}, rotation);
-        w2c.index_put_({Slice(None, 3), Slice(3, 4)}, translation.reshape({3, 1}));
+        w2c.index_put_({Slice(None, 3), Slice(3,4)}, translation.reshape({3, 1}));
 
-        // Manually compute the inverse of w2c
-        torch::Tensor rotationT = rotation.transpose(0, 1);  // Transpose rotation (3x3)
-        torch::Tensor translationInv = -(rotationT.matmul(translation.reshape({3, 1})));  // -R^T * t
-
-        torch::Tensor invW2C = torch::eye(4, torch::kFloat32);
-        invW2C.index_put_({Slice(None, 3), Slice(None, 3)}, rotationT);  // Set rotation part
-        invW2C.index_put_({Slice(None, 3), Slice(3, 4)}, translationInv);  // Set translation part
-
-        unorientedPoses[i] = invW2C;
+        unorientedPoses[i] = torch::linalg_inv(w2c);
 
         // Convert OpenSfM's camera CRS (OpenCV) to OpenGL
-        unorientedPoses[i].index_put_({Slice(0, 3), Slice(1, 3)}, unorientedPoses[i].index({Slice(0, 3), Slice(1, 3)}) * -1.0f);
+        unorientedPoses[i].index_put_({Slice(0, 3), Slice(1,3)}, unorientedPoses[i].index({Slice(0, 3), Slice(1,3)}) * -1.0f);
         i++;
     }
-
 
     auto r = autoScaleAndCenterPoses(unorientedPoses);
     torch::Tensor poses = std::get<0>(r);
