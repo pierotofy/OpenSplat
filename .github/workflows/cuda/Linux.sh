@@ -71,7 +71,7 @@ sudo mv cuda-${OS}.pin /etc/apt/preferences.d/cuda-repository-pin-600
 wget -nv ${URL}/${FILENAME}
 sudo dpkg -i ${FILENAME}
 
-if [ "${CUDA_VER_SHORT}" = "cu117" ] || [ "${CUDA_VER_SHORT}" = "cu118" ] || [ "${CUDA_VER_SHORT}" = "cu121" ]; then
+if [ "${CUDA_VER_SHORT}" = "cu124" ] || [ "${CUDA_VER_SHORT}" = "cu117" ] || [ "${CUDA_VER_SHORT}" = "cu118" ] || [ "${CUDA_VER_SHORT}" = "cu121" ]; then
   sudo cp /var/cuda-repo-${APT_KEY}/cuda-*-keyring.gpg /usr/share/keyrings/
 else
   sudo apt-key add /var/cuda-repo-${APT_KEY}/7fa2af80.pub
