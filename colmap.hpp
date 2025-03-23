@@ -5,7 +5,7 @@
 #include "input_data.hpp"
 
 namespace cm{
-    InputData inputDataFromColmap(const std::string &projectRoot);
+    InputData inputDataFromColmap(const std::string &projectRoot, const std::string& colmapImageSourcePath = "");
 
     enum CameraModel{
         SimplePinhole = 0, Pinhole, SimpleRadial, Radial,

@@ -8,7 +8,7 @@ using namespace torch::indexing;
 
 namespace cm{
 
-InputData inputDataFromColmap(const std::string &projectRoot){
+InputData inputDataFromColmap(const std::string &projectRoot, const std::string& colmapImageSourcePath){
     InputData ret;
     fs::path cmRoot(projectRoot);
 
@@ -112,8 +112,10 @@ InputData inputDataFromColmap(const std::string &projectRoot){
             filePath += ch;
         }
 
-        // TODO: should "images" be an option?
-        cam.filePath = (fs::path(projectRoot) / "images" / filePath).string();
+        if (colmapImageSourcePath.empty())
+            cam.filePath = (fs::path(projectRoot) / "images" / filePath).string();
+        else
+            cam.filePath = (fs::path(colmapImageSourcePath) / filePath).string();
 
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
