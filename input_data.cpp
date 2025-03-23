@@ -8,17 +8,17 @@ using namespace torch::indexing;
 using json = nlohmann::json;
 
 namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
-namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot); }
+namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot, const std::string& imageSourcePath); }
 namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot); }
 namespace omvg { InputData inputDataFromOpenMVG(const std::string &projectRoot); }
 
-InputData inputDataFromX(const std::string &projectRoot){
+InputData inputDataFromX(const std::string &projectRoot, const std::string& colmapImageSourcePath){
     fs::path root(projectRoot);
 
     if (fs::exists(root / "transforms.json")){
         return ns::inputDataFromNerfStudio(projectRoot);
     }else if (fs::exists(root / "sparse") || fs::exists(root / "cameras.bin")){
-        return cm::inputDataFromColmap(projectRoot);
+        return cm::inputDataFromColmap(projectRoot, colmapImageSourcePath);
     }else if (fs::exists(root / "reconstruction.json")){
         return osfm::inputDataFromOpenSfM(projectRoot);
     }else if (fs::exists(root / "opensfm" / "reconstruction.json")){

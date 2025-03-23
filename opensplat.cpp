@@ -41,6 +41,7 @@ int main(int argc, char *argv[]){
         ("densify-size-thresh", "Gaussians' scales below this threshold are duplicated, otherwise split", cxxopts::value<float>()->default_value("0.01"))
         ("stop-screen-size-at", "Stop splitting gaussians that are larger than [split-screen-size] after these many steps", cxxopts::value<int>()->default_value("4000"))
         ("split-screen-size", "Split gaussians that are larger than this percentage of screen space", cxxopts::value<float>()->default_value("0.05"))
+        ("colmap-image-path", "Override the default image path for COLMAP-based input", cxxopts::value<std::string>()->default_value(""))
 
         ("h,help", "Print usage")
         ("version", "Print version")
@@ -90,6 +91,7 @@ int main(int argc, char *argv[]){
     const float densifySizeThresh = result["densify-size-thresh"].as<float>();
     const int stopScreenSizeAt = result["stop-screen-size-at"].as<int>();
     const float splitScreenSize = result["split-screen-size"].as<float>();
+    const std::string colmapImageSourcePath = result["colmap-image-path"].as<std::string>();
 
     torch::Device device = torch::kCPU;
     int displayStep = 10;
@@ -111,7 +113,7 @@ int main(int argc, char *argv[]){
 #endif
 
     try{
-        InputData inputData = inputDataFromX(projectRoot);
+        InputData inputData = inputDataFromX(projectRoot, colmapImageSourcePath);
 
         parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
             cam.loadImage(downScaleFactor);
