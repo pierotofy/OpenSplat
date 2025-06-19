@@ -6,6 +6,8 @@ set(GPU_RUNTIME "CUDA" CACHE STRING "HIP or CUDA or MPS")
 set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation directory")
 set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
 set(OPENSPLAT_BUILD_VISUALIZER OFF CACHE BOOL "Build visualizer application")
+set(OPENSPLAT_USE_FAST_MATH OFF CACHE BOOL "Enable fast math optimizations for GPU kernels (-use_fast_math / -ffast-math)")
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Read version
@@ -38,6 +40,10 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
 endif()
 # Suppress warning #20012-D (nvcc and glm)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -diag-suppress=20012)
+if(OPENSPLAT_USE_FAST_MATH)
+    message(STATUS "Fast math optimizations enabled for CUDA")
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --use_fast_math)
+endif()
 
 include(FetchContent)
 FetchContent_Declare(nlohmann_json
@@ -129,6 +135,10 @@ elseif(GPU_RUNTIME STREQUAL "HIP")
     endif()
     set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
     find_package(HIP REQUIRED)
+    if(OPENSPLAT_USE_FAST_MATH)
+        message(STATUS "Fast math optimizations enabled for HIP")
+        set(CMAKE_HIP_FLAGS ${CMAKE_HIP_FLAGS} -ffast-math)
+    endif()
 
     file(GLOB_RECURSE GSPLAT_GPU_SRC LIST_DIRECTORIES False rasterizer/gsplat/*.cu)
     set_source_files_properties(${GSPLAT_GPU_SRC} PROPERTIES LANGUAGE HIP)
@@ -146,6 +156,11 @@ elseif(GPU_RUNTIME STREQUAL "MPS")
     message(STATUS "Metal framework found")
 
     set(XC_FLAGS -O3)
+    if(OPENSPLAT_USE_FAST_MATH)
+        message(STATUS "Fast math optimizations enabled for Metal")
+        
+        set(XC_FLAGS ${XC_FLAGS} -ffast-math)
+    endif()
     set(USE_MPS ON CACHE BOOL "Use MPS for GPU acceleration")
 else()
     set(GPU_RUNTIME "CPU")
