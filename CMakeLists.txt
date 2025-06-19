@@ -6,7 +6,7 @@ set(GPU_RUNTIME "CUDA" CACHE STRING "HIP or CUDA or MPS")
 set(OPENCV_DIR "OPENCV_DIR-NOTFOUND" CACHE PATH "Path to the OPENCV installation directory")
 set(OPENSPLAT_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
 set(OPENSPLAT_BUILD_VISUALIZER OFF CACHE BOOL "Build visualizer application")
-set(OPENSPLAT_USE_FAST_MATH ON CACHE BOOL "Enable fast math optimizations for GPU kernels (-use_fast_math / -ffast-math)")
+set(OPENSPLAT_USE_FAST_MATH OFF CACHE BOOL "Enable fast math optimizations for GPU kernels (-use_fast_math / -ffast-math)")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
