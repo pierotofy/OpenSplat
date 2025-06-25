@@ -225,6 +225,10 @@ There's several parameters you can tune. To view the full list:
 ./opensplat --help
 ```
 
+### Google Colab
+
+To run OpenSplat in Google Colab follow this [example notebook](https://colab.research.google.com/drive/1USqQsIBcqdOP6Fy0aVAyoXzTdpaEoTL_).
+
 ### Compression
 
 To generate compressed splats (.splat files), use the `-o` option:
