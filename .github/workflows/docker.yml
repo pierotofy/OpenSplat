@@ -38,5 +38,5 @@ jobs:
             CUDA_VERSION=${{ matrix.cuda-version }}
             TORCH_VERSION=${{ matrix.torch-version }}
             CMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }}
-          push: false
+          push: true
           tags: opensplat:latest
