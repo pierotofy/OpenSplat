@@ -5,7 +5,6 @@
 #include <string>
 #include <fstream>
 #include <unordered_map>
-#include <opencv2/calib3d.hpp>
 #include <torch/torch.h>
 
 enum CameraType { Perspective };
