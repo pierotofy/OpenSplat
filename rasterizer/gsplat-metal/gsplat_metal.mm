@@ -94,18 +94,35 @@ MetalContext* init_gsplat_metal_context() {
         }
     }
 
+	//	load & assign kernel
+	auto LoadKernel = [&ctx,&metal_library](const char* KernelName,__strong id<MTLComputePipelineState>& KernelCpso)
+	{
+		NSError *error = nil;
+		NSString* nameNs = [NSString stringWithCString:KernelName encoding:NSUTF8StringEncoding];
+		id<MTLFunction> metal_function = [metal_library newFunctionWithName:nameNs];
+		printf("%s: load function %s with label: %s\n", __func__, KernelName, [[metal_function label] UTF8String]);
+		KernelCpso = [ctx->device newComputePipelineStateWithFunction:metal_function error:&error];
+#if  ! __has_feature(objc_arc)
+		[metal_function release];
+#endif
+		if (error) 
+		{
+			printf("%s: error: load pipeline error: %s\n", __func__, [[error description] UTF8String]);
+#if  ! __has_feature(objc_arc)
+			[metal_library release];
+#endif
+			return false;
+		}
+		return true;
+	};
+	
 #define GSPLAT_METAL_ADD_KERNEL(NAME) \
-    { \
-        id<MTLFunction> metal_function = [metal_library newFunctionWithName:@#NAME]; \
-        printf("%s: load function %s with label: %s\n", __func__, #NAME, [[metal_function label] UTF8String]); \
-        ctx->NAME ## _cpso = [ctx->device newComputePipelineStateWithFunction:metal_function error:&error]; \
-        [metal_function release]; \
-        if (error) { \
-            printf("%s: error: load pipeline error: %s\n", __func__, [[error description] UTF8String]); \
-            [metal_library release]; \
-            return NULL; \
-        } \
-    }
+{ \
+	if ( !LoadKernel( #NAME, ctx->NAME ## _cpso ) )	\
+	{	\
+		return NULL;	\
+	}	\
+}	
 
     GSPLAT_METAL_ADD_KERNEL(nd_rasterize_backward_kernel);
     GSPLAT_METAL_ADD_KERNEL(nd_rasterize_forward_kernel);
@@ -118,8 +135,10 @@ MetalContext* init_gsplat_metal_context() {
     GSPLAT_METAL_ADD_KERNEL(map_gaussian_to_intersects_kernel);
     GSPLAT_METAL_ADD_KERNEL(get_tile_bin_edges_kernel);
 
-    [metal_library release];
-
+#if  ! __has_feature(objc_arc)
+	[metal_library release];
+#endif
+	
     return ctx;
 }
 
