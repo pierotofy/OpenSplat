@@ -166,11 +166,11 @@ else()
     set(GPU_RUNTIME "CPU")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     enable_language(${GPU_RUNTIME})
-    set(CMAKE_${GPU_RUNTIME}_STANDARD 17)
-    set(${GPU_RUNTIME}_STANDARD 17)
+    set(CMAKE_${GPU_RUNTIME}_STANDARD 20)
+    set(${GPU_RUNTIME}_STANDARD 20)
 endif()
 
 if (NOT WIN32 AND NOT APPLE)
@@ -253,7 +253,7 @@ endif()
 add_executable(opensplat ${OPENSPLAT_SRC_FILES})
 
 install(TARGETS opensplat DESTINATION bin)
-set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
+set_property(TARGET opensplat PROPERTY CXX_STANDARD 20)
 target_include_directories(opensplat PRIVATE
     ${PROJECT_SOURCE_DIR}/rasterizer
     ${GPU_INCLUDE_DIRS}
@@ -294,7 +294,7 @@ if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
     if (NOT WIN32)
         target_link_libraries(simple_trainer PUBLIC pthread)
     endif()
-    set_property(TARGET simple_trainer PROPERTY CXX_STANDARD 17)
+    set_property(TARGET simple_trainer PROPERTY CXX_STANDARD 20)
     if(GPU_RUNTIME STREQUAL "HIP")
         target_compile_definitions(simple_trainer PRIVATE USE_HIP __HIP_PLATFORM_AMD__)
     elseif(GPU_RUNTIME STREQUAL "CUDA")
