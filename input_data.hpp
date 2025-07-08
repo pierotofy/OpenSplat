@@ -59,7 +59,7 @@ struct Camera
 	
 	torch::Tensor		getImage(int downscaleFactor);
 	void				loadImageFromFilename(float downscaleFactor);	//	refactor this; dont make Camera responsible for i/o
-	
+	void				loadImage(cv::Mat& RgbPixels,float downscaleFactor);	//	loads pixels and resizes intrinsics to fit image
 
 };
 

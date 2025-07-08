@@ -85,17 +85,27 @@ torch::Tensor Camera::GetCamToWorldTranslation()
 	return T;
 }
 
-void Camera::loadImageFromFilename(float downscaleFactor){
+
+void Camera::loadImageFromFilename(float downscaleFactor)
+{
+	std::cout << "Loading " << filePath << std::endl;
+	
+	cv::Mat cImg = imreadRGB(filePath);
+	loadImage( cImg, downscaleFactor );
+}
+
+void Camera::loadImage(cv::Mat& RgbPixels,float downscaleFactor)
+{
+	auto& cImg = RgbPixels;
+	
     // Populates image and K, then updates the camera parameters
     // Caution: this function has destructive behaviors
     // and should be called only once
     if (image.numel()) 
 		throw std::runtime_error("loadImage already called");
     
-    std::cout << "Loading " << filePath << std::endl;
-
-    cv::Mat cImg = imreadRGB(filePath);
-    
+	std::cout << "Loading " << filePath << std::endl;
+	
     float rescaleF = 1.0f;
 	
     // If camera intrinsics don't match the image dimensions, rescale intrinsics to match pixels
