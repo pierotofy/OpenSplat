@@ -8,9 +8,22 @@
 #include <opencv2/calib3d.hpp>
 #include <torch/torch.h>
 
+
 enum CameraType { Perspective };
-struct Camera{
-    int id = -1;
+struct Camera
+{
+	Camera(){};
+	Camera(int width, int height, float fx, float fy, float cx, float cy, 
+		   float k1, float k2, float k3, float p1, float p2,
+		   const torch::Tensor &camToWorld, const std::string &filePath) : 
+	width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), 
+	k1(k1), k2(k2), k3(k3), p1(p1), p2(p2),
+	camToWorld(camToWorld), 
+	filePath(filePath)
+	{}
+
+	
+	int id = -1;
     int width = 0;
     int height = 0;
     float fx = 0;
@@ -26,31 +39,24 @@ struct Camera{
     std::string filePath = "";
     CameraType cameraType = CameraType::Perspective;
 
-    Camera(){};
-    Camera(int width, int height, float fx, float fy, float cx, float cy, 
-        float k1, float k2, float k3, float p1, float p2,
-        const torch::Tensor &camToWorld, const std::string &filePath) : 
-        width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), 
-        k1(k1), k2(k2), k3(k3), p1(p1), p2(p2),
-        camToWorld(camToWorld), 
-	filePath(filePath)
-	{}
-    torch::Tensor		getIntrinsicsMatrix();
-    bool				hasDistortionParameters();
-    std::vector<float>	undistortionParameters();
-    
+    torch::Tensor K;
+    torch::Tensor image;
+
+    std::unordered_map<int, torch::Tensor> imagePyramids;
+	
+	torch::Tensor		getIntrinsicsMatrix();
+	bool				hasDistortionParameters();
+	std::vector<float>	undistortionParameters();
+	
 	torch::Tensor		GetCamToWorldRotation();
 	torch::Tensor		GetCamToWorldTranslation();
 	torch::Tensor		GetWorldToCamRotation();
 	torch::Tensor		GetWorldToCamTranslation();
 	
 	torch::Tensor		getImage(int downscaleFactor);
+	void				loadImage(float downscaleFactor);
+	
 
-    void loadImage(float downscaleFactor);
-    torch::Tensor K;
-    torch::Tensor image;
-
-    std::unordered_map<int, torch::Tensor> imagePyramids;
 };
 
 struct Points{
