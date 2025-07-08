@@ -16,7 +16,7 @@ Trainer::Trainer(const TrainerParams& Params) :
 	
 }
 
-void Trainer::Run(std::function<void(int,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished)
+void Trainer::Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished)
 {
 	//	remove any use of the filesystem from this func/class
 	namespace fs = std::filesystem;
@@ -24,11 +24,9 @@ void Trainer::Run(std::function<void(int,Model&,Camera*)> OnIterationFinished,st
 	//	temp during refactor
 	auto& Params = mParams;
 	auto& projectRoot = Params.projectRoot;
-	auto& outputScene = Params.outputScene;
 	auto& resume = Params.resumeFromPlyFilename;
 	auto& validate = Params.validate;
 	auto& valImage = Params.valImage;
-	auto& valRender = Params.valRender;
 	auto& keepCrs = Params.keepCrs;
 	auto& downScaleFactor = Params.downScaleFactor;
 	auto& numIters = Params.numIters;
@@ -48,7 +46,6 @@ void Trainer::Run(std::function<void(int,Model&,Camera*)> OnIterationFinished,st
 	auto ForceCpuDevice = Params.mForceCpuDevice;
 	
 	torch::Device device = torch::kCPU;
-	int printDebugEvery = 10;
 
 
 	if (torch::hasCUDA() && !ForceCpuDevice ) {
@@ -59,7 +56,6 @@ void Trainer::Run(std::function<void(int,Model&,Camera*)> OnIterationFinished,st
 		device = torch::kMPS;
 	}else{
 		std::cout << "Using CPU" << std::endl;
-		printDebugEvery = 1;
 	}
 	
 	InputData inputData = inputDataFromX(projectRoot, colmapImageSourcePath);
@@ -107,17 +103,13 @@ void Trainer::Run(std::function<void(int,Model&,Camera*)> OnIterationFinished,st
 		mainLoss.backward();
 		auto mainLossValue = mainLoss.item<float>();
 		
-		if ( printDebugEvery > 0 && step % printDebugEvery == 0) {
-			const float percentage = static_cast<float>(step) / numIters;
-			std::cout << "Step " << step << ": " << mainLossValue << " (" << floor(percentage * 100) << "%)" <<  std::endl;
-		}
 		
 		model.optimizersStep();
 		model.schedulersStep(step);
 		model.afterTrain(step);
 		
 		
-		OnIterationFinished( step, model, valCam );
+		OnIterationFinished( step, mainLossValue, model, valCam );
 	}
 	
 	auto CompletedSteps = step;	//	num_iters

@@ -22,6 +22,7 @@ public:
 	std::string outputScene;
 	int saveModelEvery;
 	int saveValidationRenderEvery = 10;
+	int printDebugEvery = 10;
 	
 	//	todo: assign sensible defaults in initialisation here
 	std::string projectRoot;

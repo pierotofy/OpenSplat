@@ -117,10 +117,14 @@ int main(int argc, char *argv[]){
 	{
 		Trainer trainer(Params);
 		
-		auto OnIterationFinished = [&](int step,Model& model,Camera* ValidationCamera)
+		auto OnIterationFinished = [&](int step,float Loss,Model& model,Camera* ValidationCamera)
 		{
-			std::cout << "Step " << step << " finished" << std::endl;
-			
+			//	old code made this every step if using CPU
+			if (Params.printDebugEvery > 0 && step % Params.printDebugEvery == 0)
+			{
+				const float percentage = static_cast<float>(step) / numIters;
+				std::cout << "Step " << step << ": " << Loss << " (" << floor(percentage * 100) << "%)" <<  std::endl;
+			}			
 			
 			if (Params.saveModelEvery > 0 && step % Params.saveModelEvery == 0)
 			{

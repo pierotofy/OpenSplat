@@ -32,7 +32,7 @@ public:
 	Trainer(const TrainerParams& Params);
 
 	//	this blocking call will be repalced with manually called init(), iterate()
-	void		Run(std::function<void(int,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished);
+	void		Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished);
 	
 private:
 	//std::function<void(int)>	mOnIterationFinished;
