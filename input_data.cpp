@@ -89,7 +89,9 @@ void Camera::loadImageFromFilename(float downscaleFactor){
     // Populates image and K, then updates the camera parameters
     // Caution: this function has destructive behaviors
     // and should be called only once
-    if (image.numel()) std::runtime_error("loadImage already called");
+    if (image.numel()) 
+		throw std::runtime_error("loadImage already called");
+    
     std::cout << "Loading " << filePath << std::endl;
 
     cv::Mat cImg = imreadRGB(filePath);
