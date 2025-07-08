@@ -1,0 +1,40 @@
+LIBTORCH_PATH="/Volumes/Code/PopOpenSplat/libtorch-v2.7.1"
+JSON_PATH="/Volumes/Code/PopOpenSplat/NlohmannJson"
+NANOFLANN_PATH="/Volumes/Code/PopOpenSplat/NanoFlann"
+OPENCV_PATH="/opt/homebrew/Cellar/opencv/4.10.0_6"
+
+HEADER_SEARCH_PATHS=$(HEADER_SEARCH_PATHS) "../OpenSplat/rasterizer/"
+HEADER_SEARCH_PATHS=$(HEADER_SEARCH_PATHS) $(LIBTORCH_PATH)/include/torch/csrc/api/include/
+HEADER_SEARCH_PATHS=$(HEADER_SEARCH_PATHS) $(LIBTORCH_PATH)/include/
+
+HEADER_SEARCH_PATHS=$(HEADER_SEARCH_PATHS) $(JSON_PATH)/single_include/
+HEADER_SEARCH_PATHS=$(HEADER_SEARCH_PATHS) $(NANOFLANN_PATH)/include/
+
+HEADER_SEARCH_PATHS=$(HEADER_SEARCH_PATHS) $(OPENCV_PATH)/include/opencv4"
+HEADER_SEARCH_PATHS=$(HEADER_SEARCH_PATHS) "../build/_deps/cxxopts-src/include"
+
+
+//	enable metal training
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) $(GCC_PREPROCESSOR_DEFINITIONS) USE_MPS 
+
+LIBRARY_SEARCH_PATHS = $(LIBRARY_SEARCH_PATHS) $(LIBTORCH_PATH)/lib/ $(OPENCV_PATH)/lib
+
+//	link to lib torch (dy)libs
+//	can link here, but still need to build with app.contents/frameworks in general->frameworks -> embed & sign
+//OTHER_LDFLAGS = $(inherited) $(OTHER_LDFLAGS) -ltorch -lc10 -ltorch_cpu -lomp
+
+//	link to opencv libs
+OTHER_LDFLAGS = $(OTHER_LDFLAGS) -lopencv_ccalib -lopencv_imgcodecs -lopencv_calib3d -lopencv_core -lopencv_imgproc
+
+//	libtorch currently only built for mac arm
+ARCHS = arm64
+
+//	this runs verify-module and errors on C headers
+//BUILD_LIBRARY_FOR_DISTRIBUTION = NO
+ENABLE_MODULE_VERIFIER = NO
+
+//	need to fix use of refcounting in metal code first
+CLANG_ENABLE_OBJC_ARC = NO
+
+//	match cmake setup
+CLANG_CXX_LANGUAGE_STANDARD = c++20
