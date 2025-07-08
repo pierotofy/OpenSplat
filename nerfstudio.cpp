@@ -108,6 +108,8 @@ void from_json(const json& j, Transforms &t){
 
 Transforms readTransforms(const std::string &filename){
     std::ifstream f(filename);
+	if ( !f.is_open() )
+		throw std::runtime_error( std::string("Failed to open nerf transforms file ") + filename );
     json data = json::parse(f);
     f.close();
     return data.template get<Transforms>();
