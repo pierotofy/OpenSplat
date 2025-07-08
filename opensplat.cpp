@@ -103,6 +103,13 @@ int main(int argc, char *argv[])
 	
 	try
 	{
+		InputData inputData = inputDataFromX( Params.projectRoot, Params.colmapImageSourcePath );
+		 
+		parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&Params](Camera &cam)
+		{
+			cam.loadImageFromFilename(Params.downScaleFactor);
+		});
+		
 		Trainer trainer(Params);
 		
 		auto OnIterationFinished = [&](int step,float Loss,Model& model,Camera* ValidationCamera)
@@ -160,7 +167,7 @@ int main(int argc, char *argv[])
 			}
 		};
 		
-		trainer.Run( OnIterationFinished, OnRunFinished );
+		trainer.Run( inputData, OnIterationFinished, OnRunFinished );
 		
 		return EXIT_SUCCESS;
         

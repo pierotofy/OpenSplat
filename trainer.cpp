@@ -16,19 +16,17 @@ Trainer::Trainer(const TrainerParams& Params) :
 	
 }
 
-void Trainer::Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished)
+void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished)
 {
 	//	remove any use of the filesystem from this func/class
 	namespace fs = std::filesystem;
 	
 	//	temp during refactor
 	auto& Params = mParams;
-	auto& projectRoot = Params.projectRoot;
 	auto& resume = Params.resumeFromPlyFilename;
 	auto& validate = Params.validate;
 	auto& valImage = Params.valImage;
 	auto& keepCrs = Params.keepCrs;
-	auto& downScaleFactor = Params.downScaleFactor;
 	auto& numIters = Params.numIters;
 	auto& numDownscales = Params.numDownscales;
 	auto& resolutionSchedule = Params.resolutionSchedule;
@@ -42,7 +40,6 @@ void Trainer::Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinis
 	auto& densifySizeThresh = Params.densifySizeThresh;
 	auto& stopScreenSizeAt = Params.stopScreenSizeAt;
 	auto& splitScreenSize = Params.splitScreenSize;
-	auto& colmapImageSourcePath = Params.colmapImageSourcePath;
 	auto ForceCpuDevice = Params.mForceCpuDevice;
 	
 	torch::Device device = torch::kCPU;
@@ -57,12 +54,7 @@ void Trainer::Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinis
 	}else{
 		std::cout << "Using CPU" << std::endl;
 	}
-	
-	InputData inputData = inputDataFromX(projectRoot, colmapImageSourcePath);
-	
-	parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
-		cam.loadImageFromFilename(downScaleFactor);
-	});
+
 	
 	// Withhold a validation camera if necessary
 	auto t = inputData.getCameras(validate, valImage);
