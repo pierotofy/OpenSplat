@@ -128,35 +128,6 @@ torch::Tensor posesFromTransforms(const Transforms &t)
 }
 
 	
-void Frame::CopyTransformToPoseInArray(torch::Tensor& Pose4x4s,int PoseIndex) const
-{
-	//	validate input data
-	int RowCount = 4;
-	int ColumnCount = 4;
-	
-	if ( transformMatrix.size() != RowCount )
-	{
-		std::stringstream Error;
-		Error << "TransformMatrix in camera/frame " << this->filePath << " has " << transformMatrix.size() << " rows, expected" << RowCount; 
-		throw std::runtime_error(Error.str());
-	}
-	
-	for (size_t y=0;	y<RowCount; y++)
-	{
-		auto& Row = transformMatrix[y];
-		if ( Row.size() != ColumnCount )
-		{
-			std::stringstream Error;
-			Error << "TransformMatrix row " << y << " in camera/frame " << this->filePath << " has " << Row.size() << " columns, expected" << ColumnCount; 
-			throw std::runtime_error(Error.str());
-		}
-		for (size_t x=0;	x<ColumnCount;	x++)
-		{
-			Pose4x4s[PoseIndex][y][x] = Row[x];
-		}
-	}
-	
-}
 
 
 InputData inputDataFromNerfStudio(const std::string &projectRoot){
@@ -200,4 +171,36 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
     return ret;
 }
 
+}
+
+
+
+void ns::Frame::CopyTransformToPoseInArray(torch::Tensor& Pose4x4s,int PoseIndex) const
+{
+	//	validate input data
+	int RowCount = 4;
+	int ColumnCount = 4;
+	
+	if ( transformMatrix.size() != RowCount )
+	{
+		std::stringstream Error;
+		Error << "TransformMatrix in camera/frame " << this->filePath << " has " << transformMatrix.size() << " rows, expected" << RowCount; 
+		throw std::runtime_error(Error.str());
+	}
+	
+	for (size_t y=0;	y<RowCount; y++)
+	{
+		auto& Row = transformMatrix[y];
+		if ( Row.size() != ColumnCount )
+		{
+			std::stringstream Error;
+			Error << "TransformMatrix row " << y << " in camera/frame " << this->filePath << " has " << Row.size() << " columns, expected" << ColumnCount; 
+			throw std::runtime_error(Error.str());
+		}
+		for (size_t x=0;	x<ColumnCount;	x++)
+		{
+			Pose4x4s[PoseIndex][y][x] = Row[x];
+		}
+	}
+	
 }
