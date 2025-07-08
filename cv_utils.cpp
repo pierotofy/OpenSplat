@@ -3,10 +3,12 @@
 cv::Mat imreadRGB(const std::string &filename){
     cv::Mat cImg = cv::imread(filename);
 
-    if (cImg.empty()){
-        std::cerr << "Cannot read " << filename << std::endl
+    if (cImg.empty())
+	{
+		std::stringstream Error;
+		Error << "Cannot read " << filename << std::endl
                   << "Make sure the path to your images is correct" << std::endl;
-        exit(1);
+		throw std::runtime_error(Error.str());
     }
 
     cv::cvtColor(cImg, cImg, cv::COLOR_BGR2RGB);
