@@ -161,9 +161,11 @@ int main(int argc, char *argv[])
 		};
 		
 		trainer.Run( OnIterationFinished, OnRunFinished );
+		
+		return EXIT_SUCCESS;
         
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;
-        exit(1);
+		return EXIT_FAILURE;
     }
 }
