@@ -23,12 +23,12 @@ struct Model{
   Model(const InputData &inputData, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
         int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
-        int maxSteps, bool keepCrs,
+        int maxSteps,
         const torch::Device &device) :
     numCameras(numCameras),
     numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
     refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(maxSteps / 2), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
-    maxSteps(maxSteps), keepCrs(keepCrs),
+    maxSteps(maxSteps),
     device(device), ssim(11, 3){
 
     long long numPoints = inputData.points.xyz.size(0);
@@ -69,11 +69,17 @@ struct Model{
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
   void afterTrain(int step);
-  void save(const std::string &filename, int step);
-  void savePly(const std::string &filename, int step);
-  void saveSplat(const std::string &filename);
-  void saveDebugPly(const std::string &filename, int step);
-  int loadPly(const std::string &filename);
+	
+	
+  void save(const std::string &filename, int step,bool keepCrs);
+  void savePly(const std::string &filename, int step,bool keepCrs);
+  void saveSplat(const std::string &filename,bool keepCrs);
+  void saveDebugPly(const std::string &filename, int step,bool keepCrs);
+	
+  //	modelPointsNeedToBeNormalised == keepCrs
+  //	it means that the PLY we're loading, was saved in it's original space instead of centered and scaled to -1...1
+  int loadPly(const std::string &filename,bool modelPointsNeedToBeNormalised);
+	
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
@@ -122,7 +128,6 @@ struct Model{
   int stopScreenSizeAt;
   float splitScreenSize;
   int maxSteps;
-  bool keepCrs;
 
   float scale;
   torch::Tensor translation;

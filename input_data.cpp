@@ -192,33 +192,37 @@ std::vector<float> Camera::undistortionParameters(){
 }
 
 std::tuple<std::vector<Camera>, Camera *> InputData::getCameras(bool validate, const std::string &valImage){
-    if (!validate) return std::make_tuple(cameras, nullptr);
-    else{
-        size_t valIdx = -1;
-        std::srand(42);
+    if (!validate) 
+		return std::make_tuple(cameras, nullptr);
+	
+	size_t valIdx = -1;
+	std::srand(42);
 
-        if (valImage == "random"){
-            valIdx = std::rand() % cameras.size();
-        }else{
-            for (size_t i = 0; i < cameras.size(); i++){
-                if (fs::path(cameras[i].filePath).filename().string() == valImage){
-                    valIdx = i;
-                    break;
-                }
-            }
-            if (valIdx == -1) throw std::runtime_error(valImage + " not in the list of cameras");
-        }
+	if (valImage == TrainerParams::randomValidationImageName)
+	{
+		valIdx = std::rand() % cameras.size();
+	}
+	else
+	{
+		for (size_t i = 0; i < cameras.size(); i++){
+			if (fs::path(cameras[i].filePath).filename().string() == valImage){
+				valIdx = i;
+				break;
+			}
+		}
+		if (valIdx == -1)
+			throw std::runtime_error(valImage + " not in the list of cameras");
+	}
 
-        std::vector<Camera> cams;
-        Camera *valCam = nullptr;
+	std::vector<Camera> cams;
+	Camera *valCam = nullptr;
 
-        for (size_t i = 0; i < cameras.size(); i++){
-            if (i != valIdx) cams.push_back(cameras[i]);
-            else valCam = &cameras[i];
-        }
+	for (size_t i = 0; i < cameras.size(); i++){
+		if (i != valIdx) cams.push_back(cameras[i]);
+		else valCam = &cameras[i];
+	}
 
-        return std::make_tuple(cams, valCam);
-    }
+	return std::make_tuple(cams, valCam);
 }
 
 

@@ -480,16 +480,16 @@ void Model::afterTrain(int step){
     }
 }
 
-void Model::save(const std::string &filename, int step){
+void Model::save(const std::string &filename, int step,bool KeepCrs){
     if (fs::path(filename).extension().string() == ".splat"){
-        saveSplat(filename);
+        saveSplat(filename,KeepCrs);
     }else{
-        savePly(filename, step);
+        savePly(filename, step,KeepCrs);
     }
     std::cout << "Wrote " << filename << std::endl;
 }
 
-void Model::savePly(const std::string &filename, int step){
+void Model::savePly(const std::string &filename, int step,bool keepCrs){
     std::ofstream o(filename, std::ios::binary);
 	if ( !o.is_open() )
 		throw std::runtime_error(std::string("Failed to open file") + filename + " to write PLY");
@@ -551,7 +551,7 @@ void Model::savePly(const std::string &filename, int step){
     o.close();
 }
 
-void Model::saveSplat(const std::string &filename){
+void Model::saveSplat(const std::string &filename,bool keepCrs){
     std::ofstream o(filename, std::ios::binary);
 	if ( !o.is_open() )
 		throw std::runtime_error(std::string("Failed to open file") + filename + " to write PLY");
@@ -590,7 +590,7 @@ void Model::saveSplat(const std::string &filename){
     o.close();
 }
 
-void Model::saveDebugPly(const std::string &filename, int step){
+void Model::saveDebugPly(const std::string &filename, int step,bool keepCrs){
     // A standard PLY
     std::ofstream o(filename, std::ios::binary);
 	if ( !o.is_open() )
@@ -622,7 +622,9 @@ void Model::saveDebugPly(const std::string &filename, int step){
     std::cout << "Wrote " << filename << std::endl;
 }
 
-int Model::loadPly(const std::string &filename){
+//	modelPointsNeedToBeNormalised == keepCrs
+//	it means that the PLY we're loading, was saved in it's original space instead of centered and scaled to -1...1
+int Model::loadPly(const std::string &filename,bool modelPointsNeedToBeNormalised){
     std::ifstream f(filename, std::ios::binary);
     if (!f.is_open()) throw std::runtime_error("Invalid PLY file");
 
@@ -740,7 +742,7 @@ int Model::loadPly(const std::string &filename){
                                 f.read(reinterpret_cast<char *>(scalesCpu[i].data_ptr()), sizeof(float) * 3);
                                 f.read(reinterpret_cast<char *>(quatsCpu[i].data_ptr()), sizeof(float) * 4);
                             }
-                            if (keepCrs){
+							if (modelPointsNeedToBeNormalised){
                                 meansCpu = (meansCpu - translation) * scale;
                                 scalesCpu = torch::log(scale * torch::exp(scalesCpu));
                             }

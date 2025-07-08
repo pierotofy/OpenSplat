@@ -16,7 +16,7 @@ Trainer::Trainer(const TrainerParams& Params) :
 	
 }
 
-void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished)
+void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Camera*,torch::Device&)> OnRunFinished)
 {
 	//	remove any use of the filesystem from this func/class
 	namespace fs = std::filesystem;
@@ -26,7 +26,6 @@ void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camer
 	auto& resume = Params.resumeFromPlyFilename;
 	auto& validate = Params.validate;
 	auto& valImage = Params.valImage;
-	auto& keepCrs = Params.keepCrs;
 	auto& numIters = Params.numIters;
 	auto& numDownscales = Params.numDownscales;
 	auto& resolutionSchedule = Params.resolutionSchedule;
@@ -65,7 +64,7 @@ void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camer
 				cams.size(),
 				numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
 				refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
-				numIters, keepCrs,
+				numIters, 
 				device);
 	auto& model = *mModel;
 	
@@ -77,7 +76,7 @@ void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camer
 	
 	if (!resume.empty())
 	{
-		step = model.loadPly(resume) + 1;
+		step = model.loadPly(resume,Params.resumeFromPlyNeedsNormalising) + 1;
 	}
 	
 	for (; step <= numIters; step++){
@@ -105,5 +104,5 @@ void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camer
 	}
 	
 	auto CompletedSteps = step;	//	num_iters
-	OnRunFinished( CompletedSteps, model, inputData, valCam, device );
+	OnRunFinished( CompletedSteps, valCam, device );
 }

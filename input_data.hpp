@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <opencv2/calib3d.hpp>
 #include <torch/torch.h>
+#include "trainer_params.hpp"
 
 struct CameraIntrinsics
 {
@@ -67,13 +68,14 @@ struct Points{
     torch::Tensor xyz;
     torch::Tensor rgb;
 };
-struct InputData{
+struct InputData
+{
     std::vector<Camera> cameras;
     float scale;
     torch::Tensor translation;
     Points points;
 
-    std::tuple<std::vector<Camera>, Camera *> getCameras(bool validate, const std::string &valImage = "random");
+    std::tuple<std::vector<Camera>, Camera *> getCameras(bool validate, const std::string &valImage = std::string(TrainerParams::randomValidationImageName) );
 
     void saveCameras(const std::string &filename, bool keepCrs);
 };
