@@ -44,4 +44,4 @@ jobs:
             TORCH_VERSION=${{ matrix.torch-version }}
             CMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }}
           push: true
-          tags: opensplat:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/opensplat:${{github.sha}}
