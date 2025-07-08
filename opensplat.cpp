@@ -6,6 +6,7 @@
 #include "cv_utils.hpp"
 #include "constants.hpp"
 #include <cxxopts.hpp>
+#include "trainer_params.hpp"
 
 #ifdef USE_VISUALIZATION
 #include "visualizer.hpp"
@@ -68,31 +69,38 @@ int main(int argc, char *argv[]){
     }
 
 
-    const std::string projectRoot = result["input"].as<std::string>();
-    const std::string outputScene = result["output"].as<std::string>();
-    const int saveEvery = result["save-every"].as<int>(); 
-    const std::string resume = result["resume"].as<std::string>();
-    const bool validate = result.count("val") > 0 || result.count("val-render") > 0;
-    const std::string valImage = result["val-image"].as<std::string>();
-    const std::string valRender = result["val-render"].as<std::string>();
-    if (!valRender.empty() && !fs::exists(valRender)) fs::create_directories(valRender);
-    const bool keepCrs = result.count("keep-crs") > 0;
-    const float downScaleFactor = (std::max)(result["downscale-factor"].as<float>(), 1.0f);
-    const int numIters = result["num-iters"].as<int>();
-    const int numDownscales = result["num-downscales"].as<int>();
-    const int resolutionSchedule = result["resolution-schedule"].as<int>();
-    const int shDegree = result["sh-degree"].as<int>();
-    const int shDegreeInterval = result["sh-degree-interval"].as<int>();
-    const float ssimWeight = result["ssim-weight"].as<float>();
-    const int refineEvery = result["refine-every"].as<int>();
-    const int warmupLength = result["warmup-length"].as<int>();
-    const int resetAlphaEvery = result["reset-alpha-every"].as<int>();
-    const float densifyGradThresh = result["densify-grad-thresh"].as<float>();
-    const float densifySizeThresh = result["densify-size-thresh"].as<float>();
-    const int stopScreenSizeAt = result["stop-screen-size-at"].as<int>();
-    const float splitScreenSize = result["split-screen-size"].as<float>();
-    const std::string colmapImageSourcePath = result["colmap-image-path"].as<std::string>();
+	TrainerParams Params(result);
+	
+	//	temp during refactor
+	auto& projectRoot = Params.projectRoot;
+	auto& outputScene = Params.outputScene;
+	auto& saveEvery = Params.saveEvery;
+	auto& resume = Params.resume;
+	auto& validate = Params.validate;
+	auto& valImage = Params.valImage;
+	auto& valRender = Params.valRender;
+	auto& keepCrs = Params.keepCrs;
+	auto& downScaleFactor = Params.downScaleFactor;
+	auto& numIters = Params.numIters;
+	auto& numDownscales = Params.numDownscales;
+	auto& resolutionSchedule = Params.resolutionSchedule;
+	auto& shDegree = Params.shDegree;
+	auto& shDegreeInterval = Params.shDegreeInterval;
+	auto& ssimWeight = Params.ssimWeight;
+	auto& refineEvery = Params.refineEvery;
+	auto& warmupLength = Params.warmupLength;
+	auto& resetAlphaEvery = Params.resetAlphaEvery;
+	auto& densifyGradThresh = Params.densifyGradThresh;
+	auto& densifySizeThresh = Params.densifySizeThresh;
+	auto& stopScreenSizeAt = Params.stopScreenSizeAt;
+	auto& splitScreenSize = Params.splitScreenSize;
+	auto& colmapImageSourcePath = Params.colmapImageSourcePath;
 
+	
+	if (!Params.valRender.empty() && !fs::exists(Params.valRender)) 
+		fs::create_directories(Params.valRender);
+	
+	
     torch::Device device = torch::kCPU;
     int displayStep = 10;
 
