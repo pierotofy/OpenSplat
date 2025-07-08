@@ -69,18 +69,18 @@ void Trainer::Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinis
 	std::vector<Camera> cams = std::get<0>(t);
 	Camera *valCam = std::get<1>(t);
 	
-	Model model(inputData,
+	mModel = std::make_shared<Model>(inputData,
 				cams.size(),
 				numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
 				refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
 				numIters, keepCrs,
 				device);
+	auto& model = *mModel;
 	
-	std::vector< size_t > camIndices( cams.size() );
+	std::vector<size_t> camIndices( cams.size() );
 	std::iota( camIndices.begin(), camIndices.end(), 0 );
 	InfiniteRandomIterator<size_t> camsIter( camIndices );
 	
-	int imageSize = -1;
 	size_t step = 1;
 	
 	if (!resume.empty())

@@ -34,7 +34,11 @@ public:
 	//	this blocking call will be repalced with manually called init(), iterate()
 	void		Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Model&,InputData&,Camera*,torch::Device&)> OnRunFinished);
 	
+	Model&		GetModel()	{	return *mModel;	}
+	
 private:
 	//std::function<void(int)>	mOnIterationFinished;
 	TrainerParams		mParams;
+	std::shared_ptr<Model>	mModel;
+	InputData			mInputData;
 };
