@@ -32,11 +32,19 @@ struct Camera{
         const torch::Tensor &camToWorld, const std::string &filePath) : 
         width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), 
         k1(k1), k2(k2), k3(k3), p1(p1), p2(p2),
-        camToWorld(camToWorld), filePath(filePath) {}
-    torch::Tensor getIntrinsicsMatrix();
-    bool hasDistortionParameters();
-    std::vector<float> undistortionParameters();
-    torch::Tensor getImage(int downscaleFactor);
+        camToWorld(camToWorld), 
+	filePath(filePath)
+	{}
+    torch::Tensor		getIntrinsicsMatrix();
+    bool				hasDistortionParameters();
+    std::vector<float>	undistortionParameters();
+    
+	torch::Tensor		GetCamToWorldRotation();
+	torch::Tensor		GetCamToWorldTranslation();
+	torch::Tensor		GetWorldToCamRotation();
+	torch::Tensor		GetWorldToCamTranslation();
+	
+	torch::Tensor		getImage(int downscaleFactor);
 
     void loadImage(float downscaleFactor);
     torch::Tensor K;

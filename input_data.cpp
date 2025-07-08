@@ -37,6 +37,43 @@ torch::Tensor Camera::getIntrinsicsMatrix(){
                           {0.0f, 0.0f, 1.0f}}, torch::kFloat32);
 }
 
+
+torch::Tensor Camera::GetCamToWorldRotation()
+{
+	torch::Tensor R = camToWorld.index({Slice(None, 3), Slice(None, 3)});
+	
+	// Flip the z and y axes to align with gsplat conventions
+	R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f}, R.device())));
+	
+	return R;
+}
+
+
+torch::Tensor Camera::GetWorldToCamRotation()
+{
+	torch::Tensor R = GetCamToWorldRotation();
+	
+	// worldToCam
+	torch::Tensor Rinv = R.transpose(0, 1);
+	return Rinv;
+}
+
+
+torch::Tensor Camera::GetWorldToCamTranslation()
+{
+	auto Rinv = GetWorldToCamRotation();
+	
+	torch::Tensor T = GetCamToWorldTranslation();
+	torch::Tensor Tinv = torch::matmul(-Rinv, T);
+	return Tinv;
+}
+
+torch::Tensor Camera::GetCamToWorldTranslation()
+{
+	torch::Tensor T = camToWorld.index({Slice(None, 3), Slice(3,4)});
+	return T;
+}
+
 void Camera::loadImage(float downscaleFactor){
     // Populates image and K, then updates the camera parameters
     // Caution: this function has destructive behaviors
@@ -170,13 +207,13 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
         camera["fx"] = cam.fx;
         camera["fy"] = cam.fy;
 
-        torch::Tensor R = cam.camToWorld.index({Slice(None, 3), Slice(None, 3)});
-        torch::Tensor T = cam.camToWorld.index({Slice(None, 3), Slice(3,4)}).squeeze();
+		torch::Tensor R = cam.GetCamToWorldRotation();
+		//	gr: what is squeeze()? 
+        torch::Tensor T = cam.GetCamToWorldTranslation().squeeze();
         
-        // Flip z and y
-        R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f})));
-
-        if (keepCrs) T = (T / scale) + translation;
+        //	undo centering transform applied when loading data
+        if (keepCrs) 
+			T = (T / scale) + translation;
 
         std::vector<float> position(3);
         std::vector<std::vector<float>> rotation(3, std::vector<float>(3));
@@ -189,6 +226,7 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
 
         camera["position"] = position;
         camera["rotation"] = rotation;
+ 
         j.push_back(camera);
     }
     

@@ -86,15 +86,9 @@ torch::Tensor Model::forward(Camera& cam, int step){
     const int height = static_cast<int>(static_cast<float>(cam.height) / scaleFactor);
     const int width = static_cast<int>(static_cast<float>(cam.width) / scaleFactor);
 
-    torch::Tensor R = cam.camToWorld.index({Slice(None, 3), Slice(None, 3)});
-    torch::Tensor T = cam.camToWorld.index({Slice(None, 3), Slice(3,4)});
-
-    // Flip the z and y axes to align with gsplat conventions
-    R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f}, R.device())));
-
-    // worldToCam
-    torch::Tensor Rinv = R.transpose(0, 1);
-    torch::Tensor Tinv = torch::matmul(-Rinv, T);
+	auto T = cam.GetCamToWorldTranslation();
+	auto Rinv = cam.GetWorldToCamRotation();
+	auto Tinv = cam.GetWorldToCamTranslation();
 
     lastHeight = height;
     lastWidth = width;
