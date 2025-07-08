@@ -27,6 +27,9 @@ namespace ns{
         double p2 = 0;
         double k3 = 0;
         Mat4 transformMatrix;
+		
+		//	copy this transform into an entry in an array of poses
+		void		CopyTransformToPoseInArray(torch::Tensor& Poses,int PoseIndex) const;
     };
     void to_json(json &j, const Frame &f);
     void from_json(const json& j, Frame &f);
