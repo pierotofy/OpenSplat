@@ -18,38 +18,42 @@
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[])
+{
     cxxopts::Options options("opensplat", "Open Source 3D Gaussian Splats generator - " APP_VERSION);
-    options.add_options()
-        ("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
-        ("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value("splat.ply"))
-        ("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value("-1"))
-        ("resume", "Resume training from this PLY file", cxxopts::value<std::string>()->default_value(""))
-        ("val", "Withhold a camera shot for validating the scene loss")
-        ("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value("random"))
-        ("val-render", "Path of the directory where to render validation images", cxxopts::value<std::string>()->default_value(""))
-        ("keep-crs", "Retain the project input's coordinate reference system")
-        ("cpu", "Force CPU execution")
-        
-        ("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value("30000"))
-        ("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value("1"))
-        ("num-downscales", "Number of images downscales to use. After being scaled by [downscale-factor], images are initially scaled by a further (2^[num-downscales]) and the scale is increased every [resolution-schedule]", cxxopts::value<int>()->default_value("2"))
-        ("resolution-schedule", "Double the image resolution every these many steps", cxxopts::value<int>()->default_value("3000"))
-        ("sh-degree", "Maximum spherical harmonics degree (must be > 0)", cxxopts::value<int>()->default_value("3"))
-        ("sh-degree-interval", "Increase the number of spherical harmonics degree after these many steps (will not exceed [sh-degree])", cxxopts::value<int>()->default_value("1000"))
-        ("ssim-weight", "Weight to apply to the structural similarity loss. Set to zero to use least absolute deviation (L1) loss only", cxxopts::value<float>()->default_value("0.2"))
-        ("refine-every", "Split/duplicate/prune gaussians every these many steps", cxxopts::value<int>()->default_value("100"))
-        ("warmup-length", "Split/duplicate/prune gaussians only after these many steps", cxxopts::value<int>()->default_value("500"))
-        ("reset-alpha-every", "Reset the opacity values of gaussians after these many refinements (not steps)", cxxopts::value<int>()->default_value("30"))
-        ("densify-grad-thresh", "Threshold of the positional gradient norm (magnitude of the loss function) which when exceeded leads to a gaussian split/duplication", cxxopts::value<float>()->default_value("0.0002"))
-        ("densify-size-thresh", "Gaussians' scales below this threshold are duplicated, otherwise split", cxxopts::value<float>()->default_value("0.01"))
-        ("stop-screen-size-at", "Stop splitting gaussians that are larger than [split-screen-size] after these many steps", cxxopts::value<int>()->default_value("4000"))
-        ("split-screen-size", "Split gaussians that are larger than this percentage of screen space", cxxopts::value<float>()->default_value("0.05"))
-        ("colmap-image-path", "Override the default image path for COLMAP-based input", cxxopts::value<std::string>()->default_value(""))
-
-        ("h,help", "Print usage")
-        ("version", "Print version")
-        ;
+	{
+		TrainerParams DefaultParams;
+		options.add_options()
+		("i,input", "Path to nerfstudio project", cxxopts::value<std::string>())
+		("o,output", "Path where to save output scene", cxxopts::value<std::string>()->default_value(DefaultParams.outputScene))
+		("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.saveModelEvery)))
+		("resume", "Resume training from this PLY file", cxxopts::value<std::string>()->default_value(""))
+		("val", "Withhold a camera shot for validating the scene loss")
+		("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value(DefaultParams.valImage))
+		("val-render", "Path of the directory where to render validation images", cxxopts::value<std::string>()->default_value(DefaultParams.valRender))
+		("keep-crs", "Retain the project input's coordinate reference system")
+		("cpu", "Force CPU execution")
+		
+		("n,num-iters", "Number of iterations to run", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.numIters)))
+		("d,downscale-factor", "Scale input images by this factor.", cxxopts::value<float>()->default_value(std::to_string(DefaultParams.downScaleFactor)))
+		("num-downscales", "Number of images downscales to use. After being scaled by [downscale-factor], images are initially scaled by a further (2^[num-downscales]) and the scale is increased every [resolution-schedule]", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.numDownscales)))
+		("resolution-schedule", "Double the image resolution every these many steps", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.resolutionSchedule)))
+		("sh-degree", "Maximum spherical harmonics degree (must be > 0)", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.shDegree)))
+		("sh-degree-interval", "Increase the number of spherical harmonics degree after these many steps (will not exceed [sh-degree])", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.shDegreeInterval)))
+		("ssim-weight", "Weight to apply to the structural similarity loss. Set to zero to use least absolute deviation (L1) loss only", cxxopts::value<float>()->default_value(std::to_string(DefaultParams.ssimWeight)))
+		("refine-every", "Split/duplicate/prune gaussians every these many steps", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.refineEvery)))
+		("warmup-length", "Split/duplicate/prune gaussians only after these many steps", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.warmupLength)))
+		("reset-alpha-every", "Reset the opacity values of gaussians after these many refinements (not steps)", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.resetAlphaEvery)))
+		("densify-grad-thresh", "Threshold of the positional gradient norm (magnitude of the loss function) which when exceeded leads to a gaussian split/duplication", cxxopts::value<float>()->default_value(std::to_string(DefaultParams.densifyGradThresh)))
+		("densify-size-thresh", "Gaussians' scales below this threshold are duplicated, otherwise split", cxxopts::value<float>()->default_value(std::to_string(DefaultParams.densifySizeThresh)))
+		("stop-screen-size-at", "Stop splitting gaussians that are larger than [split-screen-size] after these many steps", cxxopts::value<int>()->default_value(std::to_string(DefaultParams.stopScreenSizeAt)))
+		("split-screen-size", "Split gaussians that are larger than this percentage of screen space", cxxopts::value<float>()->default_value(std::to_string(DefaultParams.splitScreenSize)))
+		("colmap-image-path", "Override the default image path for COLMAP-based input", cxxopts::value<std::string>()->default_value(DefaultParams.colmapImageSourcePath))
+		
+		("h,help", "Print usage")
+		("version", "Print version")
+		;
+	}
     options.parse_positional({ "input" });
     options.positional_help("[colmap/nerfstudio/opensfm/odm/openmvg project path]");
     cxxopts::ParseResult result;
@@ -75,26 +79,10 @@ int main(int argc, char *argv[]){
 	TrainerParams Params(result);
 	
 	//	temp during refactor
-	auto& projectRoot = Params.projectRoot;
-	auto& validate = Params.validate;
-	auto& valImage = Params.valImage;
 	auto& valRender = Params.valRender;
 	auto& keepCrs = Params.keepCrs;
-	auto& downScaleFactor = Params.downScaleFactor;
 	auto& numIters = Params.numIters;
-	auto& numDownscales = Params.numDownscales;
-	auto& resolutionSchedule = Params.resolutionSchedule;
-	auto& shDegree = Params.shDegree;
-	auto& shDegreeInterval = Params.shDegreeInterval;
 	auto& ssimWeight = Params.ssimWeight;
-	auto& refineEvery = Params.refineEvery;
-	auto& warmupLength = Params.warmupLength;
-	auto& resetAlphaEvery = Params.resetAlphaEvery;
-	auto& densifyGradThresh = Params.densifyGradThresh;
-	auto& densifySizeThresh = Params.densifySizeThresh;
-	auto& stopScreenSizeAt = Params.stopScreenSizeAt;
-	auto& splitScreenSize = Params.splitScreenSize;
-	auto& colmapImageSourcePath = Params.colmapImageSourcePath;
 
 	
 	if (!Params.valRender.empty() && !fs::exists(Params.valRender)) 

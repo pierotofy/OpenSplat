@@ -11,6 +11,7 @@ namespace cxxopts
 class TrainerParams
 {
 public:
+	TrainerParams(){};
 	TrainerParams(cxxopts::ParseResult& Arguments);
 	
 	//	these are for the app, rather than training
@@ -19,8 +20,8 @@ public:
 	std::filesystem::path	GetOutputModelFilename();
 	std::filesystem::path	GetOutputModelFilenameWithSuffix(const std::string& Suffix);
 	
-	std::string outputScene;
-	int saveModelEvery;
+	std::string outputScene = "splat.ply";
+	int saveModelEvery = -1;
 	int saveValidationRenderEvery = 10;
 	int printDebugEvery = 10;
 	
@@ -28,24 +29,24 @@ public:
 	std::string projectRoot;
 	std::string resumeFromPlyFilename;
 	bool validate;
-	std::string valImage;
-	std::string valRender;
+	std::string valImage = "random";
+	std::string valRender = "";
 	bool keepCrs;
-	float downScaleFactor;
-	int numIters;
-	int numDownscales;
-	int resolutionSchedule;
-	int shDegree;
-	int shDegreeInterval;
-	float ssimWeight;
-	int refineEvery;
-	int warmupLength;
-	int resetAlphaEvery;
-	float densifyGradThresh;
-	float densifySizeThresh;
-	int stopScreenSizeAt;
-	float splitScreenSize;
-	std::string colmapImageSourcePath;
+	float downScaleFactor = 1;
+	int numIters = 30000;
+	int numDownscales = 2;
+	int resolutionSchedule = 3000;
+	int shDegree = 3;
+	int shDegreeInterval = 1000;
+	float ssimWeight = 0.2;
+	int refineEvery = 100;
+	int warmupLength = 500;
+	int resetAlphaEvery = 30;
+	float densifyGradThresh = 0.0002;
+	float densifySizeThresh = 0.01;
+	int stopScreenSizeAt = 4000;
+	float splitScreenSize = 0.05;
+	std::string colmapImageSourcePath = "";
 	
 	//	refactored params
 	bool		mForceCpuDevice = false;
