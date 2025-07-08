@@ -108,8 +108,8 @@ void from_json(const json& j, Transforms &t){
 
 Transforms readTransforms(const std::string &filename){
     std::ifstream f(filename);
-	if ( !f.is_open() )
-		throw std::runtime_error( std::string("Failed to open nerf transforms file ") + filename );
+    if ( !f.is_open() )
+        throw std::runtime_error( std::string("Failed to open nerf transforms file ") + filename );
     json data = json::parse(f);
     f.close();
     return data.template get<Transforms>();
@@ -118,16 +118,16 @@ Transforms readTransforms(const std::string &filename){
 torch::Tensor posesFromTransforms(const Transforms &t)
 {
     torch::Tensor poses = torch::zeros({static_cast<long int>(t.frames.size()), 4, 4}, torch::kFloat32);
-	
+    
     for (size_t c = 0; c < t.frames.size(); c++)
-	{
-		auto& Camera = t.frames[c];
-		Camera.CopyTransformToPoseInArray( poses, static_cast<int>(c) );
+    {
+        auto& Camera = t.frames[c];
+        Camera.CopyTransformToPoseInArray( poses, static_cast<int>(c) );
     }
     return poses;
 }
 
-	
+    
 
 
 InputData inputDataFromNerfStudio(const std::string &projectRoot){
@@ -177,30 +177,30 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
 
 void ns::Frame::CopyTransformToPoseInArray(torch::Tensor& Pose4x4s,int PoseIndex) const
 {
-	//	validate input data
-	int RowCount = 4;
-	int ColumnCount = 4;
-	
-	if ( transformMatrix.size() != RowCount )
-	{
-		std::stringstream Error;
-		Error << "TransformMatrix in camera/frame " << this->filePath << " has " << transformMatrix.size() << " rows, expected" << RowCount; 
-		throw std::runtime_error(Error.str());
-	}
-	
-	for (size_t y=0;	y<RowCount; y++)
-	{
-		auto& Row = transformMatrix[y];
-		if ( Row.size() != ColumnCount )
-		{
-			std::stringstream Error;
-			Error << "TransformMatrix row " << y << " in camera/frame " << this->filePath << " has " << Row.size() << " columns, expected" << ColumnCount; 
-			throw std::runtime_error(Error.str());
-		}
-		for (size_t x=0;	x<ColumnCount;	x++)
-		{
-			Pose4x4s[PoseIndex][y][x] = Row[x];
-		}
-	}
-	
+    //    validate input data
+    int RowCount = 4;
+    int ColumnCount = 4;
+    
+    if ( transformMatrix.size() != RowCount )
+    {
+        std::stringstream Error;
+        Error << "TransformMatrix in camera/frame " << this->filePath << " has " << transformMatrix.size() << " rows, expected" << RowCount; 
+        throw std::runtime_error(Error.str());
+    }
+    
+    for (size_t y=0;    y<RowCount; y++)
+    {
+        auto& Row = transformMatrix[y];
+        if ( Row.size() != ColumnCount )
+        {
+            std::stringstream Error;
+            Error << "TransformMatrix row " << y << " in camera/frame " << this->filePath << " has " << Row.size() << " columns, expected" << ColumnCount; 
+            throw std::runtime_error(Error.str());
+        }
+        for (size_t x=0;    x<ColumnCount;    x++)
+        {
+            Pose4x4s[PoseIndex][y][x] = Row[x];
+        }
+    }
+    
 }

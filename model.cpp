@@ -497,9 +497,9 @@ void Model::save(const std::string &filename, int step){
 
 void Model::savePly(const std::string &filename, int step){
     std::ofstream o(filename, std::ios::binary);
-	if ( !o.is_open() )
-		throw std::runtime_error(std::string("Failed to open file") + filename + " to write PLY");
-	
+    if ( !o.is_open() )
+        throw std::runtime_error(std::string("Failed to open file") + filename + " to write PLY");
+
     int numPoints = means.size(0);
 
     o << "ply" << std::endl;
@@ -559,10 +559,10 @@ void Model::savePly(const std::string &filename, int step){
 
 void Model::saveSplat(const std::string &filename){
     std::ofstream o(filename, std::ios::binary);
-	if ( !o.is_open() )
-		throw std::runtime_error(std::string("Failed to open file") + filename + " to write PLY");
+    if ( !o.is_open() )
+        throw std::runtime_error(std::string("Failed to open file") + filename + " to write PLY");
 
-	int numPoints = means.size(0);
+    int numPoints = means.size(0);
 
     torch::Tensor meansCpu = keepCrs ? (means.cpu() / scale) + translation : means.cpu();
     torch::Tensor scalesCpu = keepCrs ? (torch::exp(scales.cpu()) / scale) : torch::exp(scales.cpu());
@@ -599,10 +599,10 @@ void Model::saveSplat(const std::string &filename){
 void Model::saveDebugPly(const std::string &filename, int step){
     // A standard PLY
     std::ofstream o(filename, std::ios::binary);
-	if ( !o.is_open() )
-		throw std::runtime_error(std::string("Failed to open file") + filename + " to write debug PLY");
+    if ( !o.is_open() )
+        throw std::runtime_error(std::string("Failed to open file") + filename + " to write debug PLY");
 
-	int numPoints = means.size(0);
+    int numPoints = means.size(0);
 
     o << "ply" << std::endl;
     o << "format binary_little_endian 1.0" << std::endl;

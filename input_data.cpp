@@ -193,10 +193,10 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
     }
     
     std::ofstream of(filename);
-	if ( !of.is_open() )
-		throw std::runtime_error(std::string("Failed to open file") + filename + " to write cameras meta");
-    
-	of << j;
+    if ( !of.is_open() )
+        throw std::runtime_error(std::string("Failed to open file") + filename + " to write cameras meta");
+
+    of << j;
     of.close();
 
     std::cout << "Wrote " << filename << std::endl;
