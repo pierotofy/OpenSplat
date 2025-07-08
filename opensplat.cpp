@@ -7,10 +7,13 @@
 #include "constants.hpp"
 #include <cxxopts.hpp>
 #include "trainer_params.hpp"
+#include "trainer.hpp"
 
 #ifdef USE_VISUALIZATION
 #include "visualizer.hpp"
 #endif
+
+
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
@@ -73,9 +76,6 @@ int main(int argc, char *argv[]){
 	
 	//	temp during refactor
 	auto& projectRoot = Params.projectRoot;
-	auto& outputScene = Params.outputScene;
-	auto& saveEvery = Params.saveEvery;
-	auto& resume = Params.resume;
 	auto& validate = Params.validate;
 	auto& valImage = Params.valImage;
 	auto& valRender = Params.valRender;
@@ -100,109 +100,76 @@ int main(int argc, char *argv[]){
 	if (!Params.valRender.empty() && !fs::exists(Params.valRender)) 
 		fs::create_directories(Params.valRender);
 	
-	
-    torch::Device device = torch::kCPU;
-    int displayStep = 10;
-
-    if (torch::hasCUDA() && result.count("cpu") == 0) {
-        std::cout << "Using CUDA" << std::endl;
-        device = torch::kCUDA;
-    } else if (torch::hasMPS() && result.count("cpu") == 0) {
-        std::cout << "Using MPS" << std::endl;
-        device = torch::kMPS;
-    }else{
-        std::cout << "Using CPU" << std::endl;
-        displayStep = 1;
-    }
-
 #ifdef USE_VISUALIZATION
     Visualizer visualizer;
     visualizer.Initialize(numIters);
 #endif
 
-    try{
-        InputData inputData = inputDataFromX(projectRoot, colmapImageSourcePath);
-
-        parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
-            cam.loadImage(downScaleFactor);
-        });
-
-        // Withhold a validation camera if necessary
-        auto t = inputData.getCameras(validate, valImage);
-        std::vector<Camera> cams = std::get<0>(t);
-        Camera *valCam = std::get<1>(t);
-
-        Model model(inputData,
-                    cams.size(),
-                    numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-                    refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
-                    numIters, keepCrs,
-                    device);
-
-        std::vector< size_t > camIndices( cams.size() );
-        std::iota( camIndices.begin(), camIndices.end(), 0 );
-        InfiniteRandomIterator<size_t> camsIter( camIndices );
-
-        int imageSize = -1;
-        size_t step = 1;
-
-        if (resume != ""){
-            step = model.loadPly(resume) + 1;
-        }
-
-        for (; step <= numIters; step++){
-            Camera& cam = cams[ camsIter.next() ];
-
-            model.optimizersZeroGrad();
-
-            torch::Tensor rgb = model.forward(cam, step);
-            torch::Tensor gt = cam.getImage(model.getDownscaleFactor(step));
-            gt = gt.to(device);
-
-            torch::Tensor mainLoss = model.mainLoss(rgb, gt, ssimWeight);
-            mainLoss.backward();
-            
-            if (step % displayStep == 0) {
-                const float percentage = static_cast<float>(step) / numIters;
-                std::cout << "Step " << step << ": " << mainLoss.item<float>() << " (" << floor(percentage * 100) << "%)" <<  std::endl;
-            }
-
-            model.optimizersStep();
-            model.schedulersStep(step);
-            model.afterTrain(step);
-
-            if (saveEvery > 0 && step % saveEvery == 0){
-                fs::path p(outputScene);
-                model.save(p.replace_filename(fs::path(p.stem().string() + "_" + std::to_string(step) + p.extension().string())).string(), step);
-            }
-
-            if (!valRender.empty() && step % 10 == 0){
-                torch::Tensor rgb = model.forward(*valCam, step);
-                cv::Mat image = tensorToImage(rgb.detach().cpu());
-                cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-                cv::imwrite((fs::path(valRender) / (std::to_string(step) + ".png")).string(), image);
-            }
-
+	//	if the output path is a directory, and not a filename, we'll get confusing file-write errors
+	if ( std::filesystem::is_directory(Params.outputScene) )
+	{
+		std::stringstream Error;
+		Error << "OutputScene argument " << Params.outputScene << " is a directory, expecting a filename (.ply or .splat)";
+		throw std::runtime_error(Error.str());
+	}
+	
+	try
+	{
+		Trainer trainer(Params);
+		
+		auto OnIterationFinished = [&](int step,Model& model,Camera* ValidationCamera)
+		{
+			std::cout << "Step " << step << " finished" << std::endl;
+			
+			
+			if (Params.saveModelEvery > 0 && step % Params.saveModelEvery == 0)
+			{
+				auto Suffix = std::string("_") + std::to_string(step);
+				auto OutputFilename = Params.GetOutputModelFilenameWithSuffix(Suffix);
+				model.save( OutputFilename, step );
+			}
+			
+			
+			if ( ValidationCamera && !valRender.empty() && Params.saveValidationRenderEvery > 0 && step % Params.saveValidationRenderEvery == 0)
+			{
+				torch::Tensor rgb = model.forward(*ValidationCamera, step);
+				cv::Mat image = tensorToImage(rgb.detach().cpu());
+				cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+				cv::imwrite((fs::path(valRender) / (std::to_string(step) + ".png")).string(), image);
+			}
+			
+			
 #ifdef USE_VISUALIZATION
-            visualizer.SetInitialGaussianNum(inputData.points.xyz.size(0));
-            visualizer.SetLoss(step, mainLoss.item<float>());
-            visualizer.SetGaussians(model.means, model.scales, model.featuresDc,
-                                    model.opacities);
-            visualizer.SetImage(rgb, gt);
-            visualizer.Draw();
+			visualizer.SetInitialGaussianNum(inputData.points.xyz.size(0));
+			visualizer.SetLoss(step, mainLoss.item<float>());
+			visualizer.SetGaussians(model.means, model.scales, model.featuresDc,
+									model.opacities);
+			visualizer.SetImage(rgb, gt);
+			visualizer.Draw();
 #endif
-        }
-
-        inputData.saveCameras((fs::path(outputScene).parent_path() / "cameras.json").string(), keepCrs);
-        model.save(outputScene, numIters);
-        // model.saveDebugPly("debug.ply", numIters);
-
-        // Validate
-        if (valCam != nullptr){
-            torch::Tensor rgb = model.forward(*valCam, numIters);
-            torch::Tensor gt = valCam->getImage(model.getDownscaleFactor(numIters)).to(device);
-            std::cout << valCam->filePath << " validation loss: " << model.mainLoss(rgb, gt, ssimWeight).item<float>() << std::endl; 
-        }
+		};
+		
+		auto OnRunFinished = [&](int numIters,Model& model,InputData& inputData,Camera* ValidationCamera,torch::Device& device)
+		{
+			auto CamerasJsonFilename = Params.GetOutputFilePath("cameras.json");
+			auto ModelFilename = Params.GetOutputModelFilename();
+			inputData.saveCameras( CamerasJsonFilename.string(), keepCrs);
+			model.save(ModelFilename, numIters);
+			// model.saveDebugPly("debug.ply", numIters);
+			
+			// Validate
+			if (ValidationCamera != nullptr)
+			{
+				auto& valCam = *ValidationCamera;
+				torch::Tensor rgb = model.forward(valCam, numIters);
+				torch::Tensor gt = valCam.getImage(model.getDownscaleFactor(numIters)).to(device);
+				auto FinalLoss = model.mainLoss(rgb, gt, ssimWeight).item<float>();
+				std::cout << valCam.filePath << " validation loss: " << FinalLoss << std::endl; 
+			}
+		};
+		
+		trainer.Run( OnIterationFinished, OnRunFinished );
+        
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;
         exit(1);
