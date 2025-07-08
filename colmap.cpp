@@ -42,8 +42,8 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
         cam->id = readBinary<uint32_t>(camf);
 
         CameraModel model = static_cast<CameraModel>(readBinary<int>(camf)); // model ID
-        cam->width = readBinary<uint64_t>(camf);
-        cam->height = readBinary<uint64_t>(camf);
+		Intrinsics.imageWidth = readBinary<uint64_t>(camf);
+        Intrinsics.imageHeight = readBinary<uint64_t>(camf);
         
         if (model == SimplePinhole){
 			Intrinsics.fx = readBinary<double>(camf);

@@ -115,9 +115,12 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
             throw std::runtime_error("Camera projection type " + c.projectionType + " is not supported");
         }
 		
+		//	convert normalised values to pixel space (unnormalising!) to match what Camera expects
 		float normalizer = static_cast<float>((std::max)(c.width, c.height));
 
 		CameraIntrinsics intrinsics;
+		intrinsics.imageWidth = c.width;
+		intrinsics.imageHeight = c.height;
 		intrinsics.fx = static_cast<float>(c.fx) * normalizer;
 		intrinsics.fy = static_cast<float>(c.fy) * normalizer; 
 		intrinsics.cx = static_cast<float>(static_cast<float>(c.width) / 2.0f + normalizer * c.cx);
@@ -128,8 +131,7 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
 		intrinsics.p1 = static_cast<float>(c.p1);
 		intrinsics.p2 = static_cast<float>(c.p2);
 
-        ret.cameras.emplace_back(Camera(c.width, c.height, intrinsics, 
-                            poses[i], images[filename]));
+        ret.cameras.emplace_back(Camera(intrinsics,poses[i], images[filename]));
 		
 		i++;
     }

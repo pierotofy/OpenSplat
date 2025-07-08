@@ -156,7 +156,7 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
 
 		auto Intrinsics = f.GetIntrinsics();
 		
-        ret.cameras.emplace_back(Camera(f.width, f.height, Intrinsics,  
+        ret.cameras.emplace_back(Camera(Intrinsics,  
                             
                             poses[i], (nsRoot / f.filePath).string()));
     }
@@ -176,6 +176,8 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
 CameraIntrinsics ns::Frame::GetIntrinsics() const
 {
 	CameraIntrinsics intrinsics;
+	intrinsics.imageWidth = width;
+	intrinsics.imageHeight = height;
 	intrinsics.fx = static_cast<float>(fx);
 	intrinsics.fy = static_cast<float>(fy); 
 	intrinsics.cx = static_cast<float>(cx);

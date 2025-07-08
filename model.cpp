@@ -83,8 +83,8 @@ torch::Tensor Model::forward(Camera& cam, int step){
     const float fy = cam.intrinsics.fy / scaleFactor;
     const float cx = cam.intrinsics.cx / scaleFactor;
     const float cy = cam.intrinsics.cy / scaleFactor;
-    const int height = static_cast<int>(static_cast<float>(cam.height) / scaleFactor);
-    const int width = static_cast<int>(static_cast<float>(cam.width) / scaleFactor);
+    const int height = static_cast<int>(static_cast<float>(cam.intrinsics.imageHeight) / scaleFactor);
+    const int width = static_cast<int>(static_cast<float>(cam.intrinsics.imageWidth) / scaleFactor);
 
 	auto T = cam.GetCamToWorldTranslation();
 	auto Rinv = cam.GetWorldToCamRotation();

@@ -61,7 +61,7 @@ void Trainer::Run(std::function<void(int,float,Model&,Camera*)> OnIterationFinis
 	InputData inputData = inputDataFromX(projectRoot, colmapImageSourcePath);
 	
 	parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
-		cam.loadImage(downScaleFactor);
+		cam.loadImageFromFilename(downScaleFactor);
 	});
 	
 	// Withhold a validation camera if necessary

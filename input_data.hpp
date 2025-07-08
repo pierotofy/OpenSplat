@@ -10,10 +10,15 @@
 
 struct CameraIntrinsics
 {
+	//	focal length & center; in pixels, relative to image size
+	float imageWidth = 0;
+	float imageHeight = 0;
 	float fx = 0;
 	float fy = 0;
 	float cx = 0;
 	float cy = 0;
+	
+	//	distortion parameters
 	float k1 = 0;
 	float k2 = 0;
 	float k3 = 0;
@@ -27,14 +32,11 @@ enum CameraType { Perspective };
 struct Camera
 {
 	Camera(){};
-	Camera(int width, int height,CameraIntrinsics intrinsics,
-		   const torch::Tensor &camToWorld, 
+	Camera(CameraIntrinsics intrinsics,
+		   const torch::Tensor &camToWorld,	//	extrinsics 
 		   const std::string &filePath);
-	
 
 	int id = -1;
-    int width = 0;
-    int height = 0;
 	CameraIntrinsics intrinsics;
    
     torch::Tensor camToWorld;
@@ -48,7 +50,7 @@ struct Camera
 	
 	torch::Tensor		getIntrinsicsMatrix();
 	bool				hasDistortionParameters();
-	std::vector<float>	undistortionParameters();
+	std::vector<float>	undistortionParameters();	//	opencv distortion coefficients
 	
 	torch::Tensor		GetCamToWorldRotation();
 	torch::Tensor		GetCamToWorldTranslation();
@@ -56,7 +58,7 @@ struct Camera
 	torch::Tensor		GetWorldToCamTranslation();
 	
 	torch::Tensor		getImage(int downscaleFactor);
-	void				loadImage(float downscaleFactor);
+	void				loadImageFromFilename(float downscaleFactor);	//	refactor this; dont make Camera responsible for i/o
 	
 
 };

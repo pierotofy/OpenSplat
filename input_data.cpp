@@ -31,11 +31,9 @@ InputData inputDataFromX(const std::string &projectRoot, const std::string& colm
     }
 }
 
-Camera::Camera(int width, int height,CameraIntrinsics intrinsics,
+Camera::Camera(CameraIntrinsics intrinsics,
 	   const torch::Tensor &camToWorld, 
 	   const std::string &filePath) : 
-	width(width),
-	height(height),
 	intrinsics(intrinsics),
 	camToWorld(camToWorld), 
 	filePath(filePath)
@@ -87,7 +85,7 @@ torch::Tensor Camera::GetCamToWorldTranslation()
 	return T;
 }
 
-void Camera::loadImage(float downscaleFactor){
+void Camera::loadImageFromFilename(float downscaleFactor){
     // Populates image and K, then updates the camera parameters
     // Caution: this function has destructive behaviors
     // and should be called only once
@@ -97,16 +95,21 @@ void Camera::loadImage(float downscaleFactor){
     cv::Mat cImg = imreadRGB(filePath);
     
     float rescaleF = 1.0f;
-    // If camera intrinsics don't match the image dimensions 
-    if (cImg.rows != height || cImg.cols != width){
-        rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(height);
+	
+    // If camera intrinsics don't match the image dimensions, rescale intrinsics to match pixels
+    if (cImg.rows != intrinsics.imageHeight || cImg.cols != intrinsics.imageWidth )
+	{
+        rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(intrinsics.imageHeight);
+		intrinsics.fx *= rescaleF;
+		intrinsics.fy *= rescaleF;
+		intrinsics.cx *= rescaleF;
+		intrinsics.cy *= rescaleF;
+		//	gr: should be changing imageWidth/Height in intrinsics here! - currently data is out of sync
     }
-	intrinsics.fx *= rescaleF;
-	intrinsics.fy *= rescaleF;
-	intrinsics.cx *= rescaleF;
-	intrinsics.cy *= rescaleF;
 
-    if (downscaleFactor > 1.0f){
+	//	user-specified scale regardless (only scales down)
+    if (downscaleFactor > 1.0f)
+	{
         float scaleFactor = 1.0f / downscaleFactor;
         cv::resize(cImg, cImg, cv::Size(), scaleFactor, scaleFactor, cv::INTER_AREA);
 		intrinsics.fx *= scaleFactor;
@@ -115,11 +118,12 @@ void Camera::loadImage(float downscaleFactor){
 		intrinsics.cy *= scaleFactor;
     }
 
+	//	cache projection matrix
 	projectionMatrix = intrinsics.GetProjectionMatrix();
     cv::Rect roi;
 
     if (hasDistortionParameters()){
-        // Undistort
+        // Undistort with opencv
         std::vector<float> distCoeffs = undistortionParameters();
         cv::Mat cK = floatNxNtensorToMat(projectionMatrix);
         cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
@@ -137,9 +141,9 @@ void Camera::loadImage(float downscaleFactor){
     // Crop to ROI
     image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
 
-    // Update parameters
-    height = image.size(0);
-    width = image.size(1);
+    // Update intrinsics to newly scaled parameters & image pixels
+	intrinsics.imageHeight = image.size(0);
+	intrinsics.imageWidth = image.size(1);
     intrinsics.fx = projectionMatrix[0][0].item<float>();
 	intrinsics.fy = projectionMatrix[1][1].item<float>();
 	intrinsics.cx = projectionMatrix[0][2].item<float>();
@@ -215,8 +219,8 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
         json camera = json::object();
         camera["id"] = i;
         camera["img_name"] = fs::path(cam.filePath).filename().string();
-        camera["width"] = cam.width;
-        camera["height"] = cam.height;
+        camera["width"] = cam.intrinsics.imageWidth;
+        camera["height"] = cam.intrinsics.imageHeight;
         camera["fx"] = cam.intrinsics.fx;
         camera["fy"] = cam.intrinsics.fy;
 
