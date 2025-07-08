@@ -34,8 +34,10 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
 
     std::unordered_map<uint32_t, Camera *> camMap;
     
-    for (size_t i = 0; i < numCameras; i++) {
+    for (size_t i = 0; i < numCameras; i++) 
+	{
         Camera *cam = &cameras[i];
+		auto& Intrinsics = cam->intrinsics;
 
         cam->id = readBinary<uint32_t>(camf);
 
@@ -44,30 +46,30 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
         cam->height = readBinary<uint64_t>(camf);
         
         if (model == SimplePinhole){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = cam->fx;
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = Intrinsics.fx;
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
         }else if (model == Pinhole){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = readBinary<double>(camf);
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = readBinary<double>(camf);
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
         }else if (model == SimpleRadial){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = cam->fx;
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
-            cam->k1 = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = Intrinsics.fx;
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
+			Intrinsics.k1 = readBinary<double>(camf);
         }else if (model == OpenCV){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = readBinary<double>(camf);
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
-            cam->k1 = readBinary<double>(camf);
-            cam->k2 = readBinary<double>(camf);
-            cam->p1 = readBinary<double>(camf);
-            cam->p2 = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = readBinary<double>(camf);
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
+			Intrinsics.k1 = readBinary<double>(camf);
+			Intrinsics.k2 = readBinary<double>(camf);
+			Intrinsics.p1 = readBinary<double>(camf);
+			Intrinsics.p2 = readBinary<double>(camf);
         }else{
             throw std::runtime_error("Unsupported camera model: " + std::to_string(model));
         }

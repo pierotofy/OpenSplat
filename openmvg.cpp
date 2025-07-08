@@ -326,13 +326,19 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
         std::uint32_t current_pose = pose_indexes.at(v.id_pose);
 
         float normalizer = static_cast<float>((std::max)(intrinsic.width, intrinsic.height));
-        ret.cameras.emplace_back(Camera(intrinsic.width, intrinsic.height, 
-                            static_cast<float>(intrinsic.fx * normalizer), static_cast<float>(intrinsic.fy * normalizer), 
-                            static_cast<float>(static_cast<float>(intrinsic.width) / 2.0f + normalizer * intrinsic.cx), 
-                            static_cast<float>(static_cast<float>(intrinsic.height) / 2.0f + normalizer * intrinsic.cy), 
-                            static_cast<float>(intrinsic.k1), static_cast<float>(intrinsic.k2), static_cast<float>(intrinsic.k3), 
-                            static_cast<float>(intrinsic.t1), static_cast<float>(intrinsic.t2),  
-                            
+		
+		CameraIntrinsics camIntrinsics;
+		camIntrinsics.fx = static_cast<float>(intrinsic.fx * normalizer); 
+		camIntrinsics.fy = static_cast<float>(intrinsic.fy * normalizer);
+		camIntrinsics.cx = static_cast<float>(static_cast<float>(intrinsic.width) / 2.0f + normalizer * intrinsic.cx); 
+		camIntrinsics.cy = static_cast<float>(static_cast<float>(intrinsic.height) / 2.0f + normalizer * intrinsic.cy); 
+		camIntrinsics.k1 = static_cast<float>(intrinsic.k1);
+		camIntrinsics.k2 = static_cast<float>(intrinsic.k2); 
+		camIntrinsics.k3 = static_cast<float>(intrinsic.k3); 
+		camIntrinsics.p1 = static_cast<float>(intrinsic.t1); 
+		camIntrinsics.p2 = static_cast<float>(intrinsic.t2);  
+		
+        ret.cameras.emplace_back(Camera(intrinsic.width, intrinsic.height, camIntrinsics,
                             tposes[current_pose], image_path.string()));
     }
 

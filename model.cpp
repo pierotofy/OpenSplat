@@ -79,10 +79,10 @@ void Model::releaseOptimizers(){
 torch::Tensor Model::forward(Camera& cam, int step){
 
     const float scaleFactor = getDownscaleFactor(step);
-    const float fx = cam.fx / scaleFactor;
-    const float fy = cam.fy / scaleFactor;
-    const float cx = cam.cx / scaleFactor;
-    const float cy = cam.cy / scaleFactor;
+    const float fx = cam.intrinsics.fx / scaleFactor;
+    const float fy = cam.intrinsics.fy / scaleFactor;
+    const float cx = cam.intrinsics.cx / scaleFactor;
+    const float cy = cam.intrinsics.cy / scaleFactor;
     const int height = static_cast<int>(static_cast<float>(cam.height) / scaleFactor);
     const int width = static_cast<int>(static_cast<float>(cam.width) / scaleFactor);
 

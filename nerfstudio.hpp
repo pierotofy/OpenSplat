@@ -29,7 +29,8 @@ namespace ns{
         Mat4 transformMatrix;
 		
 		//	copy this transform into an entry in an array of poses
-		void		CopyTransformToPoseInArray(torch::Tensor& Poses,int PoseIndex) const;
+		void				CopyTransformToPoseInArray(torch::Tensor& Poses,int PoseIndex) const;
+		CameraIntrinsics	GetIntrinsics() const;
     };
     void to_json(json &j, const Frame &f);
     void from_json(const json& j, Frame &f);

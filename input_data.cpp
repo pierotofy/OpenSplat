@@ -31,7 +31,20 @@ InputData inputDataFromX(const std::string &projectRoot, const std::string& colm
     }
 }
 
-torch::Tensor Camera::getIntrinsicsMatrix(){
+Camera::Camera(int width, int height,CameraIntrinsics intrinsics,
+	   const torch::Tensor &camToWorld, 
+	   const std::string &filePath) : 
+	width(width),
+	height(height),
+	intrinsics(intrinsics),
+	camToWorld(camToWorld), 
+	filePath(filePath)
+{
+}
+
+
+torch::Tensor CameraIntrinsics::GetProjectionMatrix() const
+{
     return torch::tensor({{fx, 0.0f, cx},
                           {0.0f, fy, cy},
                           {0.0f, 0.0f, 1.0f}}, torch::kFloat32);
@@ -88,34 +101,34 @@ void Camera::loadImage(float downscaleFactor){
     if (cImg.rows != height || cImg.cols != width){
         rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(height);
     }
-    fx *= rescaleF;
-    fy *= rescaleF;
-    cx *= rescaleF;
-    cy *= rescaleF;
+	intrinsics.fx *= rescaleF;
+	intrinsics.fy *= rescaleF;
+	intrinsics.cx *= rescaleF;
+	intrinsics.cy *= rescaleF;
 
     if (downscaleFactor > 1.0f){
         float scaleFactor = 1.0f / downscaleFactor;
         cv::resize(cImg, cImg, cv::Size(), scaleFactor, scaleFactor, cv::INTER_AREA);
-        fx *= scaleFactor;
-        fy *= scaleFactor;
-        cx *= scaleFactor;
-        cy *= scaleFactor;
+		intrinsics.fx *= scaleFactor;
+		intrinsics.fy *= scaleFactor;
+		intrinsics.cx *= scaleFactor;
+		intrinsics.cy *= scaleFactor;
     }
 
-    K = getIntrinsicsMatrix();
+	projectionMatrix = intrinsics.GetProjectionMatrix();
     cv::Rect roi;
 
     if (hasDistortionParameters()){
         // Undistort
         std::vector<float> distCoeffs = undistortionParameters();
-        cv::Mat cK = floatNxNtensorToMat(K);
+        cv::Mat cK = floatNxNtensorToMat(projectionMatrix);
         cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
 
         cv::Mat undistorted = cv::Mat::zeros(cImg.rows, cImg.cols, cImg.type());
         cv::undistort(cImg, undistorted, cK, distCoeffs, newK);
         
         image = imageToTensor(undistorted);
-        K = floatNxNMatToTensor(newK);
+		projectionMatrix = floatNxNMatToTensor(newK);
     }else{
         roi = cv::Rect(0, 0, cImg.cols, cImg.rows);
         image = imageToTensor(cImg);
@@ -127,10 +140,10 @@ void Camera::loadImage(float downscaleFactor){
     // Update parameters
     height = image.size(0);
     width = image.size(1);
-    fx = K[0][0].item<float>();
-    fy = K[1][1].item<float>();
-    cx = K[0][2].item<float>();
-    cy = K[1][2].item<float>();
+    intrinsics.fx = projectionMatrix[0][0].item<float>();
+	intrinsics.fy = projectionMatrix[1][1].item<float>();
+	intrinsics.cx = projectionMatrix[0][2].item<float>();
+	intrinsics.cy = projectionMatrix[1][2].item<float>();
 }
 
 torch::Tensor Camera::getImage(int downscaleFactor){
@@ -154,11 +167,11 @@ torch::Tensor Camera::getImage(int downscaleFactor){
 }
 
 bool Camera::hasDistortionParameters(){
-    return k1 != 0.0f || k2 != 0.0f || k3 != 0.0f || p1 != 0.0f || p2 != 0.0f;
+    return intrinsics.k1 != 0.0f || intrinsics.k2 != 0.0f || intrinsics.k3 != 0.0f || intrinsics.p1 != 0.0f || intrinsics.p2 != 0.0f;
 }
 
 std::vector<float> Camera::undistortionParameters(){
-    std::vector<float> p = { k1, k2, p1, p2, k3, 0.0f, 0.0f, 0.0f };
+    std::vector<float> p = { intrinsics.k1, intrinsics.k2, intrinsics.p1, intrinsics.p2, intrinsics.k3, 0.0f, 0.0f, 0.0f };
     return p;
 }
 
@@ -204,8 +217,8 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
         camera["img_name"] = fs::path(cam.filePath).filename().string();
         camera["width"] = cam.width;
         camera["height"] = cam.height;
-        camera["fx"] = cam.fx;
-        camera["fy"] = cam.fy;
+        camera["fx"] = cam.intrinsics.fx;
+        camera["fy"] = cam.intrinsics.fy;
 
 		torch::Tensor R = cam.GetCamToWorldRotation();
 		//	gr: what is squeeze()? 

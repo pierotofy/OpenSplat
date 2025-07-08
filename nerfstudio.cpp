@@ -134,10 +134,12 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
     InputData ret;
     fs::path nsRoot(projectRoot);
     fs::path transformsPath = nsRoot / "transforms.json";
-    if (!fs::exists(transformsPath)) throw std::runtime_error(transformsPath.string() + " does not exist");
+    if (!fs::exists(transformsPath)) 
+		throw std::runtime_error(transformsPath.string() + " does not exist");
 
     Transforms t = readTransforms(transformsPath.string());
-    if (t.plyFilePath.empty()) throw std::runtime_error("ply_file_path is empty");
+    if (t.plyFilePath.empty()) 
+		throw std::runtime_error("ply_file_path is empty");
     PointSet *pSet = readPointSet((nsRoot / t.plyFilePath).string());
 
     torch::Tensor unorientedPoses = posesFromTransforms(t);
@@ -152,11 +154,9 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
     for (size_t i = 0; i < t.frames.size(); i++){
         Frame f = t.frames[i];
 
-        ret.cameras.emplace_back(Camera(f.width, f.height, 
-                            static_cast<float>(f.fx), static_cast<float>(f.fy), 
-                            static_cast<float>(f.cx), static_cast<float>(f.cy), 
-                            static_cast<float>(f.k1), static_cast<float>(f.k2), static_cast<float>(f.k3), 
-                            static_cast<float>(f.p1), static_cast<float>(f.p2),  
+		auto Intrinsics = f.GetIntrinsics();
+		
+        ret.cameras.emplace_back(Camera(f.width, f.height, Intrinsics,  
                             
                             poses[i], (nsRoot / f.filePath).string()));
     }
@@ -173,7 +173,20 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
 
 }
 
-
+CameraIntrinsics ns::Frame::GetIntrinsics() const
+{
+	CameraIntrinsics intrinsics;
+	intrinsics.fx = static_cast<float>(fx);
+	intrinsics.fy = static_cast<float>(fy); 
+	intrinsics.cx = static_cast<float>(cx);
+	intrinsics.cy = static_cast<float>(cy); 
+	intrinsics.k1 = static_cast<float>(k1);
+	intrinsics.k2 = static_cast<float>(k2);
+	intrinsics.k3 = static_cast<float>(k3); 
+	intrinsics.p1 = static_cast<float>(p1); 
+	intrinsics.p1 = static_cast<float>(p2);
+	return intrinsics;
+}
 
 void ns::Frame::CopyTransformToPoseInArray(torch::Tensor& Pose4x4s,int PoseIndex) const
 {
