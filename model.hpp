@@ -10,6 +10,8 @@
 #include "ssim.hpp"
 #include "input_data.hpp"
 #include "optim_scheduler.hpp"
+#include <functional>
+#include <span>
 
 using namespace torch::indexing;
 using namespace torch::autograd;
@@ -75,6 +77,7 @@ struct Model{
   void savePly(const std::string &filename, int step,bool keepCrs);
   void saveSplat(const std::string &filename,bool keepCrs);
   void saveDebugPly(const std::string &filename, int step,bool keepCrs);
+  void iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternion,std::span<float> dcFeatures,std::span<float> restFeatures)> OnFoundPoint);
 	
   //	modelPointsNeedToBeNormalised == keepCrs
   //	it means that the PLY we're loading, was saved in it's original space instead of centered and scaled to -1...1

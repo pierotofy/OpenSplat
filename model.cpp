@@ -483,16 +483,6 @@ void Model::afterTrain(int step){
 
 void Model::findInvalidPoints()
 {
-	int numPoints = means.size(0);
-
-	torch::Tensor meansCpu = means.cpu();
-	torch::Tensor featuresDcCpu = featuresDc.cpu();
-	//torch::Tensor featuresRestCpu = featuresRest.cpu().transpose(1, 2).reshape({numPoints, -1});
-	torch::Tensor featuresRestCpu = featuresRest.cpu();
-	torch::Tensor opacitiesCpu = opacities.cpu();
-	torch::Tensor scalesCpu = scales.cpu();
-	torch::Tensor quatsCpu = quats.cpu();
-	
 	auto FindNans = [](std::span<float> Values,std::string_view Context)
 	{
 		auto NanCount = 0;
@@ -512,7 +502,38 @@ void Model::findInvalidPoints()
 			throw std::runtime_error(Error.str());
 		}
 	};
+
+	auto CheckPoint = [&](std::span<float> xyz,
+						  std::span<float> opacity,
+						  std::span<float> scale,
+						  std::span<float> quaternion,
+						  std::span<float> dcFeatures,
+						  std::span<float> restFeatures)
+	{
+		FindNans(xyz,"means");
+		FindNans(dcFeatures,"dcFeatures");
+		FindNans(restFeatures,"restFeatures");
+		FindNans(opacity,"opacity");
+		FindNans(scale,"scale");
+		FindNans(quaternion,"quaternion");
+	};
 	
+	iteratePoints( CheckPoint );
+}
+
+void Model::iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternion,std::span<float> dcfeatures,std::span<float> restfeatures)> OnFoundPoint)
+{
+	int numPoints = means.size(0);
+	
+	torch::Tensor meansCpu = means.cpu();
+	torch::Tensor featuresDcCpu = featuresDc.cpu();
+	//torch::Tensor featuresRestCpu = featuresRest.cpu().transpose(1, 2).reshape({numPoints, -1});
+	torch::Tensor featuresRestCpu = featuresRest.cpu();
+	torch::Tensor opacitiesCpu = opacities.cpu();
+	torch::Tensor scalesCpu = scales.cpu();
+	torch::Tensor quatsCpu = quats.cpu();
+	
+		
 	for (size_t i = 0; i < numPoints; i++) 
 	{
 		auto DcFeaturesCount = featuresDcCpu.size(1);
@@ -525,12 +546,7 @@ void Model::findInvalidPoints()
 		std::span scale( reinterpret_cast<float*>(scalesCpu[i].data_ptr()), 3 );
 		std::span quaternion( reinterpret_cast<float*>(quatsCpu[i].data_ptr()), 4 );
 		
-		FindNans(xyz,"means");
-		FindNans(dcFeatures,"dcFeatures");
-		FindNans(restFeatures,"restFeatures");
-		FindNans(opacity,"opacity");
-		FindNans(scale,"scale");
-		FindNans(quaternion,"quaternion");
+		OnFoundPoint( xyz, opacity, scale, quaternion, dcFeatures, restFeatures );
 	}
 }
 
