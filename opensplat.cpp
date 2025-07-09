@@ -13,6 +13,12 @@
 #include "visualizer.hpp"
 #endif
 
+#include "trainer_api.h"
+//	temp exposure from api
+namespace OpenSplat
+{
+	Trainer&	GetInstance(int Instance);
+}
 
 
 namespace fs = std::filesystem;
@@ -104,6 +110,7 @@ int main(int argc, char *argv[])
 	
 	try
 	{
+		/*
 		InputData inputData = inputDataFromX( AppParams.projectRoot, AppParams.colmapImageSourcePath );
 		 
 		parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&AppParams](Camera &cam)
@@ -112,14 +119,21 @@ int main(int argc, char *argv[])
 		});
 		
 		Trainer trainer(TrainerParams);
+		*/
+		auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str() );
+		auto& trainer = OpenSplat::GetInstance( TrainerInstance );
 		
-		auto OnIterationFinished = [&](int step,float Loss,Model& model,Camera* ValidationCamera)
+		
+		auto OnIterationFinished = [&](TrainerIterationMeta IterationMeta,Camera* ValidationCamera)
 		{
+			auto step = IterationMeta.mStep;
+			auto& model = trainer.GetModel();
+			
 			//	old code made this every step if using CPU
 			if (AppParams.printDebugEvery > 0 && step % AppParams.printDebugEvery == 0)
 			{
 				const float percentage = static_cast<float>(step) / numIters;
-				std::cout << "Step " << step << ": " << Loss << " (" << floor(percentage * 100) << "%)" <<  std::endl;
+				std::cout << "Step " << step << ": " << IterationMeta.mLoss << " (" << floor(percentage * 100) << "%)" <<  std::endl;
 			}			
 			
 			if (AppParams.saveModelEvery > 0 && step % AppParams.saveModelEvery == 0)
@@ -149,9 +163,10 @@ int main(int argc, char *argv[])
 #endif
 		};
 		
-		auto OnRunFinished = [&](int numIters,Camera* ValidationCamera,torch::Device& device)
+		auto OnRunFinished = [&](int numIters,Camera* ValidationCamera)
 		{
 			auto& model = trainer.GetModel();
+			auto& inputData = trainer.GetInputData();
 			
 			auto CamerasJsonFilename = AppParams.GetOutputFilePath("cameras.json");
 			auto ModelFilename = AppParams.GetOutputModelFilename();
@@ -162,6 +177,7 @@ int main(int argc, char *argv[])
 			// Validate
 			if (ValidationCamera != nullptr)
 			{
+				auto device = trainer.GetDevice();
 				auto& valCam = *ValidationCamera;
 				torch::Tensor rgb = model.forward(valCam, numIters);
 				torch::Tensor gt = valCam.getImage(model.getDownscaleFactor(numIters)).to(device);
@@ -170,7 +186,7 @@ int main(int argc, char *argv[])
 			}
 		};
 		
-		trainer.Run( inputData, OnIterationFinished, OnRunFinished );
+		trainer.Run( OnIterationFinished, OnRunFinished );
 		
 		return EXIT_SUCCESS;
         
