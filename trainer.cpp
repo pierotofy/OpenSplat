@@ -1,6 +1,5 @@
 #include "trainer.hpp"
 
-#include <filesystem>
 #include <nlohmann/json.hpp>
 #include "opensplat.hpp"
 #include "input_data.hpp"
@@ -13,13 +12,25 @@
 Trainer::Trainer(const TrainerParams& Params) :
 	mParams		( Params )
 {
-	
+	mIterationRandomCameraIndex.seed( Params.iterationRandomCameraIndexSeed );
 }
 
-void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Camera*,torch::Device&)> OnRunFinished)
+torch::Device Trainer::GetDevice()
 {
-	//	remove any use of the filesystem from this func/class
-	namespace fs = std::filesystem;
+	auto ForceCpuDevice = mParams.mForceCpuDevice;
+	
+	if (torch::hasCUDA() && !ForceCpuDevice )
+		return torch::kCUDA;
+
+	if (torch::hasMPS() && !ForceCpuDevice)
+		return torch::kMPS;
+
+	return torch::kCPU;	
+}
+
+void Trainer::Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationFinished,std::function<void(int,Camera*)> OnRunFinished)
+{
+	InputData& inputData = GetInputData();
 	
 	//	temp during refactor
 	auto& Params = mParams;
@@ -41,19 +52,19 @@ void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camer
 	auto& splitScreenSize = Params.splitScreenSize;
 	auto ForceCpuDevice = Params.mForceCpuDevice;
 	
-	torch::Device device = torch::kCPU;
-
-
-	if (torch::hasCUDA() && !ForceCpuDevice ) {
+	auto device = GetDevice();
+	if ( device == torch::kCUDA )
+	{
 		std::cout << "Using CUDA" << std::endl;
-		device = torch::kCUDA;
-	} else if (torch::hasMPS() && !ForceCpuDevice) {
+	}
+	else if ( device == torch::kMPS )
+	{
 		std::cout << "Using MPS" << std::endl;
-		device = torch::kMPS;
-	}else{
+	}
+	else
+	{
 		std::cout << "Using CPU" << std::endl;
 	}
-
 	
 	// Withhold a validation camera if necessary
 	auto t = inputData.getCameras(validate, valImage);
@@ -67,11 +78,11 @@ void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camer
 				numIters, 
 				device);
 	auto& model = *mModel;
-	
+	/*
 	std::vector<size_t> camIndices( cams.size() );
 	std::iota( camIndices.begin(), camIndices.end(), 0 );
 	InfiniteRandomIterator<size_t> camsIter( camIndices );
-	
+	*/
 	size_t step = 1;
 	
 	if (!resume.empty())
@@ -79,30 +90,66 @@ void Trainer::Run(InputData& inputData,std::function<void(int,float,Model&,Camer
 		step = model.loadPly(resume,Params.resumeFromPlyNeedsNormalising) + 1;
 	}
 	
-	for (; step <= numIters; step++){
-		Camera& cam = cams[ camsIter.next() ];
-		
-		model.optimizersZeroGrad();
-		
-		//	rgb is a render of the scene
-		torch::Tensor rgb = model.forward(cam, step);
-		torch::Tensor groundTruth = cam.getImage(model.getDownscaleFactor(step));
-		groundTruth = groundTruth.to(device);
-		
-		//	calculate loss from render to ground truth
-		torch::Tensor mainLoss = model.mainLoss(rgb, groundTruth, ssimWeight);
-		mainLoss.backward();
-		auto mainLossValue = mainLoss.item<float>();
-		
-		
-		model.optimizersStep();
-		model.schedulersStep(step);
-		model.afterTrain(step);
-		
-		
-		OnIterationFinished( step, mainLossValue, model, valCam );
+	for (; step <= numIters; step++)
+	{
+		auto IterationMeta = Iteration(step);
+
+		OnIterationFinished( IterationMeta, valCam );
 	}
 	
 	auto CompletedSteps = step;	//	num_iters
-	OnRunFinished( CompletedSteps, valCam, device );
+	OnRunFinished( CompletedSteps, valCam );
 }
+
+TrainerIterationMeta Trainer::Iteration(int step)
+{
+	auto& model = GetModel();
+	auto& inputData = GetInputData();
+	auto& validate = mParams.validate;
+	auto& valImage = mParams.valImage;
+	
+	auto device = GetDevice();
+	
+	auto t = inputData.getCameras(validate, valImage);
+	std::vector<Camera> cams = std::get<0>(t);
+	Camera *valCam = std::get<1>(t);
+
+	TrainerIterationMeta IterationMeta;
+	IterationMeta.mStep = step;
+	IterationMeta.mCameraIndex = mIterationRandomCameraIndex() % cams.size();
+	
+	std::cout << "Step #" << step << " training with camera " << IterationMeta.mCameraIndex << std::endl;
+	Camera& cam = cams[IterationMeta.mCameraIndex];
+	
+	//	look for nans before a step
+	try
+	{
+		model.findInvalidPoints();
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << "Warning; " << e.what() << std::endl;
+	}
+	
+	model.optimizersZeroGrad();
+	
+	//	rgb is a render of the scene
+	torch::Tensor rgb = model.forward(cam, step);
+	torch::Tensor groundTruth = cam.getImage(model.getDownscaleFactor(step));
+	groundTruth = groundTruth.to(device);
+	
+	//	calculate loss from render to ground truth
+	auto ssimWeight = mParams.ssimWeight;
+	torch::Tensor mainLoss = model.mainLoss(rgb, groundTruth, ssimWeight);
+	mainLoss.backward();
+
+	IterationMeta.mLoss = mainLoss.item<float>();
+	
+	
+	model.optimizersStep();
+	model.schedulersStep(step);
+	model.afterTrain(step);
+	
+	return IterationMeta;
+}
+

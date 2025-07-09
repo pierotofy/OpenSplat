@@ -3,6 +3,7 @@
 #include <string_view>
 #include <functional>
 #include "trainer_params.hpp"
+#include <random>
 
 class Model;
 class Camera;
@@ -18,6 +19,14 @@ namespace torch
 }
 */
 
+class TrainerIterationMeta
+{
+public:
+	int		mStep = -1;
+	int		mCameraIndex = -1;
+	float	mLoss = -1.0f;
+};
+
 /*
  
 	Class to self-contain a trainer with a simple API, with the purpose of moving towards
@@ -32,12 +41,27 @@ public:
 	Trainer(const TrainerParams& Params);
 
 	//	this blocking call will be repalced with manually called init(), iterate()
-	void		Run(InputData& inputData,std::function<void(int,float,Model&,Camera*)> OnIterationFinished,std::function<void(int,Camera*,torch::Device&)> OnRunFinished);
+	void				Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationFinished,std::function<void(int,Camera*)> OnRunFinished);
+
+	torch::Device		GetDevice();
+	Model&				GetModel()		{	return *mModel;	}
+	InputData&			GetInputData()	
+	{
+		if ( !mInputData )
+			throw std::runtime_error("Input data not setup");
+		return *mInputData;	
+	}
+
+	//	public when ready
+protected:
+	TrainerIterationMeta	Iteration(int step); 
 	
-	Model&		GetModel()	{	return *mModel;	}
+public:
+	TrainerParams				mParams;
+	std::shared_ptr<Model>		mModel;
+	std::shared_ptr<InputData>	mInputData;
 	
-private:
-	//std::function<void(int)>	mOnIterationFinished;
-	TrainerParams		mParams;
-	std::shared_ptr<Model>	mModel;
+	//	random index generator. default_random_engine is implementation defined, so different on different platforms
+	//	if this wants to be deterministic... make a new one
+	std::default_random_engine	mIterationRandomCameraIndex;
 };

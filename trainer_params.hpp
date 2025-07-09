@@ -59,6 +59,7 @@ public:
 	float densifySizeThresh = 0.01;
 	int stopScreenSizeAt = 4000;
 	float splitScreenSize = 0.05;
+	int iterationRandomCameraIndexSeed = 42;
 
 	//	todo: move into app and load resuming points into InputData
 	std::string resumeFromPlyFilename;
