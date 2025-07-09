@@ -69,7 +69,7 @@ struct Model{
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
   void afterTrain(int step);
-	
+  void findInvalidPoints();
 	
   void save(const std::string &filename, int step,bool keepCrs);
   void savePly(const std::string &filename, int step,bool keepCrs);

@@ -7,6 +7,7 @@
 #include "tensor_math.hpp"
 #include "gsplat.hpp"
 #include "utils.hpp"
+#include <span>
 
 #ifdef USE_HIP
 #include <c10/hip/HIPCachingAllocator.h>
@@ -478,6 +479,59 @@ void Model::afterTrain(int step){
             #endif
         }
     }
+}
+
+void Model::findInvalidPoints()
+{
+	int numPoints = means.size(0);
+
+	torch::Tensor meansCpu = means.cpu();
+	torch::Tensor featuresDcCpu = featuresDc.cpu();
+	//torch::Tensor featuresRestCpu = featuresRest.cpu().transpose(1, 2).reshape({numPoints, -1});
+	torch::Tensor featuresRestCpu = featuresRest.cpu();
+	torch::Tensor opacitiesCpu = opacities.cpu();
+	torch::Tensor scalesCpu = scales.cpu();
+	torch::Tensor quatsCpu = quats.cpu();
+	
+	auto FindNans = [](std::span<float> Values,std::string_view Context)
+	{
+		auto NanCount = 0;
+		auto InfCount = 0;
+		for ( auto Value : Values )
+		{
+			if ( std::isnan(Value) )
+				NanCount++;
+			if ( std::isinf(Value) )
+				InfCount++;
+			//	todo: other invalid values; eg, 0,0,0 should never really be expected?
+		}
+		if ( NanCount > 0 || InfCount > 0 )
+		{
+			std::stringstream Error;
+			Error << "Found " << NanCount << " NaNs & " << InfCount << " infinitys in " << Context << " data";
+			throw std::runtime_error(Error.str());
+		}
+	};
+	
+	for (size_t i = 0; i < numPoints; i++) 
+	{
+		auto DcFeaturesCount = featuresDcCpu.size(1);
+		auto RestFeaturesCount = featuresRestCpu.size(1);
+		
+		std::span xyz( reinterpret_cast<float*>( meansCpu[i].data_ptr() ), 3 );
+		std::span dcFeatures( reinterpret_cast<float*>( featuresDcCpu[i].data_ptr() ), DcFeaturesCount );
+		std::span restFeatures( reinterpret_cast<float*>(featuresRestCpu[i].data_ptr()), RestFeaturesCount );
+		std::span opacity( reinterpret_cast<float*>(opacitiesCpu[i].data_ptr()), 2 );
+		std::span scale( reinterpret_cast<float*>(scalesCpu[i].data_ptr()), 3 );
+		std::span quaternion( reinterpret_cast<float*>(quatsCpu[i].data_ptr()), 4 );
+		
+		FindNans(xyz,"means");
+		FindNans(dcFeatures,"dcFeatures");
+		FindNans(restFeatures,"restFeatures");
+		FindNans(opacity,"opacity");
+		FindNans(scale,"scale");
+		FindNans(quaternion,"quaternion");
+	}
 }
 
 void Model::save(const std::string &filename, int step,bool KeepCrs){
