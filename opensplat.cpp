@@ -110,19 +110,9 @@ int main(int argc, char *argv[])
 	
 	try
 	{
-		/*
-		InputData inputData = inputDataFromX( AppParams.projectRoot, AppParams.colmapImageSourcePath );
-		 
-		parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&AppParams](Camera &cam)
-		{
-			cam.loadImageFromFilename(AppParams.downScaleFactor);
-		});
-		
-		Trainer trainer(TrainerParams);
-		*/
 		auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str() );
 		auto& trainer = OpenSplat::GetInstance( TrainerInstance );
-		
+		trainer.mParams = TrainerParams;
 		
 		auto OnIterationFinished = [&](TrainerIterationMeta IterationMeta,Camera* ValidationCamera)
 		{
@@ -146,10 +136,14 @@ int main(int argc, char *argv[])
 			
 			if ( ValidationCamera && !AppParams.valRender.empty() && AppParams.saveValidationRenderEvery > 0 && step % AppParams.saveValidationRenderEvery == 0)
 			{
-				torch::Tensor rgb = model.forward(*ValidationCamera, step);
-				cv::Mat image = tensorToImage(rgb.detach().cpu());
-				cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-				cv::imwrite((fs::path(AppParams.valRender) / (std::to_string(step) + ".png")).string(), image);
+				auto image = trainer.GetForwardImage( *ValidationCamera, step );
+				auto WriteImage = [&](cv::Mat& image)
+				{
+					//	tensor image is RGB, opencv expects BGR
+					cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+					cv::imwrite((fs::path(AppParams.valRender) / (std::to_string(step) + ".png")).string(), image);
+				};
+				image.GetCvImage(WriteImage);
 			}
 			
 			
@@ -179,14 +173,17 @@ int main(int argc, char *argv[])
 			{
 				auto device = trainer.GetDevice();
 				auto& valCam = *ValidationCamera;
-				torch::Tensor rgb = model.forward(valCam, numIters);
+				auto ForwardResults = model.forward(valCam, numIters);
 				torch::Tensor gt = valCam.getImage(model.getDownscaleFactor(numIters)).to(device);
-				auto FinalLoss = model.mainLoss(rgb, gt, ssimWeight).item<float>();
+				auto FinalLoss = model.mainLoss(ForwardResults.rgb, gt, ssimWeight).item<float>();
 				std::cout << valCam.filePath << " validation loss: " << FinalLoss << std::endl; 
 			}
 		};
 		
 		trainer.Run( OnIterationFinished, OnRunFinished );
+		
+		OpenSplat_FreeInstance( TrainerInstance );
+		
 		
 		return EXIT_SUCCESS;
         

@@ -19,12 +19,38 @@ namespace torch
 }
 */
 
+namespace cv
+{
+	class Mat;
+}
+
 class TrainerIterationMeta
 {
 public:
 	int		mStep = -1;
 	int		mCameraIndex = -1;
 	float	mLoss = -1.0f;
+};
+
+	
+
+class ImagePixels
+{
+public:
+	enum Format
+	{
+		Rgb = 0
+	};
+public:
+	ImagePixels(const torch::Tensor& tensor);
+	
+	//	callback so we can use pixels in place - mat is only valid for lifetime of callback
+	void					GetCvImage(std::function<void(cv::Mat&)> OnImage);
+	
+	int						mWidth = 0;
+	int						mHeight = 0;
+	Format					mFormat = Rgb;
+	std::vector<uint8_t>	mPixels;
 };
 
 /*
@@ -51,6 +77,8 @@ public:
 			throw std::runtime_error("Input data not setup");
 		return *mInputData;	
 	}
+	
+	ImagePixels			GetForwardImage(Camera& Camera,int Step);
 
 	//	public when ready
 protected:

@@ -8,6 +8,42 @@
 #include "constants.hpp"
 #include "trainer_params.hpp"
 
+#include <torch/torch.h>
+
+
+ImagePixels::ImagePixels(const torch::Tensor& tensor)
+{
+	//	from tensorToImage()
+
+	//	todo: allow float image to make this extraction faster
+	torch::Tensor Tensor8 = (tensor * 255.0).toType(torch::kU8);
+
+	mHeight = Tensor8.size(0);
+	mWidth = Tensor8.size(1);
+	mFormat = Rgb;
+	int components = Tensor8.size(2);
+	if ( components != 3 )
+		throw std::runtime_error("Only images with 3 channels are supported");
+
+	//	gr: is the data garunteed to be contiguious?	
+	auto TensorSize = mWidth * mHeight * components;
+	uint8_t* TensorData = static_cast<uint8_t*>(Tensor8.data_ptr());
+	std::span TensorView( TensorData, TensorSize );
+	std::copy( TensorView.begin(), TensorView.end(), std::back_inserter(mPixels) );
+}
+
+//	callback so we can use pixels in place - mat is only valid for lifetime of callback
+void ImagePixels::GetCvImage(std::function<void(cv::Mat&)> OnImage)
+{
+	if ( mFormat != Rgb )
+		throw std::runtime_error("ImagePixels::GetCvImage only supports RGB");
+	
+	int type = CV_8UC3;
+	cv::Mat image( mHeight, mWidth, type, mPixels.data() );
+	OnImage(image);
+}
+
+	
 
 Trainer::Trainer(const TrainerParams& Params) :
 	mParams		( Params )
@@ -134,13 +170,13 @@ TrainerIterationMeta Trainer::Iteration(int step)
 	model.optimizersZeroGrad();
 	
 	//	rgb is a render of the scene
-	torch::Tensor rgb = model.forward(cam, step);
+	auto ForwardResults = model.forward(cam, step);
 	torch::Tensor groundTruth = cam.getImage(model.getDownscaleFactor(step));
 	groundTruth = groundTruth.to(device);
 	
 	//	calculate loss from render to ground truth
 	auto ssimWeight = mParams.ssimWeight;
-	torch::Tensor mainLoss = model.mainLoss(rgb, groundTruth, ssimWeight);
+	torch::Tensor mainLoss = model.mainLoss(ForwardResults.rgb, groundTruth, ssimWeight);
 	mainLoss.backward();
 
 	IterationMeta.mLoss = mainLoss.item<float>();
@@ -148,8 +184,20 @@ TrainerIterationMeta Trainer::Iteration(int step)
 	
 	model.optimizersStep();
 	model.schedulersStep(step);
-	model.afterTrain(step);
+	model.afterTrain(step,ForwardResults);
 	
 	return IterationMeta;
+}
+
+ImagePixels Trainer::GetForwardImage(Camera& Camera,int step)
+{
+	auto& Model = GetModel();
+	auto ForwardResults = Model.forward( Camera, step );
+	
+	//	old code detached, but we're not going to modify it... do we need to?
+	auto rgbCpu = ForwardResults.rgb.detach().cpu();
+	
+	ImagePixels Image(rgbCpu);
+	return Image;
 }
 
