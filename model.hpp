@@ -21,6 +21,23 @@ torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, 
 torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 
+
+//	store results of a forward render
+//	this was previously stored on the model, meaning an arbritary render/forward() would mutate state
+//	and put state out of sync 
+class ModelForwardResults
+{
+public:
+	torch::Tensor	rgb;	//	rendered image
+	torch::Tensor	radii;
+	torch::Tensor	xys;	//	splats in view/screen space
+	
+	//	store other camera intrinsics?
+	int				lastHeight;
+	int				lastWidth;
+};
+
+
 struct Model{
   Model(const InputData &inputData, int numCameras,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
@@ -65,12 +82,12 @@ struct Model{
   void setupOptimizers();
   void releaseOptimizers();
 
-  torch::Tensor forward(Camera& cam, int step);
+	ModelForwardResults forward(Camera& cam, int step);
   void optimizersZeroGrad();
   void optimizersStep();
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
-  void afterTrain(int step);
+  void afterTrain(int step,ModelForwardResults& ForwardMeta);
   void findInvalidPoints();
 	
   void save(const std::string &filename, int step,bool keepCrs);
@@ -103,10 +120,6 @@ struct Model{
 
   OptimScheduler *meansOptScheduler = nullptr;
 
-  torch::Tensor radii; // set in forward()
-  torch::Tensor xys; // set in forward()
-  int lastHeight; // set in forward()
-  int lastWidth; // set in forward()
 
   torch::Tensor xysGradNorm; // set in afterTrain()
   torch::Tensor visCounts; // set in afterTrain()  

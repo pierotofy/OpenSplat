@@ -77,9 +77,13 @@ void Model::releaseOptimizers(){
 }
 
 
-torch::Tensor Model::forward(Camera& cam, int step){
 
-    const float scaleFactor = getDownscaleFactor(step);
+ModelForwardResults Model::forward(Camera& cam, int step)
+{
+	ModelForwardResults Results;
+	
+	const float scaleFactor = getDownscaleFactor(step);
+	
     const float fx = cam.intrinsics.fx / scaleFactor;
     const float fy = cam.intrinsics.fy / scaleFactor;
     const float cx = cam.intrinsics.cx / scaleFactor;
@@ -91,9 +95,10 @@ torch::Tensor Model::forward(Camera& cam, int step){
 	auto Rinv = cam.GetWorldToCamRotation();
 	auto Tinv = cam.GetWorldToCamTranslation();
 
-    lastHeight = height;
-    lastWidth = width;
+	Results.lastHeight = height;
+	Results.lastWidth = width;
 
+	//	camera to world transform
     torch::Tensor viewMat = torch::eye(4, device);
     viewMat.index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
     viewMat.index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
@@ -101,16 +106,17 @@ torch::Tensor Model::forward(Camera& cam, int step){
     float fovX = 2.0f * std::atan(width / (2.0f * fx));
     float fovY = 2.0f * std::atan(height / (2.0f * fy));
 
+	//	todo? should be using same projection matrix from intrinsics?
     torch::Tensor projMat = projectionMatrix(0.001f, 1000.0f, fovX, fovY, device);
-    torch::Tensor colors =  torch::cat({featuresDc.index({Slice(), None, Slice()}), featuresRest}, 1);
-
+    
+	torch::Tensor colors =  torch::cat({featuresDc.index({Slice(), None, Slice()}), featuresRest}, 1);
     torch::Tensor conics;
     torch::Tensor depths; // GPU-only
     torch::Tensor numTilesHit; // GPU-only
     torch::Tensor cov2d; // CPU-only
     torch::Tensor camDepths; // CPU-only
-    torch::Tensor rgb;
 
+	//	project splats into screen
     if (device == torch::kCPU){
         auto p = ProjectGaussiansCPU::apply(means, 
                                 torch::exp(scales), 
@@ -124,8 +130,8 @@ torch::Tensor Model::forward(Camera& cam, int step){
                                 cy,
                                 height,
                                 width);
-        xys = p[0];
-        radii = p[1];
+        Results.xys = p[0];
+		Results.radii = p[1];
         conics = p[2];
         cov2d = p[3];
         camDepths = p[4];
@@ -149,9 +155,9 @@ torch::Tensor Model::forward(Camera& cam, int step){
                         width,
                         tileBounds);
 
-        xys = p[0];
+		Results.xys = p[0];
         depths = p[1];
-        radii = p[2];
+		Results.radii = p[2];
         conics = p[3];
         numTilesHit = p[4];
         #else
@@ -159,57 +165,62 @@ torch::Tensor Model::forward(Camera& cam, int step){
         #endif
     }
     
-    xys.retain_grad();
+	Results.xys.retain_grad();
 
-    if (radii.sum().item<float>() == 0.0f)
-        return backgroundColor.repeat({height, width, 1});
+	//	is this a failure? is that why it returns all white?
+    if (Results.radii.sum().item<float>() == 0.0f)
+	{
+		Results.rgb = backgroundColor.repeat({height, width, 1});
+		return Results;
+	}
 
+	//	get each splat's direction to camera in world space
     torch::Tensor viewDirs = means.detach() - T.transpose(0, 1).to(device);
     viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
     int degreesToUse = (std::min<int>)(step / shDegreeInterval, shDegree);
-    torch::Tensor rgbs;
     
     if (device == torch::kCPU){
-        rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
+        Results.rgb = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
         #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
-        rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
+		Results.rgb = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
         #endif
     }
     
-    rgbs = torch::clamp_min(rgbs + 0.5f, 0.0f);
+	//	add 0.5 to each colour... no cap?
+	Results.rgb = torch::clamp_min(Results.rgb + 0.5f, 0.0f);
 
     if (device == torch::kCPU){
-        rgb = RasterizeGaussiansCPU::apply(
-                xys,
-                radii,
-                conics,
-                rgbs,
-                torch::sigmoid(opacities),
-                cov2d,
-                camDepths,
-                height,
-                width,
-                backgroundColor);
+        Results.rgb = RasterizeGaussiansCPU::apply(
+										   Results.xys,
+										   Results.radii,
+										   conics,
+										   Results.rgb,
+										   torch::sigmoid(opacities),
+										   cov2d,
+										   camDepths,
+										   height,
+										   width,
+										   backgroundColor);
     }else{  
         #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
-        rgb = RasterizeGaussians::apply(
-                xys,
-                depths,
-                radii,
-                conics,
-                numTilesHit,
-                rgbs,
-                torch::sigmoid(opacities),
-                height,
-                width,
-                backgroundColor);
+        Results.rgb = RasterizeGaussians::apply(
+										Results.xys,
+										depths,
+										Results.radii,
+										conics,
+										numTilesHit,
+										Results.rgb,
+										torch::sigmoid(opacities),
+										height,
+										width,
+										backgroundColor);
         #endif
     }
 
-    rgb = torch::clamp_max(rgb, 1.0f);
+    Results.rgb = torch::clamp_max(Results.rgb, 1.0f);
 
-    return rgb;
+    return Results;
 }
 
 void Model::optimizersZeroGrad(){
@@ -296,16 +307,16 @@ void Model::removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tens
     optimizer->state()[newPId] = std::move(paramState);
 }
 
-void Model::afterTrain(int step){
+void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
     torch::NoGradGuard noGrad;
 
     // When radii.sum() == 0
-    if (!xys.grad().defined()) return;
+    if (!ForwardMeta.xys.grad().defined()) return;
 
     if (step < stopSplitAt){
-        torch::Tensor visibleMask = (radii > 0).flatten();
+        torch::Tensor visibleMask = (ForwardMeta.radii > 0).flatten();
         
-        torch::Tensor grads = torch::linalg_vector_norm(xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
+        torch::Tensor grads = torch::linalg_vector_norm(ForwardMeta.xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
         if (!xysGradNorm.numel()){
             xysGradNorm = grads;
             visCounts = torch::ones_like(xysGradNorm);
@@ -315,12 +326,12 @@ void Model::afterTrain(int step){
         }
 
         if (!max2DSize.numel()){
-            max2DSize = torch::zeros_like(radii, torch::kFloat32);
+            max2DSize = torch::zeros_like(ForwardMeta.radii, torch::kFloat32);
         }
 
-        torch::Tensor newRadii = radii.detach().index({visibleMask});
+        torch::Tensor newRadii = ForwardMeta.radii.detach().index({visibleMask});
         max2DSize.index_put_({visibleMask}, torch::maximum(
-                max2DSize.index({visibleMask}), newRadii / static_cast<float>( (std::max)(lastHeight, lastWidth) )
+                max2DSize.index({visibleMask}), newRadii / static_cast<float>( std::max(ForwardMeta.lastHeight, ForwardMeta.lastWidth) )
             ));
     }
 
@@ -332,7 +343,7 @@ void Model::afterTrain(int step){
 
         if (doDensification){
             int numPointsBefore = means.size(0);
-            torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( (std::max)(lastWidth, lastHeight) );
+            torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( std::max(ForwardMeta.lastWidth, ForwardMeta.lastHeight) );
             torch::Tensor highGrads = (avgGradNorm > densifyGradThresh).squeeze();
 
             // Split gaussians that are too large
