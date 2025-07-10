@@ -1,12 +1,32 @@
 #include "optim_scheduler.hpp"
 
 
-float OptimScheduler::getLearningRate(int step){
-    float t = (std::max)((std::min)(static_cast<float>(step) / static_cast<float>(maxSteps), 1.0f), 0.0f);
-    return std::exp(std::log(lrInit) * (1.0f - t) + std::log(lrFinal) * t);
+
+OptimScheduler::OptimScheduler(std::shared_ptr<torch::optim::Adam> optimiser, float learningRateFinal, int maxSteps) :
+	optimiser(optimiser), 
+	learningRateInitial( static_cast<torch::optim::AdamOptions&>(optimiser->param_groups()[0].options()).get_lr() ), 
+	learningRateFinal(learningRateFinal), 
+	maxSteps(maxSteps) 
+{
+	if ( maxSteps <= 0 )
+	{
+		std::stringstream Error;
+		Error << "Invalid maxSteps(" << maxSteps << ") for OptimScheduler. Expected > 0";
+		throw std::runtime_error(Error.str());
+	}
 }
 
-void OptimScheduler::step(int step){
-    float lr = getLearningRate(step);
-    static_cast<torch::optim::AdamOptions&>(opt->param_groups()[0].options()).set_lr(lr);
+
+float OptimScheduler::getLearningRate(int step)
+{
+	float t = static_cast<float>(step) / static_cast<float>(maxSteps);
+	t = std::clamp( t, 0.f, 1.f );
+    return std::exp(std::log(learningRateInitial) * (1.0f - t) + std::log(learningRateFinal) * t);
+}
+
+void OptimScheduler::step(int step)
+{
+	float lr = getLearningRate(step);
+	auto& options = static_cast<torch::optim::AdamOptions&>(optimiser->param_groups()[0].options());
+	options.set_lr(lr);
 }

@@ -4,20 +4,18 @@
 #include <iostream>
 #include <torch/torch.h>
 
-class OptimScheduler{
+class OptimScheduler
+{
 public:
-    OptimScheduler(std::shared_ptr<torch::optim::Adam> opt, float lrFinal, int maxSteps) :
-        opt(opt), lrInit(
-            static_cast<torch::optim::AdamOptions&>(opt->param_groups()[0].options()).get_lr()
-        ), lrFinal(lrFinal), maxSteps(maxSteps) {};
-    void step(int step);
-    float getLearningRate(int step);
-
+	OptimScheduler(std::shared_ptr<torch::optim::Adam> optimiser, float learningRateFinal, int maxSteps);
+	void	step(int step);
+	float	getLearningRate(int step);
+	
 private:
-	std::shared_ptr<torch::optim::Adam> opt;
-    float lrInit;
-    float lrFinal;
-    int maxSteps;
+	std::shared_ptr<torch::optim::Adam> optimiser;
+	float	learningRateInitial;
+	float	learningRateFinal;
+	int		maxSteps;
 };
 
 #endif
