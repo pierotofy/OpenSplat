@@ -38,46 +38,15 @@ public:
 };
 
 
-struct Model{
-  Model(const InputData &inputData, int numCameras,
-        int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
-        int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
-        int maxSteps,
-        const torch::Device &device) :
-    numCameras(numCameras),
-    numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
-    refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(maxSteps / 2), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
-    maxSteps(maxSteps),
-    device(device), ssim(11, 3){
-
-    long long numPoints = inputData.points.xyz.size(0);
-    scale = inputData.scale;
-    translation = inputData.translation;
-
-    torch::manual_seed(42);
-
-    means = inputData.points.xyz.to(device).requires_grad_();
-    scales = PointsTensor(inputData.points.xyz).scales().repeat({1, 3}).log().to(device).requires_grad_();
-    quats = randomQuatTensor(numPoints).to(device).requires_grad_();
-
-    int dimSh = numShBases(shDegree);
-    torch::Tensor shs = torch::zeros({numPoints, dimSh, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
-
-    shs.index({Slice(), 0, Slice(None, 3)}) = rgb2sh(inputData.points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32);
-    shs.index({Slice(), Slice(1, None), Slice(3, None)}) = 0.0f;
-
-    featuresDc = shs.index({Slice(), 0, Slice()}).to(device).requires_grad_();
-    featuresRest = shs.index({Slice(), Slice(1, None), Slice()}).to(device).requires_grad_();
-    opacities = torch::logit(0.1f * torch::ones({numPoints, 1})).to(device).requires_grad_();
-    
-    backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device).requires_grad_(); // Nerf Studio default
-
-    setupOptimizers();
-  }
-
-  ~Model(){
-    releaseOptimizers();
-  }
+class Model
+{
+public:
+	Model(const InputData &inputData, int numCameras,
+		  int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
+		  int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
+		  int maxSteps,
+		  const torch::Device &device);
+	~Model();
   
   void setupOptimizers();
   void releaseOptimizers();
