@@ -102,3 +102,34 @@ Trainer& OpenSplat::GetInstance(int Instance)
 }
 
 
+
+//	todo: flip this around and return image meta into a byte buffer, to do a faster image-copy library side 
+//		and force app to do (faster) image conversion
+//	todo: provide arbritary camera extrinscs & intrinsics so we dont rely on blind camera indexes
+//	returns OpenSplat_Error_XXX
+__export enum OpenSplat_Error	OpenSplat_RenderCamera(int TrainerInstance,int CameraIndex,uint8_t* ImageRgbBuffer,int ImageRgbBufferSize,int ImageRgbWidth,int ImageRgbHeight)
+{
+	try
+	{
+		auto& Trainer = OpenSplat::GetInstance(TrainerInstance);
+		auto Image = Trainer.GetForwardImage( CameraIndex, ImageRgbWidth, ImageRgbHeight );
+		
+		//	just don't write anything, but succeed if no buffer supplied
+		if ( !ImageRgbBuffer )
+			return OpenSplat_Error_Success;
+		
+		std::span RgbPixels( ImageRgbBuffer, ImageRgbBufferSize );
+		if ( RgbPixels.size() != ImageRgbWidth * ImageRgbHeight * 3 )
+		{
+			throw std::runtime_error("Wrong size rgb buffer provided");
+		}
+		
+		std::copy( Image.mPixels.begin(), Image.mPixels.end(), RgbPixels.begin() );
+		return OpenSplat_Error_Success;
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_Error_Unknown;
+	}
+}

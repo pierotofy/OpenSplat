@@ -20,6 +20,14 @@
 //	constant for invalid instance numbers, to avoid use of magic-number 0 around code bases
 enum { OpenSplat_NullInstance=0 };
 
+enum OpenSplat_Error 
+{
+	OpenSplat_Error_Success		= 0,
+	OpenSplat_Error_Unknown		= 1,
+	OpenSplat_Error_NoInstance	= 2,
+	OpenSplat_Error_NoCamera	= 3
+};
+
 
 //	exported splat
 struct OpenSplat_Splat
@@ -36,3 +44,9 @@ struct OpenSplat_Splat
 //	deprecate this in future for pushing data - app should be repsonsible for i/o
 __export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath);
 __export void	OpenSplat_FreeInstance(int Instance);
+
+//	todo: flip this around and return image meta into a byte buffer, to do a faster image-copy library side 
+//		and force app to do (faster) image conversion
+//	todo: provide arbritary camera extrinscs & intrinsics so we dont rely on blind camera indexes
+//	returns OpenSplat_Error_XXX
+__export enum OpenSplat_Error	OpenSplat_RenderCamera(int TrainerInstance,int CameraIndex,uint8_t* ImageRgbBuffer,int ImageRgbBufferSize,int ImageRgbWidth,int ImageRgbHeight);

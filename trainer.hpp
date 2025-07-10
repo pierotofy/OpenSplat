@@ -79,6 +79,7 @@ public:
 	}
 	
 	ImagePixels			GetForwardImage(Camera& Camera,int Step);
+	ImagePixels			GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight);
 
 	//	public when ready
 protected:

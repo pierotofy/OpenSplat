@@ -136,14 +136,30 @@ int main(int argc, char *argv[])
 			
 			if ( ValidationCamera && !AppParams.valRender.empty() && AppParams.saveValidationRenderEvery > 0 && step % AppParams.saveValidationRenderEvery == 0)
 			{
-				auto image = trainer.GetForwardImage( *ValidationCamera, step );
-				auto WriteImage = [&](cv::Mat& image)
+				//	render some-image from some-camera using api (not using step, so not exact as training!)
+				if ( false )
 				{
+					cv::Mat image( 1200, 2100, CV_8UC3 );
+					int CameraIndex = 0;
+					auto rgb = std::span( image.data, image.total() * image.elemSize() );
+					std::for_each( rgb.begin(), rgb.end(), [](uint8_t& p){	p=255;	} );
+					auto Error = OpenSplat_RenderCamera( TrainerInstance, CameraIndex, rgb.data(), rgb.size_bytes(), image.cols, image.rows );
+					//	opencv expects BGR
+					cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+					cv::imwrite((fs::path(AppParams.valRender) / (std::to_string(step) + "_ApiRender.png")).string(), image);
+				}
+			
+				{
+					//	render exact step-image
+					auto image = trainer.GetForwardImage( *ValidationCamera, step );
+					auto WriteImage = [&](cv::Mat& image)
+					{
 					//	tensor image is RGB, opencv expects BGR
 					cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
-					cv::imwrite((fs::path(AppParams.valRender) / (std::to_string(step) + ".png")).string(), image);
-				};
-				image.GetCvImage(WriteImage);
+						cv::imwrite((fs::path(AppParams.valRender) / (std::to_string(step) + ".png")).string(), image);
+					};
+					image.GetCvImage(WriteImage);
+				}
 			}
 			
 			

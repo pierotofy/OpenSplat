@@ -17,7 +17,8 @@ ImagePixels::ImagePixels(const torch::Tensor& tensor)
 	torch::Tensor Tensor8 = tensor.cpu();
 
 	//	todo: allow float image to make this extraction faster
-	torch::Tensor Tensor8 = (tensor * 255.0).toType(torch::kU8);
+	Tensor8 = (Tensor8 * 255.0);
+	Tensor8 = Tensor8.toType(torch::kU8);
 
 	mHeight = Tensor8.size(0);
 	mWidth = Tensor8.size(1);
@@ -202,3 +203,25 @@ ImagePixels Trainer::GetForwardImage(Camera& Camera,int step)
 	return Image;
 }
 
+ImagePixels Trainer::GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight)
+{
+	auto& Model = GetModel();
+	if ( CameraIndex < 0 || CameraIndex >= mInputData->cameras.size() )
+	{
+		std::stringstream Error;
+		Error << "Camera index " << CameraIndex << "/" << mInputData->cameras.size() << " out of range"; 
+		throw std::runtime_error(Error.str());
+	}
+	
+	int Step = 0;
+	auto& Camera = mInputData->cameras[CameraIndex];
+	auto CameraTransform = Camera.camToWorld;
+	auto CameraIntrinsics = Camera.intrinsics;
+	CameraIntrinsics.RemoveDistortionParameters();
+	CameraIntrinsics.ScaleTo( RenderWidth, RenderHeight );
+	
+	auto ForwardResults = Model.forward( CameraTransform, CameraIntrinsics, Step );
+	
+	ImagePixels ForwardImage(ForwardResults.rgb);
+	return ForwardImage;
+}
