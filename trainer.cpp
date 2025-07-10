@@ -114,6 +114,7 @@ void Trainer::Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationF
 				numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
 				refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
 				numIters, 
+				mParams.BackgroundRgb,
 				device);
 	auto& model = *mModel;
 	/*

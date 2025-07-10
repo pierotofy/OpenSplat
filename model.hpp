@@ -45,6 +45,7 @@ public:
 		  int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
 		  int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
 		  int maxSteps,
+		  std::array<float,3> backgroundColour,
 		  const torch::Device &device);
 	~Model();
   

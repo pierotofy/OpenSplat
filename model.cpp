@@ -56,6 +56,7 @@ Model::Model(const InputData &inputData, int numCameras,
 	  int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
 	  int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
 	  int maxSteps,
+			 std::array<float,3> backgroundColour,
 	  const torch::Device &device) :
 	numCameras(numCameras),
 	numDownscales(numDownscales), 
@@ -95,7 +96,7 @@ Model::Model(const InputData &inputData, int numCameras,
 	featuresRest = shs.index({Slice(), Slice(1, None), Slice()}).to(device).requires_grad_();
 	opacities = torch::logit(0.1f * torch::ones({numPoints, 1})).to(device).requires_grad_();
 	
-	backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device).requires_grad_(); // Nerf Studio default
+	backgroundColor = torch::tensor({backgroundColour[0],backgroundColour[1],backgroundColour[2]}, device).requires_grad_();
 	
 	setupOptimizers();
 }

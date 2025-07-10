@@ -65,6 +65,8 @@ public:
 	std::string resumeFromPlyFilename;
 	bool resumeFromPlyNeedsNormalising = false;	//	keepCrs
 
+	std::array<float,3> BackgroundRgb = {0.6130f, 0.0101f, 0.3984f};	// Nerf Studio default
+	
 	
 	//	refactored params
 	bool		mForceCpuDevice = false;
