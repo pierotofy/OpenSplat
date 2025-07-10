@@ -35,7 +35,7 @@ struct OpenSplat_Splat
 	float x,y,z;
 	float opacity;
 	float scalex,scaley,scalez;
-	float rotx,roty,rotz,rotw;
+	float rotw,rotx,roty,rotz;
 	
 	//	first 3 spherical harmonics values, enough to get colour as a v1
 	float dc0,dc1,dc2;
