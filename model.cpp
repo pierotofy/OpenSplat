@@ -593,7 +593,7 @@ void Model::findInvalidPoints()
 	auto CheckPoint = [&](std::span<float> xyz,
 						  std::span<float> opacity,
 						  std::span<float> scale,
-						  std::span<float> quaternion,
+						  std::span<float> quaternionwxyz,
 						  std::span<float> dcFeatures,
 						  std::span<float> restFeatures)
 	{
@@ -602,13 +602,13 @@ void Model::findInvalidPoints()
 		FindNans(restFeatures,"restFeatures");
 		FindNans(opacity,"opacity");
 		FindNans(scale,"scale");
-		FindNans(quaternion,"quaternion");
+		FindNans(quaternionwxyz,"quaternion");
 	};
 	
 	iteratePoints( CheckPoint );
 }
 
-void Model::iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternion,std::span<float> dcfeatures,std::span<float> restfeatures)> OnFoundPoint)
+void Model::iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcfeatures,std::span<float> restfeatures)> OnFoundPoint)
 {
 	int numPoints = means.size(0);
 	
