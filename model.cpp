@@ -108,25 +108,26 @@ Model::~Model()
 void Model::setupOptimizers(){
     releaseOptimizers();
 
-    meansOpt = new torch::optim::Adam({means}, torch::optim::AdamOptions(0.00016));
-    scalesOpt = new torch::optim::Adam({scales}, torch::optim::AdamOptions(0.005));
-    quatsOpt = new torch::optim::Adam({quats}, torch::optim::AdamOptions(0.001));
-    featuresDcOpt = new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025));
-    featuresRestOpt = new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125));
-    opacitiesOpt = new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05));
-
-    meansOptScheduler = new OptimScheduler(meansOpt, 0.0000016f, maxSteps);
+	meansOpt.reset( new torch::optim::Adam({means}, torch::optim::AdamOptions(0.00016)) );
+	scalesOpt.reset( new torch::optim::Adam({scales}, torch::optim::AdamOptions(0.005)) );
+	quatsOpt.reset( new torch::optim::Adam({quats}, torch::optim::AdamOptions(0.001)) );
+	featuresDcOpt.reset( new torch::optim::Adam({featuresDc}, torch::optim::AdamOptions(0.0025)) );
+	featuresRestOpt.reset( new torch::optim::Adam({featuresRest}, torch::optim::AdamOptions(0.000125)) );
+	opacitiesOpt.reset( new torch::optim::Adam({opacities}, torch::optim::AdamOptions(0.05)) );
+	meansOptScheduler.reset( new OptimScheduler(meansOpt, 0.0000016f, maxSteps) );
 }
 
-void Model::releaseOptimizers(){
-    RELEASE_SAFELY(meansOpt);
-    RELEASE_SAFELY(scalesOpt);
-    RELEASE_SAFELY(quatsOpt);
-    RELEASE_SAFELY(featuresDcOpt);
-    RELEASE_SAFELY(featuresRestOpt);
-    RELEASE_SAFELY(opacitiesOpt);
-
-    RELEASE_SAFELY(meansOptScheduler);
+void Model::releaseOptimizers()
+{
+	//	here in case they need to be released in order...
+	meansOpt.reset();
+	scalesOpt.reset();
+	quatsOpt.reset();
+	featuresDcOpt.reset();
+	featuresRestOpt.reset();
+	opacitiesOpt.reset();
+	
+	meansOptScheduler.reset();
 }
 
 
@@ -302,14 +303,14 @@ int Model::getDownscaleFactor(int step){
     return std::pow(2, (std::max<int>)(numDownscales - step / resolutionSchedule, 0));
 }
 
-void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples){
-    torch::Tensor param = optimizer->param_groups()[0].params()[0];
+void Model::addToOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples){
+    torch::Tensor param = optimizer.param_groups()[0].params()[0];
 #if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto pId = param.unsafeGetTensorImpl();
 #else
     auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
 #endif
-    auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
+    auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer.state()[pId]));
     
     std::vector<int64_t> repeats;
     repeats.push_back(nSamples);
@@ -327,37 +328,37 @@ void Model::addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &n
         torch::zeros_like(paramState->exp_avg_sq().index({idcs.squeeze()})).repeat(repeats)
     }, 0));
 
-    optimizer->state().erase(pId);
+    optimizer.state().erase(pId);
 
 #if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto newPId = newParam.unsafeGetTensorImpl();
 #else
     auto newPId = c10::guts::to_string(newParam.unsafeGetTensorImpl());
 #endif    
-    optimizer->state()[newPId] = std::move(paramState);
-    optimizer->param_groups()[0].params()[0] = newParam;
+    optimizer.state()[newPId] = std::move(paramState);
+    optimizer.param_groups()[0].params()[0] = newParam;
 }
 
-void Model::removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask){
-    torch::Tensor param = optimizer->param_groups()[0].params()[0];
+void Model::removeFromOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask){
+    torch::Tensor param = optimizer.param_groups()[0].params()[0];
 #if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto pId = param.unsafeGetTensorImpl();
 #else
     auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
 #endif
-    auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer->state()[pId]));
+    auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*optimizer.state()[pId]));
 
     paramState->exp_avg(paramState->exp_avg().index({~deletedMask}));
     paramState->exp_avg_sq(paramState->exp_avg_sq().index({~deletedMask}));
 
-    optimizer->state().erase(pId);
+    optimizer.state().erase(pId);
 #if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
     auto newPId = newParam.unsafeGetTensorImpl();
 #else
     auto newPId = c10::guts::to_string(newParam.unsafeGetTensorImpl());
 #endif
-    optimizer->param_groups()[0].params()[0] = newParam;
-    optimizer->state()[newPId] = std::move(paramState);
+    optimizer.param_groups()[0].params()[0] = newParam;
+    optimizer.state()[newPId] = std::move(paramState);
 }
 
 void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
@@ -451,20 +452,20 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 
             torch::Tensor splitIdcs = torch::where(splits)[0];
 
-            addToOptimizer(meansOpt, means, splitIdcs, nSplitSamples);
-            addToOptimizer(scalesOpt, scales, splitIdcs, nSplitSamples);
-            addToOptimizer(quatsOpt, quats, splitIdcs, nSplitSamples);
-            addToOptimizer(featuresDcOpt, featuresDc, splitIdcs, nSplitSamples);
-            addToOptimizer(featuresRestOpt, featuresRest, splitIdcs, nSplitSamples);
-            addToOptimizer(opacitiesOpt, opacities, splitIdcs, nSplitSamples);
+			addToOptimizer(*meansOpt, means, splitIdcs, nSplitSamples);
+            addToOptimizer(*scalesOpt, scales, splitIdcs, nSplitSamples);
+            addToOptimizer(*quatsOpt, quats, splitIdcs, nSplitSamples);
+            addToOptimizer(*featuresDcOpt, featuresDc, splitIdcs, nSplitSamples);
+            addToOptimizer(*featuresRestOpt, featuresRest, splitIdcs, nSplitSamples);
+            addToOptimizer(*opacitiesOpt, opacities, splitIdcs, nSplitSamples);
             
             torch::Tensor dupIdcs = torch::where(dups)[0];
-            addToOptimizer(meansOpt, means, dupIdcs, 1);
-            addToOptimizer(scalesOpt, scales, dupIdcs, 1);
-            addToOptimizer(quatsOpt, quats, dupIdcs, 1);
-            addToOptimizer(featuresDcOpt, featuresDc, dupIdcs, 1);
-            addToOptimizer(featuresRestOpt, featuresRest, dupIdcs, 1);
-            addToOptimizer(opacitiesOpt, opacities, dupIdcs, 1);
+            addToOptimizer(*meansOpt, means, dupIdcs, 1);
+            addToOptimizer(*scalesOpt, scales, dupIdcs, 1);
+            addToOptimizer(*quatsOpt, quats, dupIdcs, 1);
+            addToOptimizer(*featuresDcOpt, featuresDc, dupIdcs, 1);
+            addToOptimizer(*featuresRestOpt, featuresRest, dupIdcs, 1);
+            addToOptimizer(*opacitiesOpt, opacities, dupIdcs, 1);
 
             splitsMask = torch::cat({
                 splits,
@@ -502,12 +503,12 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
                 featuresRest = featuresRest.index({~culls}).detach().requires_grad_();
                 opacities = opacities.index({~culls}).detach().requires_grad_();
 
-                removeFromOptimizer(meansOpt, means, culls);
-                removeFromOptimizer(scalesOpt, scales, culls);
-                removeFromOptimizer(quatsOpt, quats, culls);
-                removeFromOptimizer(featuresDcOpt, featuresDc, culls);
-                removeFromOptimizer(featuresRestOpt, featuresRest, culls);
-                removeFromOptimizer(opacitiesOpt, opacities, culls);
+                removeFromOptimizer(*meansOpt, means, culls);
+                removeFromOptimizer(*scalesOpt, scales, culls);
+                removeFromOptimizer(*quatsOpt, quats, culls);
+                removeFromOptimizer(*featuresDcOpt, featuresDc, culls);
+                removeFromOptimizer(*featuresRestOpt, featuresRest, culls);
+                removeFromOptimizer(*opacitiesOpt, opacities, culls);
                 
                 std::cout << "Culled " << (numPointsBefore - means.size(0)) << " gaussians, remaining " << means.size(0) << std::endl;
             }

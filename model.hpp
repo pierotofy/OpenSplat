@@ -71,8 +71,8 @@ public:
 	
   torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
-  void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
-  void removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
+  void addToOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
+  void removeFromOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
   torch::Tensor means;
   torch::Tensor scales;
   torch::Tensor quats;
@@ -80,14 +80,14 @@ public:
   torch::Tensor featuresRest;
   torch::Tensor opacities;
 
-  torch::optim::Adam *meansOpt = nullptr;
-  torch::optim::Adam *scalesOpt = nullptr;
-  torch::optim::Adam *quatsOpt = nullptr;
-  torch::optim::Adam *featuresDcOpt = nullptr;
-  torch::optim::Adam *featuresRestOpt = nullptr;
-  torch::optim::Adam *opacitiesOpt = nullptr;
+	std::shared_ptr<torch::optim::Adam> meansOpt;
+	std::shared_ptr<torch::optim::Adam> scalesOpt;
+	std::shared_ptr<torch::optim::Adam> quatsOpt;
+	std::shared_ptr<torch::optim::Adam> featuresDcOpt;
+	std::shared_ptr<torch::optim::Adam> featuresRestOpt;
+	std::shared_ptr<torch::optim::Adam> opacitiesOpt;
 
-  OptimScheduler *meansOptScheduler = nullptr;
+	std::shared_ptr<OptimScheduler> meansOptScheduler;
 
 
   torch::Tensor xysGradNorm; // set in afterTrain()

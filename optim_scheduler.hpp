@@ -6,7 +6,7 @@
 
 class OptimScheduler{
 public:
-    OptimScheduler(torch::optim::Adam *opt, float lrFinal, int maxSteps) :
+    OptimScheduler(std::shared_ptr<torch::optim::Adam> opt, float lrFinal, int maxSteps) :
         opt(opt), lrInit(
             static_cast<torch::optim::AdamOptions&>(opt->param_groups()[0].options()).get_lr()
         ), lrFinal(lrFinal), maxSteps(maxSteps) {};
@@ -14,7 +14,7 @@ public:
     float getLearningRate(int step);
 
 private:
-    torch::optim::Adam *opt;
+	std::shared_ptr<torch::optim::Adam> opt;
     float lrInit;
     float lrFinal;
     int maxSteps;

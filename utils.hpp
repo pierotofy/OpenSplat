@@ -8,8 +8,6 @@
 #include <thread>
 #include <functional>
 
-#define RELEASE_SAFELY(__POINTER) { if (__POINTER != nullptr) { delete __POINTER; __POINTER = nullptr; } }
-
 
 template <typename T>
 class InfiniteRandomIterator
