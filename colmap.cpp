@@ -144,7 +144,7 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
     ret.scale = std::get<2>(r);
 
     for (size_t i = 0; i < ret.cameras.size(); i++){
-        ret.cameras[i].camToWorld = poses[i];
+        ret.cameras[i].camToWorld.camToWorld = poses[i];
     }
 
     PointSet *pSet = readPointSet(pointsPath.string());

@@ -52,6 +52,7 @@ public:
   void releaseOptimizers();
 
 	ModelForwardResults forward(Camera& cam, int step);
+	ModelForwardResults forward(CameraTransform& CameraToWorldTransform,CameraIntrinsics RenderIntrinsics,int step);
   void optimizersZeroGrad();
   void optimizersStep();
   void schedulersStep(int step);

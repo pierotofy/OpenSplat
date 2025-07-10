@@ -132,22 +132,42 @@ void Model::releaseOptimizers()
 
 
 
-ModelForwardResults Model::forward(Camera& cam, int step)
+ModelForwardResults Model::forward(Camera& cam,int step)
 {
 	ModelForwardResults Results;
 	
 	const float scaleFactor = getDownscaleFactor(step);
 	
-    const float fx = cam.intrinsics.fx / scaleFactor;
-    const float fy = cam.intrinsics.fy / scaleFactor;
-    const float cx = cam.intrinsics.cx / scaleFactor;
-    const float cy = cam.intrinsics.cy / scaleFactor;
-    const int height = static_cast<int>(static_cast<float>(cam.intrinsics.imageHeight) / scaleFactor);
-    const int width = static_cast<int>(static_cast<float>(cam.intrinsics.imageWidth) / scaleFactor);
+	CameraIntrinsics renderIntrinsics = cam.intrinsics;
+	
+	renderIntrinsics.fx /= scaleFactor;
+	renderIntrinsics.fy /= scaleFactor;
+	renderIntrinsics.cx /= scaleFactor;
+	renderIntrinsics.cy /= scaleFactor;
+	renderIntrinsics.imageWidth /= scaleFactor;
+	renderIntrinsics.imageHeight /= scaleFactor;
+	
+	return forward( cam.camToWorld, renderIntrinsics, step );
+}
 
-	auto T = cam.GetCamToWorldTranslation();
-	auto Rinv = cam.GetWorldToCamRotation();
-	auto Tinv = cam.GetWorldToCamTranslation();
+
+ModelForwardResults Model::forward(CameraTransform& CameraTransform,CameraIntrinsics renderIntrinsics,int step)
+{
+	ModelForwardResults Results;
+
+	//	expecting to already be scaled down now
+	//const float scaleFactor = getDownscaleFactor(step);
+	
+	const float fx = renderIntrinsics.fx;
+	const float fy = renderIntrinsics.fy;
+	const float cx = renderIntrinsics.cx;
+	const float cy = renderIntrinsics.cy;
+	const int height = static_cast<int>( renderIntrinsics.imageHeight );
+	const int width = static_cast<int>( renderIntrinsics.imageWidth );
+	
+	auto T = CameraTransform.GetCamToWorldTranslation();
+	auto Rinv = CameraTransform.GetWorldToCamRotation();
+	auto Tinv = CameraTransform.GetWorldToCamTranslation();
 
 	Results.lastHeight = height;
 	Results.lastWidth = width;
@@ -221,7 +241,7 @@ ModelForwardResults Model::forward(Camera& cam, int step)
     
 	Results.xys.retain_grad();
 
-	//	is this a failure? is that why it returns all white?
+	//	is this a failure? no splats present??
     if (Results.radii.sum().item<float>() == 0.0f)
 	{
 		Results.rgb = backgroundColor.repeat({height, width, 1});
@@ -910,7 +930,22 @@ int Model::loadPly(const std::string &filename,bool modelPointsNeedToBeNormalise
     throw std::runtime_error("Invalid PLY file");
 }
 
-torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight){
+torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight)
+{
+	//	catch error before torch and give a much clearer error
+	auto RgbHeight = rgb.size(0);
+	auto RgbWidth = rgb.size(1);
+	auto RgbComponents = rgb.size(2);
+	auto GroundTruthHeight = gt.size(0);
+	auto GroundTruthWidth = gt.size(1);
+	auto GroundTruthComponents = gt.size(2);
+	if ( RgbWidth != GroundTruthWidth || RgbHeight != GroundTruthHeight || RgbComponents != GroundTruthComponents )
+	{
+		std::stringstream Error;
+		Error << "Cannot calculate loss between image(" << RgbWidth << "x" << RgbHeight << "x" << RgbComponents << ") and ground truth (" << GroundTruthWidth << "x" << GroundTruthHeight << "x" << GroundTruthComponents << ") of different sizes";
+		throw std::runtime_error(Error.str());
+	}
+	
     torch::Tensor ssimLoss = 1.0f - ssim.eval(rgb, gt);
     torch::Tensor l1Loss = l1(rgb, gt);
     return (1.0f - ssimWeight) * l1Loss + ssimWeight * ssimLoss;

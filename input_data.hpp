@@ -26,7 +26,24 @@ struct CameraIntrinsics
 	float p1 = 0;
 	float p2 = 0;
 	
-	torch::Tensor	GetProjectionMatrix() const;
+	bool				HasDistortionParameters();
+	//	todo: return std::array<8>
+	std::vector<float>	GetOpencvUndistortionParameters();	//	opencv distortion coefficients
+	void				RemoveDistortionParameters();		//	remove the _values_, but without undistorting the image
+	void				ScaleTo(int Width,int Height);
+	torch::Tensor		GetProjectionMatrix() const;
+	
+};
+
+class CameraTransform
+{
+public:
+	torch::Tensor	camToWorld;		//	todo: initialise to identity!
+	
+	torch::Tensor	GetCamToWorldRotation();
+	torch::Tensor	GetCamToWorldTranslation();
+	torch::Tensor	GetWorldToCamRotation();
+	torch::Tensor	GetWorldToCamTranslation();
 };
 
 enum CameraType { Perspective };
@@ -40,7 +57,7 @@ struct Camera
 	int id = -1;
 	CameraIntrinsics intrinsics;
    
-    torch::Tensor camToWorld;
+	CameraTransform camToWorld;
     std::string filePath = "";
     CameraType cameraType = CameraType::Perspective;
 
@@ -50,13 +67,6 @@ struct Camera
     std::unordered_map<int, torch::Tensor> imagePyramids;
 	
 	torch::Tensor		getIntrinsicsMatrix();
-	bool				hasDistortionParameters();
-	std::vector<float>	undistortionParameters();	//	opencv distortion coefficients
-	
-	torch::Tensor		GetCamToWorldRotation();
-	torch::Tensor		GetCamToWorldTranslation();
-	torch::Tensor		GetWorldToCamRotation();
-	torch::Tensor		GetWorldToCamTranslation();
 	
 	torch::Tensor		getImage(int downscaleFactor);
 	void				loadImageFromFilename(float downscaleFactor);	//	refactor this; dont make Camera responsible for i/o
@@ -78,6 +88,11 @@ struct InputData
     std::tuple<std::vector<Camera>, Camera *> getCameras(bool validate, const std::string &valImage = std::string(TrainerParams::randomValidationImageName) );
 
     void saveCameras(const std::string &filename, bool keepCrs);
+	
+	//	this finds the center & bounds of the camera poses and moves all
+	//	points to be centered in the middle. It then normalises all points to be -1...1
+	//	transform is saved to scale&translation for future restoration
+	void NormalisePoints();
 };
 // The colmapImageSourcePath is only used in Colmap. In other methods, this path is ignored.
 InputData inputDataFromX(const std::string& projectRoot, const std::string& colmapImageSourcePath = "");

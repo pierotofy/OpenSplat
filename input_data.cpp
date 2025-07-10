@@ -40,6 +40,45 @@ Camera::Camera(CameraIntrinsics intrinsics,
 {
 }
 
+void CameraIntrinsics::RemoveDistortionParameters()
+{
+	k1 = 0;
+	k2 = 0;
+	k3 = 0;
+	p1 = 0;
+	p2 = 0;
+}
+
+void CameraIntrinsics::ScaleTo(int Width,int Height)
+{
+	//	allowing x & y scale is going to mess up distortion parameters
+	//	this would be fine for forward rendering (which doesnt distort)
+	//	if there are distortion values here for record of the original camera
+	//	they should really have been zeroed out already if they no longer apply
+	//	to the image they're attached to
+	if ( HasDistortionParameters() )
+		throw std::runtime_error("Cannot scale CameraIntrinsics which have distortion parameters");
+	
+	if ( Width <= 0 || Height <= 0 )
+	{
+		std::stringstream Error;
+		Error << "Cannot scale CameraIntrinsics to " << Width << "x" << Height;
+		throw std::runtime_error(Error.str());
+	}
+
+	float scalex = static_cast<float>(Width) / imageWidth; 
+	float scaley = static_cast<float>(Height) / imageHeight; 
+	
+	fx *= scalex;
+	fy *= scaley;
+	cx *= scalex;
+	cy *= scaley;
+	imageWidth *= scalex;
+	imageHeight *= scaley;
+	
+	imageWidth = Width;
+	imageHeight = Height;
+}
 
 torch::Tensor CameraIntrinsics::GetProjectionMatrix() const
 {
@@ -49,7 +88,7 @@ torch::Tensor CameraIntrinsics::GetProjectionMatrix() const
 }
 
 
-torch::Tensor Camera::GetCamToWorldRotation()
+torch::Tensor CameraTransform::GetCamToWorldRotation()
 {
 	torch::Tensor R = camToWorld.index({Slice(None, 3), Slice(None, 3)});
 	
@@ -60,7 +99,7 @@ torch::Tensor Camera::GetCamToWorldRotation()
 }
 
 
-torch::Tensor Camera::GetWorldToCamRotation()
+torch::Tensor CameraTransform::GetWorldToCamRotation()
 {
 	torch::Tensor R = GetCamToWorldRotation();
 	
@@ -70,7 +109,7 @@ torch::Tensor Camera::GetWorldToCamRotation()
 }
 
 
-torch::Tensor Camera::GetWorldToCamTranslation()
+torch::Tensor CameraTransform::GetWorldToCamTranslation()
 {
 	auto Rinv = GetWorldToCamRotation();
 	
@@ -79,7 +118,7 @@ torch::Tensor Camera::GetWorldToCamTranslation()
 	return Tinv;
 }
 
-torch::Tensor Camera::GetCamToWorldTranslation()
+torch::Tensor CameraTransform::GetCamToWorldTranslation()
 {
 	torch::Tensor T = camToWorld.index({Slice(None, 3), Slice(3,4)});
 	return T;
@@ -134,9 +173,9 @@ void Camera::loadImage(cv::Mat& RgbPixels,float downscaleFactor)
 	projectionMatrix = intrinsics.GetProjectionMatrix();
     cv::Rect roi;
 
-    if (hasDistortionParameters()){
+    if (intrinsics.HasDistortionParameters()){
         // Undistort with opencv
-        std::vector<float> distCoeffs = undistortionParameters();
+        std::vector<float> distCoeffs = intrinsics.GetOpencvUndistortionParameters();
         cv::Mat cK = floatNxNtensorToMat(projectionMatrix);
         cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
 
@@ -182,12 +221,12 @@ torch::Tensor Camera::getImage(int downscaleFactor){
     }
 }
 
-bool Camera::hasDistortionParameters(){
-    return intrinsics.k1 != 0.0f || intrinsics.k2 != 0.0f || intrinsics.k3 != 0.0f || intrinsics.p1 != 0.0f || intrinsics.p2 != 0.0f;
+bool CameraIntrinsics::HasDistortionParameters(){
+    return k1 != 0.0f || k2 != 0.0f || k3 != 0.0f || p1 != 0.0f || p2 != 0.0f;
 }
 
-std::vector<float> Camera::undistortionParameters(){
-    std::vector<float> p = { intrinsics.k1, intrinsics.k2, intrinsics.p1, intrinsics.p2, intrinsics.k3, 0.0f, 0.0f, 0.0f };
+std::vector<float> CameraIntrinsics::GetOpencvUndistortionParameters(){
+    std::vector<float> p = { k1, k2, p1, p2, k3, 0.0f, 0.0f, 0.0f };
     return p;
 }
 
@@ -240,9 +279,9 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
         camera["fx"] = cam.intrinsics.fx;
         camera["fy"] = cam.intrinsics.fy;
 
-		torch::Tensor R = cam.GetCamToWorldRotation();
+		torch::Tensor R = cam.camToWorld.GetCamToWorldRotation();
 		//	gr: what is squeeze()? 
-        torch::Tensor T = cam.GetCamToWorldTranslation().squeeze();
+        torch::Tensor T = cam.camToWorld.GetCamToWorldTranslation().squeeze();
         
         //	undo centering transform applied when loading data
         if (keepCrs) 
