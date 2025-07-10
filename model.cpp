@@ -662,16 +662,17 @@ void Model::savePly(const std::string &filename, int step,bool keepCrs){
 
 	Ply::WriteParams WriteParams;
 	WriteParams.PointCount = PointCount;
-	WriteParams.FeatureDcCount = featuresDc.size(1);
-	WriteParams.FeatureRestCount = featuresRestCpu.size(1);
+
+	auto FeatureDcCount = featuresDc.size(1);
+	auto FeatureRestCount = featuresRestCpu.size(1);
 
 	auto GetPoint = [&](int Index)
 	{
 		SplatElement Point;
 		
 		std::span xyz( reinterpret_cast<float*>( meansCpu[Index].data_ptr() ), 3 );
-		std::span dcFeatures( reinterpret_cast<float*>( featuresDcCpu[Index].data_ptr() ), WriteParams.FeatureDcCount );
-		std::span restFeatures( reinterpret_cast<float*>(featuresRestCpu[Index].data_ptr()), WriteParams.FeatureRestCount );
+		std::span dcFeatures( reinterpret_cast<float*>( featuresDcCpu[Index].data_ptr() ), FeatureDcCount );
+		std::span restFeatures( reinterpret_cast<float*>(featuresRestCpu[Index].data_ptr()), FeatureRestCount );
 		std::span opacity( reinterpret_cast<float*>(opacitiesCpu[Index].data_ptr()), 2 );
 		std::span scale( reinterpret_cast<float*>(scalesCpu[Index].data_ptr()), 3 );
 		std::span quaternion( reinterpret_cast<float*>(quatsCpu[Index].data_ptr()), 4 );
@@ -688,7 +689,7 @@ void Model::savePly(const std::string &filename, int step,bool keepCrs){
 		Point.Splat.rotw = quaternion[0];
 		Point.Splat.opacity = opacity[0];
 		
-		Point.FeatureDcs = dcFeatures;
+		Point.OverrideFeatureDcs = dcFeatures;
 		Point.FeatureRests = restFeatures;
 		
 		return Point;

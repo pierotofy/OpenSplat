@@ -4,6 +4,7 @@
 #include <functional>
 #include "trainer_params.hpp"
 #include <random>
+#include "trainer_api.h"
 
 class Model;
 class Camera;
@@ -78,8 +79,9 @@ public:
 		return *mInputData;	
 	}
 	
-	ImagePixels			GetForwardImage(Camera& Camera,int Step);
-	ImagePixels			GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight);
+	std::vector<OpenSplat_Splat>	GetModelSplats();
+	ImagePixels						GetForwardImage(Camera& Camera,int Step);
+	ImagePixels						GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight);
 
 	//	public when ready
 protected:

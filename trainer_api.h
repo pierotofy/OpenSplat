@@ -45,6 +45,10 @@ struct OpenSplat_Splat
 __export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath);
 __export void	OpenSplat_FreeInstance(int Instance);
 
+
+//	returns number of points in model (which can be more or less than buffer size)
+__export int					OpenSplat_GetSnapshot(int TrainerInstance,struct OpenSplat_Splat* SplatBuffer,int SplatBufferCount);
+
 //	todo: flip this around and return image meta into a byte buffer, to do a faster image-copy library side 
 //		and force app to do (faster) image conversion
 //	todo: provide arbritary camera extrinscs & intrinsics so we dont rely on blind camera indexes

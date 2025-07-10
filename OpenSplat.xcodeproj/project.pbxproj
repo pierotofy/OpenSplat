@@ -25,11 +25,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		BF0155722E1D530200994B91 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAA27192E1D4B8B0006AEAA /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAA559E2E1D241F0006AEAA /* OpenSplat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSplat.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFAA57E72E1D25500006AEAA /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAA59B72E1D27510006AEAA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		BFAA59B82E1D27510006AEAA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/MetalKit.framework; sourceTree = DEVELOPER_DIR; };
+		BFAD08172E1E7C3300301BF0 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -46,6 +48,7 @@
 				opensfm.cpp,
 				opensplat.cpp,
 				optim_scheduler.cpp,
+				ply.cpp,
 				point_io.cpp,
 				project_gaussians.cpp,
 				rasterize_gaussians.cpp,
@@ -55,6 +58,7 @@
 				spherical_harmonics.cpp,
 				ssim.cpp,
 				tensor_math.cpp,
+				trainer_api.cpp,
 				trainer_params.cpp,
 				trainer.cpp,
 				utils.cpp,
@@ -128,6 +132,11 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		BF01558D2E1D530200994B91 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		BFAA27322E1D4B8B0006AEAA /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -172,6 +181,11 @@
 			children = (
 			);
 			path = x;
+			sourceTree = "<group>";
+		};
+		BFAD08322E1E7C3300301BF0 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -227,8 +241,16 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
+					ProductGroup = BF01558D2E1D530200994B91 /* Products */;
+					ProjectRef = BF0155722E1D530200994B91 /* OpenSplat.xcodeproj */;
+				},
+				{
 					ProductGroup = BFAA27322E1D4B8B0006AEAA /* Products */;
 					ProjectRef = BFAA27192E1D4B8B0006AEAA /* OpenSplat.xcodeproj */;
+				},
+				{
+					ProductGroup = BFAD08322E1E7C3300301BF0 /* Products */;
+					ProjectRef = BFAD08172E1E7C3300301BF0 /* OpenSplat.xcodeproj */;
 				},
 				{
 					ProductGroup = BFAA57FE2E1D25500006AEAA /* Products */;

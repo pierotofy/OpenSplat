@@ -80,7 +80,6 @@ void Trainer::Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationF
 	auto& resolutionSchedule = Params.resolutionSchedule;
 	auto& shDegree = Params.shDegree;
 	auto& shDegreeInterval = Params.shDegreeInterval;
-	auto& ssimWeight = Params.ssimWeight;
 	auto& refineEvery = Params.refineEvery;
 	auto& warmupLength = Params.warmupLength;
 	auto& resetAlphaEvery = Params.resetAlphaEvery;
@@ -88,7 +87,6 @@ void Trainer::Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationF
 	auto& densifySizeThresh = Params.densifySizeThresh;
 	auto& stopScreenSizeAt = Params.stopScreenSizeAt;
 	auto& splitScreenSize = Params.splitScreenSize;
-	auto ForceCpuDevice = Params.mForceCpuDevice;
 	
 	auto device = GetDevice();
 	if ( device == torch::kCUDA )
@@ -226,3 +224,44 @@ ImagePixels Trainer::GetForwardImage(int CameraIndex,int RenderWidth,int RenderH
 	ImagePixels ForwardImage(ForwardResults.rgb);
 	return ForwardImage;
 }
+
+std::vector<OpenSplat_Splat> Trainer::GetModelSplats()
+{
+	auto& Model = GetModel();
+
+	std::vector<OpenSplat_Splat> Splats;
+
+	auto OnSplat = [&](std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcFeatures,std::span<float> restFeatures)
+	{
+		OpenSplat_Splat Splat;
+		Splat.x = xyz[0];
+		Splat.y = xyz[1];
+		Splat.z = xyz[2];
+		Splat.scalex = scale[0];
+		Splat.scaley = scale[1];
+		Splat.scalez = scale[2];
+		//	note quaternion order
+		Splat.rotx = quaternionwxyz[1];
+		Splat.roty = quaternionwxyz[2];
+		Splat.rotz = quaternionwxyz[3];
+		Splat.rotw = quaternionwxyz[0];
+		Splat.opacity = opacity[0];
+		
+		Splat.dc0 = 0;
+		Splat.dc1 = 0;
+		Splat.dc2 = 0;
+		if ( dcFeatures.size() > 0 )
+			Splat.dc0 = dcFeatures[0];
+		if ( dcFeatures.size() > 1 )
+			Splat.dc1 = dcFeatures[1];
+		if ( dcFeatures.size() > 2 )
+			Splat.dc2 = dcFeatures[2];
+		
+		Splats.emplace_back(Splat);
+	};
+
+	Model.iteratePoints(OnSplat);
+	
+	return Splats;
+}
+

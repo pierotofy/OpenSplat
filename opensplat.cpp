@@ -8,6 +8,7 @@
 #include <cxxopts.hpp>
 #include "trainer_params.hpp"
 #include "trainer.hpp"
+#include "ply.hpp"
 
 #ifdef USE_VISUALIZATION
 #include "visualizer.hpp"
@@ -18,6 +19,39 @@
 namespace OpenSplat
 {
 	Trainer&	GetInstance(int Instance);
+}
+
+
+template <typename T>
+std::basic_string<T> lowercase(const std::basic_string<T>& s)
+{
+	std::basic_string<T> s2 = s;
+	std::transform(s2.begin(), s2.end(), s2.begin(),
+				   [](const T v){ return static_cast<T>(std::tolower(v)); });
+	return s2;
+}
+
+
+void WriteTrainerPly(std::filesystem::path Filename,int TrainerInstance,int Step)
+{
+	std::vector<OpenSplat_Splat> Splats( 1000 );
+	auto GetSplat = [&](int Index)
+	{
+		SplatElement Element;
+		Element.Splat = Splats[Index];
+		return Element;
+	};
+	
+	auto SplatCount = OpenSplat_GetSnapshot(TrainerInstance, Splats.data(), Splats.size() );
+	SplatCount = std::min<int>( SplatCount, Splats.size() );
+	
+	std::ofstream File(Filename,std::ios::binary);
+	Ply::WriteParams Params;
+	Params.PointCount = SplatCount;
+	Params.Comment = std::string("OpenSplat at step ") + std::to_string(Step);
+	
+	Ply::Write( File, Params, GetSplat );
+	File.close();
 }
 
 
@@ -130,7 +164,17 @@ int main(int argc, char *argv[])
 			{
 				auto Suffix = std::string("_") + std::to_string(step);
 				auto OutputFilename = AppParams.GetOutputModelFilenameWithSuffix(Suffix);
-				model.save( OutputFilename, step, AppParams.keepCrs );
+
+				//	use api and explicitly write ply
+				auto ext = lowercase( OutputFilename.extension().string() );
+				if ( ext == ".ply" )
+				{
+					WriteTrainerPly( OutputFilename, TrainerInstance, step );
+				}
+				else
+				{
+					model.save( OutputFilename, step, AppParams.keepCrs );
+				}
 			}
 			
 			

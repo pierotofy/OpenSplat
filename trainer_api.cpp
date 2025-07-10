@@ -133,3 +133,31 @@ __export enum OpenSplat_Error	OpenSplat_RenderCamera(int TrainerInstance,int Cam
 		return OpenSplat_Error_Unknown;
 	}
 }
+
+//	returns number of points in model (which can be more or less than buffer size)
+__export int OpenSplat_GetSnapshot(int TrainerInstance,struct OpenSplat_Splat* SplatBuffer,int SplatBufferCount)
+{
+	try
+	{
+		auto& Trainer = OpenSplat::GetInstance(TrainerInstance);
+		auto Splats = Trainer.GetModelSplats();
+		
+		//	dont fail, but still return info
+		if ( !SplatBuffer )
+			return static_cast<int>(Splats.size());
+		
+		int CopyCount = std::min<int>(SplatBufferCount,Splats.size());
+		for ( int i=0;	i<CopyCount;	i++ )
+		{
+			auto& Src = Splats[i];
+			SplatBuffer[i] = Src;
+		}
+		
+		return static_cast<int>(Splats.size());
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return 0;
+	}
+}

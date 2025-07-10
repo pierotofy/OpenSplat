@@ -15,6 +15,9 @@ void Ply::Write(std::ostream& Output,WriteParams Params,std::function<SplatEleme
 	
 	auto& o = Output;
 	
+	//	grab first element to get dc/rest feature count
+	SplatElement FirstElement = Params.PointCount > 0 ? GetSplatByIndex(0) : SplatElement{};
+	
 	//	todo: sanitise Comment to remove line feeds
 	
 	o << "ply" << std::endl;
@@ -32,13 +35,13 @@ void Ply::Write(std::ostream& Output,WriteParams Params,std::function<SplatEleme
 		o << "property float nz" << std::endl;
 	}
 	
-	for ( int i=0;	i<Params.FeatureDcCount;	i++)
+	for ( int i=0;	i<FirstElement.FeatureDcs().size();	i++)
 	{
 		o << "property float f_dc_" << i << std::endl;
 	}
 	
 	// Match Inria's version
-	for (int i = 0; i <Params.FeatureRestCount; i++)
+	for (int i = 0; i <FirstElement.FeatureRests.size(); i++)
 	{
 		o << "property float f_rest_" << i << std::endl;
 	}
@@ -74,12 +77,7 @@ void Ply::Write(std::ostream& Output,WriteParams Params,std::function<SplatEleme
 			Write( Element.Normal3() );
 		}
 		
-		if ( Element.FeatureDcs.size() != Params.FeatureDcCount )
-			throw std::runtime_error("DC Feature count mismatch");
-		Write( Element.FeatureDcs );
-		
-		if ( Element.FeatureRests.size() != Params.FeatureRestCount )
-			throw std::runtime_error("Rest Feature count mismatch");
+		Write( Element.FeatureDcs() );
 		Write( Element.FeatureRests );
 		
 		Write( Element.Opacity() );
