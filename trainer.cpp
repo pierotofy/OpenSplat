@@ -14,6 +14,7 @@
 ImagePixels::ImagePixels(const torch::Tensor& tensor)
 {
 	//	from tensorToImage()
+	torch::Tensor Tensor8 = tensor.cpu();
 
 	//	todo: allow float image to make this extraction faster
 	torch::Tensor Tensor8 = (tensor * 255.0).toType(torch::kU8);
