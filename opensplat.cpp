@@ -142,9 +142,12 @@ int main(int argc, char *argv[])
 		throw std::runtime_error(Error.str());
 	}
 	
+	auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str() );
 	try
 	{
-		auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str() );
+		if ( TrainerInstance == OpenSplat_NullInstance )
+			throw std::runtime_error("Failed to allocate trainer instance");
+		
 		auto& trainer = OpenSplat::GetInstance( TrainerInstance );
 		trainer.mParams = TrainerParams;
 		
@@ -261,12 +264,14 @@ int main(int argc, char *argv[])
 		trainer.Run( OnIterationFinished, OnRunFinished );
 		
 		OpenSplat_FreeInstance( TrainerInstance );
-		
-		
 		return EXIT_SUCCESS;
         
     }catch(const std::exception &e){
-        std::cerr << e.what() << std::endl;
+
+		//	cleanup to try and make sure things are deallocated in order (libtorch doesn't inheritly destruct in order)
+		OpenSplat_FreeInstance( TrainerInstance );
+		
+        std::cerr << "Error: " << e.what() << std::endl;
 		return EXIT_FAILURE;
     }
 }
