@@ -44,4 +44,6 @@ jobs:
             TORCH_VERSION=${{ matrix.torch-version }}
             CMAKE_BUILD_TYPE=${{ matrix.cmake-build-type }}
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/opensplat:${{github.sha}}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opensplat:$(date +%Y%m%d).${{ github.run_number }}-ubuntu-${{ matrix.ubuntu-version }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/opensplat:ubuntu-${{ matrix.ubuntu-version }}-cuda-${{ matrix.cuda-version }}-torch-${{ matrix.torch-version }}
