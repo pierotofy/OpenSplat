@@ -52,13 +52,14 @@ struct Camera
 	Camera(){};
 	Camera(CameraIntrinsics intrinsics,
 		   const torch::Tensor &camToWorld,	//	extrinsics 
-		   const std::string &filePath);
+		   std::filesystem::path cameraImageFilename	//	path's filename also serves as name
+		   );	
 
 	int id = -1;
 	CameraIntrinsics intrinsics;
    
 	CameraTransform camToWorld;
-    std::string filePath = "";
+	std::filesystem::path cameraImagePath;
     CameraType cameraType = CameraType::Perspective;
 
     torch::Tensor projectionMatrix;	//	formerly "K". Only here as a cache
@@ -66,7 +67,8 @@ struct Camera
 
     std::unordered_map<int, torch::Tensor> imagePyramids;
 	
-	torch::Tensor		getIntrinsicsMatrix();
+	
+	std::string			getName() const;	//	name is filename part of path
 	
 	torch::Tensor		getImage(int downscaleFactor);
 	void				loadImageFromFilename(float downscaleFactor);	//	refactor this; dont make Camera responsible for i/o

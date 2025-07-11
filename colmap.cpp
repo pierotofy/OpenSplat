@@ -115,9 +115,9 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
         }
 
         if (colmapImageSourcePath.empty())
-            cam.filePath = (fs::path(projectRoot) / "images" / filePath).string();
+			cam.cameraImagePath = fs::path(projectRoot) / "images" / filePath;
         else
-            cam.filePath = (fs::path(colmapImageSourcePath) / filePath).string();
+            cam.cameraImagePath = fs::path(colmapImageSourcePath) / filePath;
 
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);

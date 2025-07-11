@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
 				auto ForwardResults = model.forward(valCam, numIters);
 				torch::Tensor gt = valCam.getImage(model.getDownscaleFactor(numIters)).to(device);
 				auto FinalLoss = model.mainLoss(ForwardResults.rgb, gt, ssimWeight).item<float>();
-				std::cout << valCam.filePath << " validation loss: " << FinalLoss << std::endl; 
+				std::cout << "Camera " << valCam.getName() << " validation loss: " << FinalLoss << std::endl; 
 			}
 		};
 		

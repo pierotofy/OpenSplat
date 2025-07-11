@@ -31,12 +31,10 @@ InputData inputDataFromX(const std::string &projectRoot, const std::string& colm
     }
 }
 
-Camera::Camera(CameraIntrinsics intrinsics,
-	   const torch::Tensor &camToWorld, 
-	   const std::string &filePath) : 
+Camera::Camera(CameraIntrinsics intrinsics,const torch::Tensor &camToWorld,std::filesystem::path cameraImageFilename) : 
 	intrinsics(intrinsics),
 	camToWorld(camToWorld), 
-	filePath(filePath)
+	cameraImagePath(cameraImageFilename)
 {
 }
 
@@ -127,9 +125,10 @@ torch::Tensor CameraTransform::GetCamToWorldTranslation()
 
 void Camera::loadImageFromFilename(float downscaleFactor)
 {
-	std::cout << "Loading " << filePath << std::endl;
+	auto PathString = cameraImagePath.string();
+	std::cout << "Camera Loading Image " << PathString << "..." << std::endl;
 	
-	cv::Mat cImg = imreadRGB(filePath);
+	cv::Mat cImg = imreadRGB(PathString);
 	loadImage( cImg, downscaleFactor );
 }
 
@@ -142,9 +141,7 @@ void Camera::loadImage(cv::Mat& RgbPixels,float downscaleFactor)
     // and should be called only once
     if (image.numel()) 
 		throw std::runtime_error("loadImage already called");
-    
-	std::cout << "Loading " << filePath << std::endl;
-	
+    	
     float rescaleF = 1.0f;
 	
     // If camera intrinsics don't match the image dimensions, rescale intrinsics to match pixels
@@ -200,6 +197,13 @@ void Camera::loadImage(cv::Mat& RgbPixels,float downscaleFactor)
 	intrinsics.cx = projectionMatrix[0][2].item<float>();
 	intrinsics.cy = projectionMatrix[1][2].item<float>();
 }
+
+std::string Camera::getName() const
+{
+	auto Filename = cameraImagePath.filename().string();
+	return Filename;
+}
+
 
 torch::Tensor Camera::getImage(int downscaleFactor){
     if (downscaleFactor <= 1) return image;
@@ -265,7 +269,7 @@ std::tuple<std::vector<Camera>, Camera *> InputData::getCameras(bool validate, c
 }
 
 
-void InputData::saveCameras(const std::string &filename, bool keepCrs){
+void InputData::saveCamerasJson(const std::string &filename, bool keepCrs){
     json j = json::array();
     
     for (size_t i = 0; i < cameras.size(); i++){
@@ -273,7 +277,7 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
 
         json camera = json::object();
         camera["id"] = i;
-        camera["img_name"] = fs::path(cam.filePath).filename().string();
+		camera["img_name"] = cam.getName();
         camera["width"] = cam.intrinsics.imageWidth;
         camera["height"] = cam.intrinsics.imageHeight;
         camera["fx"] = cam.intrinsics.fx;
