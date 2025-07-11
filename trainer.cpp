@@ -11,7 +11,7 @@
 #include <torch/torch.h>
 
 
-ImagePixels::ImagePixels(const torch::Tensor& tensor)
+ImagePixels::ImagePixels(const torch::Tensor& tensor,Format TensorPixelFormat)
 {
 	//	from tensorToImage()
 	torch::Tensor Tensor8 = tensor.cpu();
@@ -22,7 +22,7 @@ ImagePixels::ImagePixels(const torch::Tensor& tensor)
 
 	mHeight = Tensor8.size(0);
 	mWidth = Tensor8.size(1);
-	mFormat = Rgb;
+	mFormat = TensorPixelFormat;
 	int components = Tensor8.size(2);
 	if ( components != 3 )
 		throw std::runtime_error("Only images with 3 channels are supported");
@@ -34,15 +34,77 @@ ImagePixels::ImagePixels(const torch::Tensor& tensor)
 	std::copy( TensorView.begin(), TensorView.end(), std::back_inserter(mPixels) );
 }
 
-//	callback so we can use pixels in place - mat is only valid for lifetime of callback
-void ImagePixels::GetCvImage(std::function<void(cv::Mat&)> OnImage)
+
+ImagePixels::ImagePixels(const cv::Mat& OpencvImage,Format OpencvImagePixelFormat)
 {
-	if ( mFormat != Rgb )
-		throw std::runtime_error("ImagePixels::GetCvImage only supports RGB");
+	auto OpencvPixels = std::span( OpencvImage.data, OpencvImage.total() * OpencvImage.elemSize() );
 	
+	auto PixelSize = OpencvImage.elemSize();
+	if ( PixelSize != 3*sizeof(uint8_t) )
+	{
+		std::stringstream Error;
+		Error << "Opencv image has pixel size " << PixelSize << "bytes, expected 3(bgr)"; 
+		throw std::runtime_error(Error.str());
+	}
+	
+	mWidth = OpencvImage.cols;
+	mHeight = OpencvImage.rows;
+	mFormat = OpencvImagePixelFormat;
+
+	std::copy( OpencvPixels.begin(), OpencvPixels.end(), std::back_inserter(mPixels) );
+}
+
+void ImagePixels::ConvertTo(Format NewFormat)
+{
+	if ( mFormat == NewFormat )
+		return;
+	
+	auto SwapBgrRgb = [](cv::Mat& Image)
+	{
+		cv::cvtColor(Image, Image, cv::COLOR_RGB2BGR);
+	};
+	
+	//	checks in case of future changes
+	if ( mFormat == Bgr && NewFormat == Rgb )
+	{
+		GetOpenCvImage( SwapBgrRgb, false );
+		mFormat = NewFormat;
+		return;
+	}
+	
+	if ( mFormat == Rgb && NewFormat == Bgr )
+	{
+		GetOpenCvImage( SwapBgrRgb, false );
+		mFormat = NewFormat;
+		return;
+	}
+	
+	std::stringstream Error;
+	Error << "ImagePixels conversion from " << mFormat << " to " << NewFormat << " unhandled";
+	throw std::runtime_error(Error.str());
+}
+
+//	callback so we can use pixels in place - mat is only valid for lifetime of callback
+void ImagePixels::GetOpenCvImage(std::function<void(cv::Mat&)> OnImage,bool AllowConversion)
+{
 	int type = CV_8UC3;
-	cv::Mat image( mHeight, mWidth, type, mPixels.data() );
-	OnImage(image);
+	cv::Mat ImageInPlace( mHeight, mWidth, type, mPixels.data() );
+
+	//	slow path to convert to Rgb
+	if ( mFormat != Bgr )
+	{
+		if ( AllowConversion )
+		{
+			cv::Mat BgrCopy;
+			cv::cvtColor( ImageInPlace, BgrCopy, cv::COLOR_RGB2BGR);
+			OnImage(BgrCopy);
+			return;
+		}
+		
+		throw std::runtime_error("ImagePixels::GetOpencvImage cannot convert to bgr");
+	}
+	
+	OnImage(ImageInPlace);
 }
 
 	

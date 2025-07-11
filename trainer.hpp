@@ -40,13 +40,18 @@ class ImagePixels
 public:
 	enum Format
 	{
-		Rgb = 0
+		Rgb = 0,
+		Bgr = 1,
 	};
 public:
-	ImagePixels(const torch::Tensor& tensor);
+	ImagePixels(const torch::Tensor& Tensor,Format TensorPixelFormat=Rgb);
+	ImagePixels(const cv::Mat& OpencvImage,Format OpencvImagePixelFormat=Bgr);
 	
 	//	callback so we can use pixels in place - mat is only valid for lifetime of callback
-	void					GetCvImage(std::function<void(cv::Mat&)> OnImage);
+	//	if not-AllowConversion rgb will be passed in-place.
+	void					GetOpenCvImage(std::function<void(cv::Mat&)> OnImage,bool AllowConversion=true);
+	
+	void					ConvertTo(Format NewFormat);
 	
 	int						mWidth = 0;
 	int						mHeight = 0;
@@ -82,7 +87,8 @@ public:
 	std::vector<OpenSplat_Splat>	GetModelSplats();
 	ImagePixels						GetForwardImage(Camera& Camera,int Step);
 	ImagePixels						GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight);
-
+	ImagePixels						GetCameraImage(int CameraIndex,int OutputWidth,int OutputHeight);
+	
 	//	public when ready
 protected:
 	TrainerIterationMeta	Iteration(int step); 
