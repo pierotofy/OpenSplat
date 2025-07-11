@@ -63,7 +63,7 @@ struct Camera
     CameraType cameraType = CameraType::Perspective;
 
     torch::Tensor projectionMatrix;	//	formerly "K". Only here as a cache
-    torch::Tensor image;
+    torch::Tensor image;			//	rgb
 
     std::unordered_map<int, torch::Tensor> imagePyramids;
 	
@@ -71,6 +71,7 @@ struct Camera
 	std::string			getName() const;	//	name is filename part of path
 	
 	torch::Tensor		getImage(int downscaleFactor);
+	cv::Mat				getOpencvRgbImageStretched(int Width,int Height);
 	void				loadImageFromFilename(float downscaleFactor);	//	refactor this; dont make Camera responsible for i/o
 	void				loadImage(cv::Mat& RgbPixels,float downscaleFactor);	//	loads pixels and resizes intrinsics to fit image
 
@@ -89,6 +90,7 @@ struct InputData
 
 	//	remove camera from the training data (typically for application to use for validation)
 	std::shared_ptr<Camera>	PopCamera(std::string_view CameraImageName=OpenSplat::randomValidationImageName);
+	Camera&					GetCamera(int CameraIndex);
 	
     void saveCamerasJson(const std::string &filename, bool keepCrs);
 	

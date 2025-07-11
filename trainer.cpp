@@ -256,15 +256,9 @@ ImagePixels Trainer::GetForwardImage(Camera& Camera,int step)
 ImagePixels Trainer::GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight)
 {
 	auto& Model = GetModel();
-	if ( CameraIndex < 0 || CameraIndex >= mInputData->cameras.size() )
-	{
-		std::stringstream Error;
-		Error << "Camera index " << CameraIndex << "/" << mInputData->cameras.size() << " out of range"; 
-		throw std::runtime_error(Error.str());
-	}
+	auto& Camera = GetInputData().GetCamera(CameraIndex);
 	
 	int Step = 0;
-	auto& Camera = mInputData->cameras[CameraIndex];
 	auto CameraTransform = Camera.camToWorld;
 	auto CameraIntrinsics = Camera.intrinsics;
 	CameraIntrinsics.RemoveDistortionParameters();
@@ -274,6 +268,17 @@ ImagePixels Trainer::GetForwardImage(int CameraIndex,int RenderWidth,int RenderH
 	
 	ImagePixels ForwardImage(ForwardResults.rgb);
 	return ForwardImage;
+}
+
+ImagePixels Trainer::GetCameraImage(int CameraIndex,int OutputWidth,int OutputHeight)
+{
+	auto& Camera = GetInputData().GetCamera(CameraIndex);
+
+	//	todo: if we keep this function, we can pass in the pixel buffer to opencv and rescale in-place and avoid all these allocs & copies
+	cv::Mat ImageScaled = Camera.getOpencvRgbImageStretched( OutputWidth, OutputHeight );
+	ImagePixels Pixels(ImageScaled,ImagePixels::Rgb);
+	Pixels.ConvertTo(ImagePixels::Rgb);
+	return Pixels;
 }
 
 std::vector<OpenSplat_Splat> Trainer::GetModelSplats()

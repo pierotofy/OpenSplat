@@ -161,3 +161,34 @@ __export int OpenSplat_GetSnapshot(int TrainerInstance,struct OpenSplat_Splat* S
 		return 0;
 	}
 }
+
+
+//	copy ground truth [camera] image into an rgb buffer.
+//	todo: provide a byte buffer and json-meta buffer to copy directly without any library side resize/conversion etc (and copy other camera meta, extrinsics, intrisincs, number of iterations with this camera etc)
+__export enum OpenSplat_Error	OpenSplat_GetGroundTruthCameraImage(int TrainerInstance,int CameraIndex,uint8_t* ImageRgbBuffer,int ImageRgbBufferSize,int ImageRgbWidth,int ImageRgbHeight)
+{
+	try
+	{
+		auto& Trainer = OpenSplat::GetInstance(TrainerInstance);
+		auto Image = Trainer.GetCameraImage( CameraIndex, ImageRgbWidth, ImageRgbHeight );
+		
+		//	just don't write anything, but succeed if no buffer supplied
+		if ( !ImageRgbBuffer )
+			return OpenSplat_Error_Success;
+		
+		std::span RgbPixels( ImageRgbBuffer, ImageRgbBufferSize );
+		if ( RgbPixels.size() != ImageRgbWidth * ImageRgbHeight * 3 )
+		{
+			throw std::runtime_error("Wrong size rgb buffer provided");
+		}
+		
+		std::copy( Image.mPixels.begin(), Image.mPixels.end(), RgbPixels.begin() );
+		
+		return OpenSplat_Error_Success;
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_Error_Unknown;
+	}
+}

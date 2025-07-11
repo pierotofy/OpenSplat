@@ -217,12 +217,22 @@ torch::Tensor Camera::getImage(int downscaleFactor){
         }
 
         // Rescale, store and return
-        cv::Mat cImg = tensorToImage(image);
-        cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
+		int NewHeight = image.size(0);
+		int NewWidth = image.size(1);
+		NewWidth /= downscaleFactor;
+		NewHeight /= downscaleFactor;
+		cv::Mat cImg = getOpencvRgbImageStretched(NewWidth,NewHeight);
         torch::Tensor t = imageToTensor(cImg);
         imagePyramids[downscaleFactor] = t;
         return t;
     }
+}
+
+cv::Mat Camera::getOpencvRgbImageStretched(int Width,int Height)
+{
+	cv::Mat cImg = tensorToImage(image);
+	cv::resize(cImg, cImg, cv::Size(Width,Height), 0.0, 0.0, cv::INTER_AREA);
+	return cImg;
 }
 
 bool CameraIntrinsics::HasDistortionParameters(){
@@ -335,4 +345,16 @@ void InputData::saveCamerasJson(const std::string &filename, bool keepCrs){
     of.close();
 
     std::cout << "Wrote " << filename << std::endl;
+}
+
+Camera& InputData::GetCamera(int CameraIndex)
+{
+	if ( CameraIndex < 0 || CameraIndex >= cameras.size() )
+	{
+		std::stringstream Error;
+		Error << "Camera index " << CameraIndex << "/" << cameras.size() << " out of range"; 
+		throw std::runtime_error(Error.str());
+	}
+
+	return cameras[CameraIndex];
 }

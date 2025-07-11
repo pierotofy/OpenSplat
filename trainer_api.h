@@ -24,8 +24,9 @@ enum OpenSplat_Error
 {
 	OpenSplat_Error_Success		= 0,
 	OpenSplat_Error_Unknown		= 1,
-	OpenSplat_Error_NoInstance	= 2,
-	OpenSplat_Error_NoCamera	= 3
+	//	todo: turn c++ exceptions into specific errors
+	//OpenSplat_Error_NoInstance	= 2,
+	//OpenSplat_Error_NoCamera	= 3
 };
 
 
@@ -49,8 +50,14 @@ __export void	OpenSplat_FreeInstance(int Instance);
 //	returns number of points in model (which can be more or less than buffer size)
 __export int					OpenSplat_GetSnapshot(int TrainerInstance,struct OpenSplat_Splat* SplatBuffer,int SplatBufferCount);
 
+//	Render a camera into an rgb buffer
 //	todo: flip this around and return image meta into a byte buffer, to do a faster image-copy library side 
 //		and force app to do (faster) image conversion
 //	todo: provide arbritary camera extrinscs & intrinsics so we dont rely on blind camera indexes
 //	returns OpenSplat_Error_XXX
 __export enum OpenSplat_Error	OpenSplat_RenderCamera(int TrainerInstance,int CameraIndex,uint8_t* ImageRgbBuffer,int ImageRgbBufferSize,int ImageRgbWidth,int ImageRgbHeight);
+
+
+//	copy ground truth [camera] image into an rgb buffer.
+//	todo: provide a byte buffer and json-meta buffer to copy directly without any library side resize/conversion etc (and copy other camera meta, extrinsics, intrisincs, number of iterations with this camera etc)
+__export enum OpenSplat_Error	OpenSplat_GetGroundTruthCameraImage(int TrainerInstance,int CameraIndex,uint8_t* ImageRgbBuffer,int ImageRgbBufferSize,int ImageRgbWidth,int ImageRgbHeight);
