@@ -3,6 +3,12 @@
 #include <string>
 #include <filesystem>
 
+
+namespace OpenSplat
+{
+	static constexpr std::string_view	randomValidationImageName = "random";
+}
+
 namespace cxxopts
 {
 	class ParseResult;
@@ -20,32 +26,31 @@ public:
 	std::filesystem::path	GetOutputModelFilename();
 	std::filesystem::path	GetOutputModelFilenameWithSuffix(const std::string& Suffix);
 	
-	//	application params
-	std::string valRender = "";
+	//	output
+	std::string valImage = std::string(OpenSplat::randomValidationImageName);
+	bool validate = false;			//	this is to ex
+	int saveValidationRenderEvery = 10;
+	std::string valRender = "";		//	path to render validation camera to (rename this!)
 	std::string outputScene = "splat.ply";
 	int saveModelEvery = -1;
-	int saveValidationRenderEvery = 10;
 	int printDebugEvery = 10;
+	bool keepCrs = false;	//	output in original position & scale
+
+	//	input
 	std::string projectRoot;
 	float downScaleFactor = 1;	//	initial camera image downscaling
 	std::string colmapImageSourcePath = "";
-	bool keepCrs = false;	//	output in original position & scale
 };
 
 
 class TrainerParams
 {
-public:
-	static constexpr std::string_view	randomValidationImageName = "random";
-	
+
 public:
 	TrainerParams(){};
 	//	keepCrs is temporarily here
 	TrainerParams(cxxopts::ParseResult& Arguments,bool KeepCrs);
 	
-	//	training params
-	std::string valImage = std::string(TrainerParams::randomValidationImageName);
-	bool validate = false;			//	this is to ex
 	int numIters = 30000;
 	int numDownscales = 2;
 	int resolutionSchedule = 3000;

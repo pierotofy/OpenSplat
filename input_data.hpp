@@ -87,14 +87,17 @@ struct InputData
     torch::Tensor translation;
     Points points;
 
-    std::tuple<std::vector<Camera>, Camera *> getCameras(bool validate, const std::string &valImage = std::string(TrainerParams::randomValidationImageName) );
-
-    void saveCameras(const std::string &filename, bool keepCrs);
+	//	remove camera from the training data (typically for application to use for validation)
+	std::shared_ptr<Camera>	PopCamera(std::string_view CameraImageName=OpenSplat::randomValidationImageName);
+	
+    void saveCamerasJson(const std::string &filename, bool keepCrs);
 	
 	//	this finds the center & bounds of the camera poses and moves all
 	//	points to be centered in the middle. It then normalises all points to be -1...1
 	//	transform is saved to scale&translation for future restoration
 	void NormalisePoints();
+	
+	std::vector<std::string>	GetCameraNames();
 };
 // The colmapImageSourcePath is only used in Colmap. In other methods, this path is ignored.
 InputData inputDataFromX(const std::string& projectRoot, const std::string& colmapImageSourcePath = "");

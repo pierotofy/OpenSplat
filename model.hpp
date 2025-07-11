@@ -41,7 +41,7 @@ public:
 class Model
 {
 public:
-	Model(const InputData &inputData, int numCameras,
+	Model(const InputData &inputData, 
 		  int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
 		  int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
 		  int maxSteps,
@@ -101,7 +101,7 @@ public:
   torch::Device device;
   SSIM ssim;
 
-  int numCameras;
+  int numCameras;		//	used only for determining refine parameters (no other camera meta required)
   int numDownscales;
   int resolutionSchedule;
   int shDegree;

@@ -234,38 +234,59 @@ std::vector<float> CameraIntrinsics::GetOpencvUndistortionParameters(){
     return p;
 }
 
-std::tuple<std::vector<Camera>, Camera *> InputData::getCameras(bool validate, const std::string &valImage){
-    if (!validate) 
-		return std::make_tuple(cameras, nullptr);
-	
-	size_t valIdx = -1;
-	std::srand(42);
-
-	if (valImage == TrainerParams::randomValidationImageName)
+std::vector<std::string> InputData::GetCameraNames()
+{
+	std::vector<std::string> Names;
+	for ( auto& Camera : cameras )
 	{
-		valIdx = std::rand() % cameras.size();
+		auto Name = Camera.getName();
+		Names.emplace_back( Name );
 	}
-	else
+	return Names;
+}
+
+//	remove camera from the training data (typically for application to use for validation)
+std::shared_ptr<Camera>	InputData::PopCamera(std::string_view CameraImageName)
+{
+	auto FindMatchingCameraIndex = [this,CameraImageName]() -> int
 	{
-		for (size_t i = 0; i < cameras.size(); i++){
-			if (fs::path(cameras[i].filePath).filename().string() == valImage){
-				valIdx = i;
-				break;
-			}
+		//	todo: put seed into params, and use a RNG, rather than changing global (random) state
+		std::srand(42);
+		
+		//	pick a random camera index
+		if ( cameras.size() > 0 && CameraImageName == OpenSplat::randomValidationImageName )
+		{
+			auto Index = std::rand() % cameras.size();
+			return Index;
 		}
-		if (valIdx == -1)
-			throw std::runtime_error(valImage + " not in the list of cameras");
-	}
+		
+		//	find match
+		for ( auto i=0;	i<cameras.size();	i++ )
+		{
+			auto CameraName = cameras[i].getName();
+			if ( CameraName != CameraImageName )
+				continue;
+			return i;
+		}
 
-	std::vector<Camera> cams;
-	Camera *valCam = nullptr;
-
-	for (size_t i = 0; i < cameras.size(); i++){
-		if (i != valIdx) cams.push_back(cameras[i]);
-		else valCam = &cameras[i];
-	}
-
-	return std::make_tuple(cams, valCam);
+		//	helpful error listing all possibilites for the user
+		std::stringstream Error;
+		Error << "Input data has no camera matching " << CameraImageName << " (";
+		for ( auto& CameraName : GetCameraNames() )
+			Error << CameraName << ",";
+		Error << ")";
+		throw std::runtime_error(Error.str());
+	};
+	
+	auto MatchingCameraIndex = FindMatchingCameraIndex();
+	auto& MatchingCamera = cameras[MatchingCameraIndex];
+	
+	//	make copy of camera before removing it
+	auto PoppedCameraCopy = std::make_shared<Camera>(MatchingCamera);
+	
+	cameras.erase( cameras.begin() + MatchingCameraIndex );
+	
+	return PoppedCameraCopy;
 }
 
 

@@ -68,7 +68,7 @@ public:
 	Trainer(const TrainerParams& Params);
 
 	//	this blocking call will be repalced with manually called init(), iterate()
-	void				Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationFinished,std::function<void(int,Camera*)> OnRunFinished);
+	void				Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,std::function<void(int)> OnRunFinished);
 
 	torch::Device		GetDevice();
 	Model&				GetModel()		{	return *mModel;	}

@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 		("s,save-every", "Save output scene every these many steps (set to -1 to disable)", cxxopts::value<int>()->default_value(std::to_string(DefaultAppParams.saveModelEvery)))
 		("resume", "Resume training from this PLY file", cxxopts::value<std::string>()->default_value(""))
 		("val", "Withhold a camera shot for validating the scene loss")
-		("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value(DefaultTrainerParams.valImage))
+		("val-image", "Filename of the image to withhold for validating scene loss", cxxopts::value<std::string>()->default_value(DefaultAppParams.valImage))
 		("val-render", "Path of the directory where to render validation images", cxxopts::value<std::string>()->default_value(DefaultAppParams.valRender))
 		("keep-crs", "Retain the project input's coordinate reference system")
 		("cpu", "Force CPU execution")
@@ -148,7 +148,14 @@ int main(int argc, char *argv[])
 		auto& trainer = OpenSplat::GetInstance( TrainerInstance );
 		trainer.mParams = TrainerParams;
 		
-		auto OnIterationFinished = [&](TrainerIterationMeta IterationMeta,Camera* ValidationCamera)
+		//	pop validation camera out of the input data if user is using one
+		std::shared_ptr<Camera> ValidationCamera;
+		if ( AppParams.validate )
+		{
+			ValidationCamera = trainer.GetInputData().PopCamera(AppParams.valImage);
+		}
+		
+		auto OnIterationFinished = [&](TrainerIterationMeta IterationMeta)
 		{
 			auto step = IterationMeta.mStep;
 			auto& model = trainer.GetModel();
@@ -217,14 +224,14 @@ int main(int argc, char *argv[])
 #endif
 		};
 		
-		auto OnRunFinished = [&](int numIters,Camera* ValidationCamera)
+		auto OnRunFinished = [&](int numIters)
 		{
 			auto& model = trainer.GetModel();
 			auto& inputData = trainer.GetInputData();
 			
 			auto CamerasJsonFilename = AppParams.GetOutputFilePath("cameras.json");
 			auto ModelFilename = AppParams.GetOutputModelFilename();
-			inputData.saveCameras( CamerasJsonFilename.string(), keepCrs);
+			inputData.saveCamerasJson( CamerasJsonFilename.string(), keepCrs);
 			model.save(ModelFilename, numIters, AppParams.keepCrs);
 			// model.saveDebugPly("debug.ply", numIters);
 			

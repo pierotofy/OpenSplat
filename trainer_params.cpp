@@ -12,6 +12,8 @@ AppParams::AppParams(cxxopts::ParseResult& Arguments)
 	downScaleFactor = (std::max)(Arguments["downscale-factor"].as<float>(), 1.0f);
 	colmapImageSourcePath = Arguments["colmap-image-path"].as<std::string>();
 	valRender = Arguments["val-render"].as<std::string>();
+	validate = Arguments.count("val") > 0 || Arguments.count("val-render") > 0;
+	valImage = Arguments["val-image"].as<std::string>();
 
 }
 
@@ -21,8 +23,6 @@ TrainerParams::TrainerParams(cxxopts::ParseResult& Arguments,bool KeepCrs)
 	resumeFromPlyNeedsNormalising = KeepCrs;
 	resumeFromPlyFilename = Arguments["resume"].as<std::string>();
 	
-	validate = Arguments.count("val") > 0 || Arguments.count("val-render") > 0;
-	valImage = Arguments["val-image"].as<std::string>();
 	numIters = Arguments["num-iters"].as<int>();
 	numDownscales = Arguments["num-downscales"].as<int>();
 	resolutionSchedule = Arguments["resolution-schedule"].as<int>();

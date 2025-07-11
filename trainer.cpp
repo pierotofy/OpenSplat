@@ -66,15 +66,13 @@ torch::Device Trainer::GetDevice()
 	return torch::kCPU;	
 }
 
-void Trainer::Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationFinished,std::function<void(int,Camera*)> OnRunFinished)
+void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,std::function<void(int)> OnRunFinished)
 {
 	InputData& inputData = GetInputData();
 	
 	//	temp during refactor
 	auto& Params = mParams;
 	auto& resume = Params.resumeFromPlyFilename;
-	auto& validate = Params.validate;
-	auto& valImage = Params.valImage;
 	auto& numIters = Params.numIters;
 	auto& numDownscales = Params.numDownscales;
 	auto& resolutionSchedule = Params.resolutionSchedule;
@@ -102,13 +100,8 @@ void Trainer::Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationF
 		std::cout << "Using CPU" << std::endl;
 	}
 	
-	// Withhold a validation camera if necessary
-	auto t = inputData.getCameras(validate, valImage);
-	std::vector<Camera> cams = std::get<0>(t);
-	Camera *valCam = std::get<1>(t);
 	
 	mModel = std::make_shared<Model>(inputData,
-				cams.size(),
 				numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
 				refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
 				numIters, 
@@ -131,32 +124,28 @@ void Trainer::Run(std::function<void(TrainerIterationMeta,Camera*)> OnIterationF
 	{
 		auto IterationMeta = Iteration(step);
 
-		OnIterationFinished( IterationMeta, valCam );
+		OnIterationFinished( IterationMeta );
 	}
 	
 	auto CompletedSteps = step;	//	num_iters
-	OnRunFinished( CompletedSteps, valCam );
+	OnRunFinished( CompletedSteps );
 }
 
 TrainerIterationMeta Trainer::Iteration(int step)
 {
 	auto& model = GetModel();
 	auto& inputData = GetInputData();
-	auto& validate = mParams.validate;
-	auto& valImage = mParams.valImage;
 	
 	auto device = GetDevice();
 	
-	auto t = inputData.getCameras(validate, valImage);
-	std::vector<Camera> cams = std::get<0>(t);
-	Camera *valCam = std::get<1>(t);
+	auto& cams = inputData.cameras;
 
 	TrainerIterationMeta IterationMeta;
 	IterationMeta.mStep = step;
 	IterationMeta.mCameraIndex = mIterationRandomCameraIndex() % cams.size();
 	
-	std::cout << "Step #" << step << " training with camera " << IterationMeta.mCameraIndex << std::endl;
 	Camera& cam = cams[IterationMeta.mCameraIndex];
+	std::cout << "Step #" << step << " training with camera " << cam.getName() << "(#" << IterationMeta.mCameraIndex << ")" << std::endl;
 	
 	//	look for nans before a step
 	try

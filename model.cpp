@@ -53,13 +53,13 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
     return torch::abs(gt - rendered).mean();
 }
 
-Model::Model(const InputData &inputData, int numCameras,
-	  int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
+Model::Model(const InputData &inputData,
+		int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
 	  int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
 	  int maxSteps,
 			 std::array<float,3> backgroundColour,
 	  const torch::Device &device) :
-	numCameras(numCameras),
+	numCameras(inputData.cameras.size()),
 	numDownscales(numDownscales), 
 	resolutionSchedule(resolutionSchedule), 
 	shDegree(shDegree), 
@@ -76,6 +76,9 @@ Model::Model(const InputData &inputData, int numCameras,
 	device(device), 
 	ssim(11, 3)
 {
+	//	this will fail later with a mod %0, but not the craziest check anyway
+	if ( numCameras < 1 )
+		throw std::runtime_error("Model requires at least one camera");
 	
 	long long numPoints = inputData.points.xyz.size(0);
 	scale = inputData.scale;
