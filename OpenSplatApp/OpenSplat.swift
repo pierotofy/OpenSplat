@@ -99,7 +99,7 @@ public class OpenSplatTrainer : ObservableObject
 	}
 	
 	//	blocking, so best not to call on mainactor
-	public func RenderCameraBlocking(cameraIndex:Int,width:Int,height:Int) throws -> CGImage
+	func RenderCameraBlocking(cameraIndex:Int,width:Int,height:Int) throws -> CGImage
 	{
 		let rgbBufferSize = width*height*3
 		var rgbBuffer = [UInt8](repeating: 0, count: rgbBufferSize )
@@ -120,8 +120,17 @@ public class OpenSplatTrainer : ObservableObject
 		return try OpenSplatTrainer.rgbBufferToCGImage(&rgbBuffer,width:width,height: height)
 	}
 	
+	public func GetCameraGroundTruthImage(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
+	{
+		let task = Task.detached(priority: .background)
+		{
+			try self.GetCameraGroundTruthImageBlocking(cameraIndex: cameraIndex, width: width, height: height)
+		}
+		let result = try await task.result.get()
+		return result
+	}
 	
-	public func GetCameraGroundTruthImage(cameraIndex:Int,width:Int,height:Int) throws -> CGImage
+	func GetCameraGroundTruthImageBlocking(cameraIndex:Int,width:Int,height:Int) throws -> CGImage
 	{
 		let rgbBufferSize = width*height*3
 		var rgbBuffer = [UInt8](repeating: 0, count: rgbBufferSize )

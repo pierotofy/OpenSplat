@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		BFAA59B92E1D27510006AEAA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B72E1D27510006AEAA /* Metal.framework */; };
 		BFAA59BA2E1D27510006AEAA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B82E1D27510006AEAA /* MetalKit.framework */; };
+		BFAF46062E243FF50046A070 /* PopMetalView in Frameworks */ = {isa = PBXBuildFile; productRef = BFAF46052E243FF50046A070 /* PopMetalView */; };
 		BFAFEA222E23FF260046A070 /* OpenSplat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */; };
 		BFAFEA232E23FF260046A070 /* OpenSplat.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BFAFEA4E2E2400B00046A070 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B72E1D27510006AEAA /* Metal.framework */; };
@@ -252,6 +253,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BFAFEA222E23FF260046A070 /* OpenSplat.framework in Frameworks */,
+				BFAF46062E243FF50046A070 /* PopMetalView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,6 +390,7 @@
 			);
 			name = OpenSplatApp;
 			packageProductDependencies = (
+				BFAF46052E243FF50046A070 /* PopMetalView */,
 			);
 			productName = OpenSplatApp;
 			productReference = BFAFEA012E23FED00046A070 /* OpenSplatApp.app */;
@@ -448,6 +451,9 @@
 			);
 			mainGroup = BFAA55952E1D241F0006AEAA;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BFAA559F2E1D241F0006AEAA /* Products */;
 			projectDirPath = "";
@@ -956,6 +962,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/NewChromantics/PopMetalView.SwiftPackage.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BFAF46052E243FF50046A070 /* PopMetalView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */;
+			productName = PopMetalView;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BFAA55962E1D241F0006AEAA /* Project object */;
 }
