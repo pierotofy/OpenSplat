@@ -8,10 +8,13 @@
 import SwiftUI
 
 @main
-struct OpenSplatAppApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-    }
+struct OpenSplatApp: App 
+{
+	var body: some Scene
+	{
+		WindowGroup 
+		{
+			AppView()
+		}
+	}
 }

@@ -24,7 +24,56 @@ public struct OpenSplatError : LocalizedError
 	public var errorDescription: String?	{	message	}
 }
 
-public class OpenSplatTrainer : ObservableObject
+
+
+public protocol SplatTrainer
+{
+	var trainingError : Error?	{	get	}
+	var isTraining : Bool		{	get	}
+
+	init(projectPath:String)
+
+	func Run() async throws 
+	func GetSplats() async throws -> [OpenSplat_Splat]
+	func RenderCamera(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
+	func GetCameraGroundTruthImage(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
+}
+
+
+
+public class DummySplatTrainer : SplatTrainer
+{
+	public var trainingError: Error?	{	nil	}
+	public var isTraining: Bool			{	false	}
+	
+	public required init(projectPath: String) 
+	{
+	}
+	
+	public func Run() async throws 
+	{
+		throw OpenSplatError("Run not implemented")
+	}
+	
+	public func GetSplats() async throws -> [OpenSplat_Splat] 
+	{
+		throw OpenSplatError("GetSplats not implemented")
+	}
+	
+	public func RenderCamera(cameraIndex: Int, width: Int, height: Int) async throws -> CGImage 
+	{
+		throw OpenSplatError("RenderCamera not implemented")
+	}
+	
+	public func GetCameraGroundTruthImage(cameraIndex: Int, width: Int, height: Int) async throws -> CGImage 
+	{
+		throw OpenSplatError("GetCameraGroundTruthImage not implemented")
+	}
+}
+
+
+
+public class OpenSplatTrainer : ObservableObject, SplatTrainer
 {
 	private var instance : Int32
 	var trainingTask : Task<Void,Error>!
@@ -32,7 +81,7 @@ public class OpenSplatTrainer : ObservableObject
 	@Published public var trainingThreadFinished : Bool = false
 	public var isTraining : Bool	{	(trainingError == nil) && !trainingThreadFinished	}
 	
-	public init(projectPath:String)
+	required public init(projectPath:String)
 	{
 		instance = OpenSplat_AllocateInstanceFromPath(projectPath)
 		trainingTask = Task.detached(priority: .background)
@@ -60,7 +109,7 @@ public class OpenSplatTrainer : ObservableObject
 		OpenSplat_FreeInstance(instance)
 	}
 	
-	func Run() async throws 
+	public func Run() async throws 
 	{
 		let error = OpenSplat_InstanceRunBlocking( instance )
 		if error != OpenSplat_Error_Success

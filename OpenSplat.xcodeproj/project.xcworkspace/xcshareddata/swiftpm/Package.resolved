@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "popmetalview.swiftpackage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NewChromantics/PopMetalView.SwiftPackage.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "e4a977cc2a16349c01f5bc80cba38a5a535ada7e"
+      }
+    }
+  ],
+  "version" : 2
+}
