@@ -9,10 +9,44 @@
 /* Begin PBXBuildFile section */
 		BFAA59B92E1D27510006AEAA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B72E1D27510006AEAA /* Metal.framework */; };
 		BFAA59BA2E1D27510006AEAA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B82E1D27510006AEAA /* MetalKit.framework */; };
+		BFAFEA222E23FF260046A070 /* OpenSplat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */; };
+		BFAFEA232E23FF260046A070 /* OpenSplat.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		BFAFEA4E2E2400B00046A070 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B72E1D27510006AEAA /* Metal.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BFAFEA202E23FF260046A070 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BFAA55962E1D241F0006AEAA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BFAFEA1B2E23FF260046A070;
+			remoteInfo = OpenSplat;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		BFAAD97E2E1D3FE70006AEAA /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFAFEA282E23FF260046A070 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				BFAFEA232E23FF260046A070 /* OpenSplat.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFAFEA502E2400B30046A070 /* Embed Libraries */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
@@ -35,6 +69,7 @@
 		BFAD8B182E21710200301BF0 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAFE9C42E23FEB30046A070 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAFEA012E23FED00046A070 /* OpenSplatApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSplatApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OpenSplat.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -77,6 +112,56 @@
 			);
 			target = BFAA559D2E1D241F0006AEAA /* OpenSplatExe */;
 		};
+		BFAFEA242E23FF260046A070 /* Exceptions for "OpenSplat" folder in "OpenSplat" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			publicHeaders = (
+				OpenSplat.h,
+			);
+			target = BFAFEA1B2E23FF260046A070 /* OpenSplat */;
+		};
+		BFAFEA2C2E23FF560046A070 /* Exceptions for "libtorch-v2.7.1" folder in "OpenSplat" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				lib/libc10.dylib,
+				lib/libtorch_cpu.dylib,
+				lib/libtorch.dylib,
+			);
+			target = BFAFEA1B2E23FF260046A070 /* OpenSplat */;
+		};
+		BFAFEA432E23FF950046A070 /* Exceptions for "OpenSplat" folder in "OpenSplat" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				colmap.cpp,
+				cv_utils.cpp,
+				input_data.cpp,
+				kdtree_tensor.cpp,
+				model.cpp,
+				nerfstudio.cpp,
+				openmvg.cpp,
+				opensfm.cpp,
+				opensplat.cpp,
+				optim_scheduler.cpp,
+				ply.cpp,
+				point_io.cpp,
+				project_gaussians.cpp,
+				rasterize_gaussians.cpp,
+				"rasterizer/gsplat-cpu/gsplat_cpu.cpp",
+				"rasterizer/gsplat-metal/gsplat_metal.metal",
+				"rasterizer/gsplat-metal/gsplat_metal.mm",
+				spherical_harmonics.cpp,
+				ssim.cpp,
+				tensor_math.cpp,
+				trainer_api.cpp,
+				trainer_api.h,
+				trainer_params.cpp,
+				trainer.cpp,
+				utils.cpp,
+			);
+			publicHeaders = (
+				trainer_api.h,
+			);
+			target = BFAFEA1B2E23FF260046A070 /* OpenSplat */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
@@ -88,6 +173,20 @@
 				lib/libtorch_cpu.dylib = (CodeSignOnCopy, );
 			};
 			buildPhase = BFAAD97E2E1D3FE70006AEAA /* Embed Libraries */;
+			membershipExceptions = (
+				lib/libc10.dylib,
+				lib/libtorch_cpu.dylib,
+				lib/libtorch.dylib,
+			);
+		};
+		BFAFEA512E2400B30046A070 /* Exceptions for "libtorch-v2.7.1" folder in "Embed Libraries" phase from "OpenSplat" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				lib/libc10.dylib = (CodeSignOnCopy, );
+				lib/libtorch.dylib = (CodeSignOnCopy, );
+				lib/libtorch_cpu.dylib = (CodeSignOnCopy, );
+			};
+			buildPhase = BFAFEA502E2400B30046A070 /* Embed Libraries */;
 			membershipExceptions = (
 				lib/libc10.dylib,
 				lib/libtorch_cpu.dylib,
@@ -106,6 +205,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				BFAA59AA2E1D25890006AEAA /* Exceptions for "OpenSplat" folder in "OpenSplatExe" target */,
+				BFAFEA432E23FF950046A070 /* Exceptions for "OpenSplat" folder in "OpenSplat" target */,
 			);
 			name = OpenSplat;
 			sourceTree = "<group>";
@@ -115,6 +215,8 @@
 			exceptions = (
 				BFAAD97C2E1D2A070006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "OpenSplatExe" target */,
 				BFAAD97F2E1D3FE70006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "Embed Libraries" phase from "OpenSplatExe" target */,
+				BFAFEA2C2E23FF560046A070 /* Exceptions for "libtorch-v2.7.1" folder in "OpenSplat" target */,
+				BFAFEA512E2400B30046A070 /* Exceptions for "libtorch-v2.7.1" folder in "Embed Libraries" phase from "OpenSplat" target */,
 			);
 			name = "libtorch-v2.7.1";
 			path = "../PopOpenSplat/libtorch-v2.7.1";
@@ -123,6 +225,14 @@
 		BFAFEA022E23FED00046A070 /* OpenSplatApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = OpenSplatApp;
+			sourceTree = "<group>";
+		};
+		BFAFEA1D2E23FF260046A070 /* OpenSplat */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BFAFEA242E23FF260046A070 /* Exceptions for "OpenSplat" folder in "OpenSplat" target */,
+			);
+			path = OpenSplat;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -141,6 +251,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BFAFEA222E23FF260046A070 /* OpenSplat.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFAFEA192E23FF260046A070 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BFAFEA4E2E2400B00046A070 /* Metal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +281,7 @@
 			children = (
 				BFAA55B62E1D25090006AEAA /* AppleApp */,
 				BFAFEA022E23FED00046A070 /* OpenSplatApp */,
+				BFAFEA1D2E23FF260046A070 /* OpenSplat */,
 				BFAA59B62E1D27510006AEAA /* Frameworks */,
 				BFAAD9732E1D29640006AEAA /* libtorch-v2.7.1 */,
 				BFAA55B82E1D253C0006AEAA /* OpenSplat */,
@@ -175,6 +295,7 @@
 			children = (
 				BFAA559E2E1D241F0006AEAA /* OpenSplatExe.app */,
 				BFAFEA012E23FED00046A070 /* OpenSplatApp.app */,
+				BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -217,6 +338,16 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXHeadersBuildPhase section */
+		BFAFEA172E23FF260046A070 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		BFAA559D2E1D241F0006AEAA /* OpenSplatExe */ = {
 			isa = PBXNativeTarget;
@@ -245,10 +376,12 @@
 				BFAFE9FD2E23FED00046A070 /* Sources */,
 				BFAFE9FE2E23FED00046A070 /* Frameworks */,
 				BFAFE9FF2E23FED00046A070 /* Resources */,
+				BFAFEA282E23FF260046A070 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BFAFEA212E23FF260046A070 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				BFAFEA022E23FED00046A070 /* OpenSplatApp */,
@@ -259,6 +392,30 @@
 			productName = OpenSplatApp;
 			productReference = BFAFEA012E23FED00046A070 /* OpenSplatApp.app */;
 			productType = "com.apple.product-type.application";
+		};
+		BFAFEA1B2E23FF260046A070 /* OpenSplat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BFAFEA252E23FF260046A070 /* Build configuration list for PBXNativeTarget "OpenSplat" */;
+			buildPhases = (
+				BFAFEA172E23FF260046A070 /* Headers */,
+				BFAFEA182E23FF260046A070 /* Sources */,
+				BFAFEA192E23FF260046A070 /* Frameworks */,
+				BFAFEA1A2E23FF260046A070 /* Resources */,
+				BFAFEA502E2400B30046A070 /* Embed Libraries */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BFAFEA1D2E23FF260046A070 /* OpenSplat */,
+			);
+			name = OpenSplat;
+			packageProductDependencies = (
+			);
+			productName = OpenSplat;
+			productReference = BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */;
+			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
@@ -275,6 +432,9 @@
 						LastSwiftMigration = 1600;
 					};
 					BFAFEA002E23FED00046A070 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					BFAFEA1B2E23FF260046A070 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -321,6 +481,7 @@
 			targets = (
 				BFAA559D2E1D241F0006AEAA /* OpenSplatExe */,
 				BFAFEA002E23FED00046A070 /* OpenSplatApp */,
+				BFAFEA1B2E23FF260046A070 /* OpenSplat */,
 			);
 		};
 /* End PBXProject section */
@@ -334,6 +495,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BFAFE9FF2E23FED00046A070 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFAFEA1A2E23FF260046A070 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -357,7 +525,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BFAFEA182E23FF260046A070 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BFAFEA212E23FF260046A070 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BFAFEA1B2E23FF260046A070 /* OpenSplat */;
+			targetProxy = BFAFEA202E23FF260046A070 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BFAA55AB2E1D24200006AEAA /* Debug */ = {
@@ -645,6 +828,94 @@
 			};
 			name = Release;
 		};
+		BFAFEA262E23FF260046A070 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = X52DR36JY2;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = com.newchromantics.OpenSplat;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 2.0;
+			};
+			name = Debug;
+		};
+		BFAFEA272E23FF260046A070 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = X52DR36JY2;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = com.newchromantics.OpenSplat;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 2.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -671,6 +942,15 @@
 			buildConfigurations = (
 				BFAFEA0D2E23FED10046A070 /* Debug */,
 				BFAFEA0E2E23FED10046A070 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BFAFEA252E23FF260046A070 /* Build configuration list for PBXNativeTarget "OpenSplat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BFAFEA262E23FF260046A070 /* Debug */,
+				BFAFEA272E23FF260046A070 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
