@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "BFAA559D2E1D241F0006AEAA"
-               BuildableName = "OpenSplat.app"
-               BlueprintName = "OpenSplat"
+               BuildableName = "OpenSplatExe.app"
+               BlueprintName = "OpenSplatExe"
                ReferencedContainer = "container:OpenSplat.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -31,10 +31,11 @@
       shouldAutocreateTestPlan = "YES">
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Debug"
+      buildConfiguration = "Release"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       enableASanStackUseAfterReturn = "YES"
+      disableMainThreadChecker = "YES"
       disablePerformanceAntipatternChecker = "YES"
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
@@ -42,14 +43,14 @@
       debugDocumentVersioning = "NO"
       debugServiceExtension = "internal"
       enableGPUValidationMode = "1"
-      allowLocationSimulation = "YES">
+      allowLocationSimulation = "NO">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "BFAA559D2E1D241F0006AEAA"
-            BuildableName = "OpenSplat.app"
-            BlueprintName = "OpenSplat"
+            BuildableName = "OpenSplatExe.app"
+            BlueprintName = "OpenSplatExe"
             ReferencedContainer = "container:OpenSplat.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -59,7 +60,7 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--save-every 10"
+            argument = "--save-every 500"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
@@ -67,14 +68,30 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--num-iters 3000"
+            argument = "--num-iters 10000"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--output /Users/graham/Desktop/banana.ply"
             isEnabled = "YES">
          </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--val-image frame_00001.JPG"
+            isEnabled = "NO">
+         </CommandLineArgument>
       </CommandLineArguments>
+      <AdditionalOptions>
+         <AdditionalOption
+            key = "MallocStackLogging"
+            value = ""
+            isEnabled = "YES">
+         </AdditionalOption>
+         <AdditionalOption
+            key = "PrefersMallocStackLoggingLite"
+            value = ""
+            isEnabled = "YES">
+         </AdditionalOption>
+      </AdditionalOptions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -87,8 +104,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "BFAA559D2E1D241F0006AEAA"
-            BuildableName = "OpenSplat.app"
-            BlueprintName = "OpenSplat"
+            BuildableName = "OpenSplatExe.app"
+            BlueprintName = "OpenSplatExe"
             ReferencedContainer = "container:OpenSplat.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

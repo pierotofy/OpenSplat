@@ -27,15 +27,16 @@
 /* Begin PBXFileReference section */
 		BF0155722E1D530200994B91 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAA27192E1D4B8B0006AEAA /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
-		BFAA559E2E1D241F0006AEAA /* OpenSplat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSplat.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BFAA559E2E1D241F0006AEAA /* OpenSplatExe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSplatExe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFAA57E72E1D25500006AEAA /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAA59B72E1D27510006AEAA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		BFAA59B82E1D27510006AEAA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/MetalKit.framework; sourceTree = DEVELOPER_DIR; };
 		BFAD08172E1E7C3300301BF0 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
+		BFAD8B182E21710200301BF0 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		BFAA59AA2E1D25890006AEAA /* Exceptions for "OpenSplat" folder in "OpenSplat" target */ = {
+		BFAA59AA2E1D25890006AEAA /* Exceptions for "OpenSplat" folder in "OpenSplatExe" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				colmap.cpp,
@@ -63,21 +64,21 @@
 				trainer.cpp,
 				utils.cpp,
 			);
-			target = BFAA559D2E1D241F0006AEAA /* OpenSplat */;
+			target = BFAA559D2E1D241F0006AEAA /* OpenSplatExe */;
 		};
-		BFAAD97C2E1D2A070006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "OpenSplat" target */ = {
+		BFAAD97C2E1D2A070006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "OpenSplatExe" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				lib/libc10.dylib,
 				lib/libtorch_cpu.dylib,
 				lib/libtorch.dylib,
 			);
-			target = BFAA559D2E1D241F0006AEAA /* OpenSplat */;
+			target = BFAA559D2E1D241F0006AEAA /* OpenSplatExe */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		BFAAD97F2E1D3FE70006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "Embed Libraries" phase from "OpenSplat" target */ = {
+		BFAAD97F2E1D3FE70006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "Embed Libraries" phase from "OpenSplatExe" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			attributesByRelativePath = {
 				lib/libc10.dylib = (CodeSignOnCopy, );
@@ -102,7 +103,7 @@
 		BFAA55B82E1D253C0006AEAA /* OpenSplat */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				BFAA59AA2E1D25890006AEAA /* Exceptions for "OpenSplat" folder in "OpenSplat" target */,
+				BFAA59AA2E1D25890006AEAA /* Exceptions for "OpenSplat" folder in "OpenSplatExe" target */,
 			);
 			name = OpenSplat;
 			sourceTree = "<group>";
@@ -110,8 +111,8 @@
 		BFAAD9732E1D29640006AEAA /* libtorch-v2.7.1 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				BFAAD97C2E1D2A070006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "OpenSplat" target */,
-				BFAAD97F2E1D3FE70006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "Embed Libraries" phase from "OpenSplat" target */,
+				BFAAD97C2E1D2A070006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "OpenSplatExe" target */,
+				BFAAD97F2E1D3FE70006AEAA /* Exceptions for "libtorch-v2.7.1" folder in "Embed Libraries" phase from "OpenSplatExe" target */,
 			);
 			name = "libtorch-v2.7.1";
 			path = "../PopOpenSplat/libtorch-v2.7.1";
@@ -157,7 +158,7 @@
 		BFAA559F2E1D241F0006AEAA /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BFAA559E2E1D241F0006AEAA /* OpenSplat.app */,
+				BFAA559E2E1D241F0006AEAA /* OpenSplatExe.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -188,12 +189,17 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		BFAD8B372E21710200301BF0 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		BFAA559D2E1D241F0006AEAA /* OpenSplat */ = {
+		BFAA559D2E1D241F0006AEAA /* OpenSplatExe */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BFAA55AD2E1D24200006AEAA /* Build configuration list for PBXNativeTarget "OpenSplat" */;
+			buildConfigurationList = BFAA55AD2E1D24200006AEAA /* Build configuration list for PBXNativeTarget "OpenSplatExe" */;
 			buildPhases = (
 				BFAA559A2E1D241F0006AEAA /* Sources */,
 				BFAA559B2E1D241F0006AEAA /* Frameworks */,
@@ -204,11 +210,11 @@
 			);
 			dependencies = (
 			);
-			name = OpenSplat;
+			name = OpenSplatExe;
 			packageProductDependencies = (
 			);
 			productName = OpenSplat;
-			productReference = BFAA559E2E1D241F0006AEAA /* OpenSplat.app */;
+			productReference = BFAA559E2E1D241F0006AEAA /* OpenSplatExe.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -256,10 +262,14 @@
 					ProductGroup = BFAA57FE2E1D25500006AEAA /* Products */;
 					ProjectRef = BFAA57E72E1D25500006AEAA /* OpenSplat.xcodeproj */;
 				},
+				{
+					ProductGroup = BFAD8B372E21710200301BF0 /* Products */;
+					ProjectRef = BFAD8B182E21710200301BF0 /* OpenSplat.xcodeproj */;
+				},
 			);
 			projectRoot = "";
 			targets = (
-				BFAA559D2E1D241F0006AEAA /* OpenSplat */,
+				BFAA559D2E1D241F0006AEAA /* OpenSplatExe */,
 			);
 		};
 /* End PBXProject section */
@@ -502,7 +512,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BFAA55AD2E1D24200006AEAA /* Build configuration list for PBXNativeTarget "OpenSplat" */ = {
+		BFAA55AD2E1D24200006AEAA /* Build configuration list for PBXNativeTarget "OpenSplatExe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BFAA55AE2E1D24200006AEAA /* Debug */,
