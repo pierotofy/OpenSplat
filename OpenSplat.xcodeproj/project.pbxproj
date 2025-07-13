@@ -33,6 +33,8 @@
 		BFAA59B82E1D27510006AEAA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/MetalKit.framework; sourceTree = DEVELOPER_DIR; };
 		BFAD08172E1E7C3300301BF0 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAD8B182E21710200301BF0 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
+		BFAFE9C42E23FEB30046A070 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
+		BFAFEA012E23FED00046A070 /* OpenSplatApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSplatApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -118,6 +120,11 @@
 			path = "../PopOpenSplat/libtorch-v2.7.1";
 			sourceTree = SOURCE_ROOT;
 		};
+		BFAFEA022E23FED00046A070 /* OpenSplatApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OpenSplatApp;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +134,13 @@
 			files = (
 				BFAA59B92E1D27510006AEAA /* Metal.framework in Frameworks */,
 				BFAA59BA2E1D27510006AEAA /* MetalKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFAFE9FE2E23FED00046A070 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +161,7 @@
 			isa = PBXGroup;
 			children = (
 				BFAA55B62E1D25090006AEAA /* AppleApp */,
+				BFAFEA022E23FED00046A070 /* OpenSplatApp */,
 				BFAA59B62E1D27510006AEAA /* Frameworks */,
 				BFAAD9732E1D29640006AEAA /* libtorch-v2.7.1 */,
 				BFAA55B82E1D253C0006AEAA /* OpenSplat */,
@@ -159,6 +174,7 @@
 			isa = PBXGroup;
 			children = (
 				BFAA559E2E1D241F0006AEAA /* OpenSplatExe.app */,
+				BFAFEA012E23FED00046A070 /* OpenSplatApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -194,6 +210,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		BFAFE9E32E23FEB30046A070 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -217,6 +238,28 @@
 			productReference = BFAA559E2E1D241F0006AEAA /* OpenSplatExe.app */;
 			productType = "com.apple.product-type.application";
 		};
+		BFAFEA002E23FED00046A070 /* OpenSplatApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BFAFEA0F2E23FED10046A070 /* Build configuration list for PBXNativeTarget "OpenSplatApp" */;
+			buildPhases = (
+				BFAFE9FD2E23FED00046A070 /* Sources */,
+				BFAFE9FE2E23FED00046A070 /* Frameworks */,
+				BFAFE9FF2E23FED00046A070 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BFAFEA022E23FED00046A070 /* OpenSplatApp */,
+			);
+			name = OpenSplatApp;
+			packageProductDependencies = (
+			);
+			productName = OpenSplatApp;
+			productReference = BFAFEA012E23FED00046A070 /* OpenSplatApp.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -230,6 +273,9 @@
 					BFAA559D2E1D241F0006AEAA = {
 						CreatedOnToolsVersion = 16.0;
 						LastSwiftMigration = 1600;
+					};
+					BFAFEA002E23FED00046A070 = {
+						CreatedOnToolsVersion = 16.0;
 					};
 				};
 			};
@@ -255,6 +301,10 @@
 					ProjectRef = BFAA27192E1D4B8B0006AEAA /* OpenSplat.xcodeproj */;
 				},
 				{
+					ProductGroup = BFAFE9E32E23FEB30046A070 /* Products */;
+					ProjectRef = BFAFE9C42E23FEB30046A070 /* OpenSplat.xcodeproj */;
+				},
+				{
 					ProductGroup = BFAD08322E1E7C3300301BF0 /* Products */;
 					ProjectRef = BFAD08172E1E7C3300301BF0 /* OpenSplat.xcodeproj */;
 				},
@@ -270,6 +320,7 @@
 			projectRoot = "";
 			targets = (
 				BFAA559D2E1D241F0006AEAA /* OpenSplatExe */,
+				BFAFEA002E23FED00046A070 /* OpenSplatApp */,
 			);
 		};
 /* End PBXProject section */
@@ -282,10 +333,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BFAFE9FF2E23FED00046A070 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		BFAA559A2E1D241F0006AEAA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFAFE9FD2E23FED00046A070 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -500,6 +565,86 @@
 			};
 			name = Release;
 		};
+		BFAFEA0D2E23FED10046A070 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = OpenSplatApp/OpenSplatApp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"OpenSplatApp/Preview Content\"";
+				DEVELOPMENT_TEAM = X52DR36JY2;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.newchromantics.OpenSplatApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 2.0;
+			};
+			name = Debug;
+		};
+		BFAFEA0E2E23FED10046A070 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = OpenSplatApp/OpenSplatApp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"OpenSplatApp/Preview Content\"";
+				DEVELOPMENT_TEAM = X52DR36JY2;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.newchromantics.OpenSplatApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 2.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -517,6 +662,15 @@
 			buildConfigurations = (
 				BFAA55AE2E1D24200006AEAA /* Debug */,
 				BFAA55AF2E1D24200006AEAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BFAFEA0F2E23FED10046A070 /* Build configuration list for PBXNativeTarget "OpenSplatApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BFAFEA0D2E23FED10046A070 /* Debug */,
+				BFAFEA0E2E23FED10046A070 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
