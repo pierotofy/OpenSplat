@@ -12,6 +12,7 @@
 #include "optim_scheduler.hpp"
 #include <functional>
 #include <span>
+#include "trainer_params.hpp"	//	model params
 
 using namespace torch::indexing;
 using namespace torch::autograd;
@@ -20,6 +21,7 @@ torch::Tensor randomQuatTensor(long long n);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
 torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
+
 
 
 //	store results of a forward render
@@ -41,9 +43,8 @@ public:
 class Model
 {
 public:
-	Model(const InputData &inputData, 
-		  int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
-		  int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
+	Model(const InputData &inputData,
+		  const ModelParams& modelParams,
 		  int maxSteps,
 		  std::array<float,3> backgroundColour,
 		  const torch::Device &device);
@@ -102,18 +103,8 @@ public:
   SSIM ssim;
 
   int numCameras;		//	used only for determining refine parameters (no other camera meta required)
-  int numDownscales;
-  int resolutionSchedule;
-  int shDegree;
-  int shDegreeInterval;
-  int refineEvery;
-  int warmupLength;
-  int resetAlphaEvery;
-  int stopSplitAt;
-  float densifyGradThresh;
-  float densifySizeThresh;
-  int stopScreenSizeAt;
-  float splitScreenSize;
+	ModelParams	params;
+  int stopSplitAt;	//	maxsteps/2
   int maxSteps;
 
   float scale;

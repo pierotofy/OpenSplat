@@ -4,6 +4,24 @@
 #include <filesystem>
 
 
+
+class ModelParams
+{
+public:
+	int numDownscales = 2;
+	int resolutionSchedule = 3000;
+	int shDegree = 3;
+	int shDegreeInterval = 1000;
+	int refineEvery = 100;
+	int warmupLength = 500;
+	int resetAlphaEvery = 30;
+	float densifyGradThresh = 0.0002;
+	float densifySizeThresh = 0.01;
+	int stopScreenSizeAt = 4000;
+	float splitScreenSize = 0.05;
+};
+
+
 namespace OpenSplat
 {
 	static constexpr std::string_view	randomValidationImageName = "random";
@@ -43,7 +61,7 @@ public:
 };
 
 
-class TrainerParams
+class TrainerParams : public ModelParams
 {
 
 public:
@@ -52,18 +70,7 @@ public:
 	TrainerParams(cxxopts::ParseResult& Arguments,bool KeepCrs);
 	
 	int numIters = 30000;
-	int numDownscales = 2;
-	int resolutionSchedule = 3000;
-	int shDegree = 3;
-	int shDegreeInterval = 1000;
 	float ssimWeight = 0.2;
-	int refineEvery = 100;
-	int warmupLength = 500;
-	int resetAlphaEvery = 30;
-	float densifyGradThresh = 0.0002;
-	float densifySizeThresh = 0.01;
-	int stopScreenSizeAt = 4000;
-	float splitScreenSize = 0.05;
 	int iterationRandomCameraIndexSeed = 42;
 
 	//	todo: move into app and load resuming points into InputData

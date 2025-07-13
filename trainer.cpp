@@ -136,17 +136,6 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 	auto& Params = mParams;
 	auto& resume = Params.resumeFromPlyFilename;
 	auto& numIters = Params.numIters;
-	auto& numDownscales = Params.numDownscales;
-	auto& resolutionSchedule = Params.resolutionSchedule;
-	auto& shDegree = Params.shDegree;
-	auto& shDegreeInterval = Params.shDegreeInterval;
-	auto& refineEvery = Params.refineEvery;
-	auto& warmupLength = Params.warmupLength;
-	auto& resetAlphaEvery = Params.resetAlphaEvery;
-	auto& densifyGradThresh = Params.densifyGradThresh;
-	auto& densifySizeThresh = Params.densifySizeThresh;
-	auto& stopScreenSizeAt = Params.stopScreenSizeAt;
-	auto& splitScreenSize = Params.splitScreenSize;
 	
 	auto device = GetDevice();
 	if ( device == torch::kCUDA )
@@ -163,12 +152,7 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 	}
 	
 	
-	mModel = std::make_shared<Model>(inputData,
-				numDownscales, resolutionSchedule, shDegree, shDegreeInterval, 
-				refineEvery, warmupLength, resetAlphaEvery, densifyGradThresh, densifySizeThresh, stopScreenSizeAt, splitScreenSize,
-				numIters, 
-				mParams.BackgroundRgb,
-				device);
+	mModel = std::make_shared<Model>(inputData, Params, numIters, mParams.BackgroundRgb, device );
 	auto& model = *mModel;
 	/*
 	std::vector<size_t> camIndices( cams.size() );

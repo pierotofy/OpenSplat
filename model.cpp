@@ -54,24 +54,13 @@ torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt){
 }
 
 Model::Model(const InputData &inputData,
-		int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
-	  int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
+			 const ModelParams& modelParams,
 	  int maxSteps,
 			 std::array<float,3> backgroundColour,
 	  const torch::Device &device) :
 	numCameras(inputData.cameras.size()),
-	numDownscales(numDownscales), 
-	resolutionSchedule(resolutionSchedule), 
-	shDegree(shDegree), 
-	shDegreeInterval(shDegreeInterval), 
-	refineEvery(refineEvery), 
-	warmupLength(warmupLength), 
-	resetAlphaEvery(resetAlphaEvery), 
+	params(modelParams), 
 	stopSplitAt(maxSteps / 2), 
-	densifyGradThresh(densifyGradThresh), 
-	densifySizeThresh(densifySizeThresh), 
-	stopScreenSizeAt(stopScreenSizeAt), 
-	splitScreenSize(splitScreenSize),
 	maxSteps(maxSteps),
 	device(device), 
 	ssim(11, 3)
@@ -90,7 +79,7 @@ Model::Model(const InputData &inputData,
 	scales = PointsTensor(inputData.points.xyz).scales().repeat({1, 3}).log().to(device).requires_grad_();
 	quats = randomQuatTensor(numPoints).to(device).requires_grad_();
 	
-	int dimSh = numShBases(shDegree);
+	int dimSh = numShBases(params.shDegree);
 	torch::Tensor shs = torch::zeros({numPoints, dimSh, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
 	
 	shs.index({Slice(), 0, Slice(None, 3)}) = rgb2sh(inputData.points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32);
@@ -253,6 +242,9 @@ ModelForwardResults Model::forward(CameraTransform& CameraTransform,CameraIntrin
 		return Results;
 	}
 
+	auto shDegreeInterval = params.shDegreeInterval;
+	auto shDegree = params.shDegree;
+	
 	//	get each splat's direction to camera in world space
     torch::Tensor viewDirs = means.detach() - T.transpose(0, 1).to(device);
     viewDirs = viewDirs / viewDirs.norm(2, {-1}, true);
@@ -324,7 +316,10 @@ void Model::schedulersStep(int step){
   meansOptScheduler->step(step);
 }
 
-int Model::getDownscaleFactor(int step){
+int Model::getDownscaleFactor(int step)
+{
+	auto numDownscales = params.numDownscales;
+	auto resolutionSchedule = params.resolutionSchedule;
     return std::pow(2, (std::max<int>)(numDownscales - step / resolutionSchedule, 0));
 }
 
@@ -414,6 +409,14 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             ));
     }
 
+	auto refineEvery = params.refineEvery;
+	auto warmupLength = params.warmupLength;
+	auto resetAlphaEvery = params.resetAlphaEvery;
+	auto densifyGradThresh = params.densifyGradThresh;
+	auto densifySizeThresh = params.densifySizeThresh;
+	auto stopScreenSizeAt = params.stopScreenSizeAt;
+	auto splitScreenSize = params.splitScreenSize;
+	
     if (step % refineEvery == 0 && step > warmupLength){
         int resetInterval = resetAlphaEvery * refineEvery;
         bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
@@ -788,8 +791,7 @@ int Model::loadPly(const std::string &filename,bool modelPointsNeedToBeNormalise
 
     // Ensure we have a valid ply file
     std::string line;
-    int numPoints;
-    int step;
+	int step = 0;
     size_t bytesRead = 0;
 
     std::getline(f, line);
