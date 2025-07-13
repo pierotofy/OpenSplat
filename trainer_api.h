@@ -8,10 +8,14 @@
 
 #if !defined(__export)
 
-#if defined(_MSC_VER)	//	windows compiler
-#define __export			extern "C" __declspec(dllexport)
+#if __cplusplus	//	this is only for c++, not objective-c or C
+	#if defined(_MSC_VER)	//	windows compiler
+		#define __export			extern "C" __declspec(dllexport)
+	#else
+		#define __export			extern "C"
+	#endif
 #else
-#define __export			extern "C"
+	#define __export		
 #endif
 
 #endif
