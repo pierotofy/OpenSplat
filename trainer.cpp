@@ -117,7 +117,7 @@ Trainer::Trainer(const TrainerParams& Params) :
 
 torch::Device Trainer::GetDevice()
 {
-	auto ForceCpuDevice = mParams.mForceCpuDevice;
+	auto ForceCpuDevice = mParams.ForceCpuDevice;
 	
 	if (torch::hasCUDA() && !ForceCpuDevice )
 		return torch::kCUDA;
@@ -194,13 +194,16 @@ TrainerIterationMeta Trainer::Iteration(int step)
 	std::cout << "Step #" << step << " training with camera " << cam.getName() << "(#" << IterationMeta.mCameraIndex << ")" << std::endl;
 	
 	//	look for nans before a step
-	try
+	if ( mParams.CheckForInvalidPoints )
 	{
-		model.findInvalidPoints();
-	}
-	catch(std::exception& e)
-	{
-		std::cerr << "Warning; " << e.what() << std::endl;
+		try
+		{
+			model.findInvalidPoints();
+		}
+		catch(std::exception& e)
+		{
+			std::cerr << "Warning; " << e.what() << std::endl;
+		}
 	}
 	
 	model.optimizersZeroGrad();

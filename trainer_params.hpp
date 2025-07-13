@@ -81,5 +81,6 @@ public:
 	
 	
 	//	refactored params
-	bool		mForceCpuDevice = false;
+	bool		ForceCpuDevice = false;
+	bool		CheckForInvalidPoints = false;
 };

@@ -38,7 +38,7 @@ TrainerParams::TrainerParams(cxxopts::ParseResult& Arguments,bool KeepCrs)
 	splitScreenSize = Arguments["split-screen-size"].as<float>();
 	
 	//	user didn't supply any force-cpu argument[s]
-	mForceCpuDevice = Arguments.count("cpu") > 0;
+	ForceCpuDevice = Arguments.count("cpu") > 0;
 }
 
 std::filesystem::path AppParams::GetOutputFilePath(const std::string& Filename)
