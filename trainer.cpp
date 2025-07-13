@@ -150,19 +150,17 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 	{
 		std::cout << "Using CPU" << std::endl;
 	}
-	
-	
-	mModel = std::make_shared<Model>(inputData, Params, numIters, mParams.BackgroundRgb, device );
-	auto& model = *mModel;
-	/*
-	std::vector<size_t> camIndices( cams.size() );
-	std::iota( camIndices.begin(), camIndices.end(), 0 );
-	InfiniteRandomIterator<size_t> camsIter( camIndices );
-	*/
+
+	{
+		std::lock_guard Lock(mModelLock);
+		mModel = std::make_shared<Model>(inputData, Params, numIters, mParams.BackgroundRgb, device );
+	}
 	size_t step = 1;
 	
 	if (!resume.empty())
 	{
+		std::lock_guard Lock(mModelLock);
+		auto& model = *mModel;
 		step = model.loadPly(resume,Params.resumeFromPlyNeedsNormalising) + 1;
 	}
 	
@@ -179,6 +177,8 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 
 TrainerIterationMeta Trainer::Iteration(int step)
 {
+	std::lock_guard Lock(mModelLock);
+
 	auto& model = GetModel();
 	auto& inputData = GetInputData();
 	
@@ -230,6 +230,8 @@ TrainerIterationMeta Trainer::Iteration(int step)
 
 ImagePixels Trainer::GetForwardImage(Camera& Camera,int step)
 {
+	std::lock_guard Lock(mModelLock);
+	
 	auto& Model = GetModel();
 	auto ForwardResults = Model.forward( Camera, step );
 	
@@ -242,6 +244,8 @@ ImagePixels Trainer::GetForwardImage(Camera& Camera,int step)
 
 ImagePixels Trainer::GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight)
 {
+	std::lock_guard Lock(mModelLock);
+	
 	auto& Model = GetModel();
 	auto& Camera = GetInputData().GetCamera(CameraIndex);
 	
@@ -259,6 +263,8 @@ ImagePixels Trainer::GetForwardImage(int CameraIndex,int RenderWidth,int RenderH
 
 ImagePixels Trainer::GetCameraImage(int CameraIndex,int OutputWidth,int OutputHeight)
 {
+	std::lock_guard Lock(mModelLock);
+	
 	auto& Camera = GetInputData().GetCamera(CameraIndex);
 
 	//	todo: if we keep this function, we can pass in the pixel buffer to opencv and rescale in-place and avoid all these allocs & copies
@@ -270,6 +276,8 @@ ImagePixels Trainer::GetCameraImage(int CameraIndex,int OutputWidth,int OutputHe
 
 std::vector<OpenSplat_Splat> Trainer::GetModelSplats()
 {
+	std::lock_guard Lock(mModelLock);
+	
 	auto& Model = GetModel();
 
 	std::vector<OpenSplat_Splat> Splats;

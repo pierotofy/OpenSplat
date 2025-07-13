@@ -95,6 +95,8 @@ protected:
 	
 public:
 	TrainerParams				mParams;
+
+	std::mutex					mModelLock;
 	std::shared_ptr<Model>		mModel;
 	std::shared_ptr<InputData>	mInputData;
 	
