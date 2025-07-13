@@ -88,10 +88,21 @@ public class OpenSplatTrainer : ObservableObject
 		return splatBuffer
 	}
 	
-	public func RenderCamera(cameraIndex:Int,width:Int,height:Int) throws -> CGImage
+	public func RenderCamera(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
+	{
+		let task = Task.detached(priority: .background)
+		{
+			try self.RenderCameraBlocking(cameraIndex: cameraIndex, width: width, height: height)
+		}
+		let result = try await task.result.get()
+		return result
+	}
+	
+	//	blocking, so best not to call on mainactor
+	public func RenderCameraBlocking(cameraIndex:Int,width:Int,height:Int) throws -> CGImage
 	{
 		let rgbBufferSize = width*height*3
-		var rgbBuffer = [UInt8](repeating: 99, count: rgbBufferSize )
+		var rgbBuffer = [UInt8](repeating: 0, count: rgbBufferSize )
 		try rgbBuffer.withUnsafeMutableBufferPointer
 		{
 			(buffer:inout UnsafeMutableBufferPointer<UInt8>) in
@@ -113,7 +124,7 @@ public class OpenSplatTrainer : ObservableObject
 	public func GetCameraGroundTruthImage(cameraIndex:Int,width:Int,height:Int) throws -> CGImage
 	{
 		let rgbBufferSize = width*height*3
-		var rgbBuffer = [UInt8](repeating: 99, count: rgbBufferSize )
+		var rgbBuffer = [UInt8](repeating: 0, count: rgbBufferSize )
 		try rgbBuffer.withUnsafeMutableBufferPointer
 		{
 			(buffer:inout UnsafeMutableBufferPointer<UInt8>) in
@@ -139,7 +150,7 @@ public class OpenSplatTrainer : ObservableObject
 			let alphaBuffer : UnsafePointer<vImage_Buffer>? = nil
 			let alpha = Pixel_8(255)
 			let premultiply = false	//	true performs {r = (a * r + 127) / 255}
-			let flags = vImage_Flags(kvImageNoFlags)
+			let flags = vImage_Flags(kvImageDoNotTile)
 			let error = vImageConvert_RGB888toRGBA8888( &rgb, alphaBuffer, alpha, &rgba, premultiply, flags )
 			if error != kvImageNoError
 			{
@@ -149,7 +160,7 @@ public class OpenSplatTrainer : ObservableObject
 			
 		
 		//	need to convert to RGBA for coregraphics
-		var rgbaBuffer = [UInt8](repeating: 77, count: width*height*4)
+		var rgbaBuffer = [UInt8](repeating: 0, count: width*height*4)
 		try rgbBuffer.withUnsafeMutableBytes
 		{
 			rgbBufferPointer in 
@@ -172,10 +183,10 @@ public class OpenSplatTrainer : ObservableObject
 		let colorSpace = CGColorSpaceCreateDeviceRGB()
 		let alpha = CGImageAlphaInfo.premultipliedLast.rawValue
 		
-		let cgimage = try rgbBuffer.withUnsafeMutableBytes
+		let cgimage = try rgbaBuffer.withUnsafeMutableBytes
 		{
-			rgbBufferPointer in
-			guard let context = CGContext(data: rgbBufferPointer.baseAddress!, width: width, height: height, bitsPerComponent: bitsPerComponent, bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: alpha) else
+			rgbaBufferPointer in
+			guard let context = CGContext(data: rgbaBufferPointer.baseAddress!, width: width, height: height, bitsPerComponent: bitsPerComponent, bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: alpha) else
 			{
 				throw OpenSplatError("Failed to create cg context")
 			}

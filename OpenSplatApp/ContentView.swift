@@ -15,7 +15,7 @@ struct TrainerView : View
 	@StateObject var trainer : OpenSplatTrainer
 	@State var lastRenderImage : Image = Image(systemName: "clock.circle.fill")
 	@State var cameraIndex = 0
-	var renderImageSize = CGSize(width: 800, height: 600)
+	@State var renderImageSize = CGSize(width: 400, height: 400)
 	@State var someError : Error?
 	
 	var body: some View 
@@ -30,24 +30,52 @@ struct TrainerView : View
 			}
 			.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
 		}
-		Button(action:OnClickedUpdateImage)
+		.onGeometryChange(for: CGSize.self) 
 		{
-			Text("Capture new image from camera \(cameraIndex)")
+			proxy in
+			proxy.size
+		} 
+		action: 
+		{
+			self.renderImageSize = $0
+		}
+		
+		
+		HStack
+		{
+			var cameraIndexFloat = Binding<Float>( get: {Float(cameraIndex)}, set:{cameraIndex = Int($0)
+				print("new camera \(cameraIndex)")
+				OnClickedUpdateImage()
+			} )
+			Slider(value: cameraIndexFloat, in: 0...10)
+			{
+				editing in
+				//print("changed \($0)")
+				OnClickedUpdateImage()
+			}
+			
+			Button(action:OnClickedUpdateImage)
+			{
+				let w = Int(renderImageSize.width)
+				let h = Int(renderImageSize.height)
+				Text("Capture new image from camera \(cameraIndex) (at \(w)x\(h))")
+			}
 		}
 	}
 	
 	@ViewBuilder func TrainingView() -> some View
 	{
 		lastRenderImage
-			//.resizable()
+			.resizable()
 			.scaledToFit()
 			.frame(maxWidth:.infinity,maxHeight: .infinity)
 			.background
-			{
-				Rectangle()
-					.fill(.blue)
-			}
-			.foregroundStyle(.white)
+		{
+			Rectangle()
+				.fill(.blue)
+		}
+		.foregroundStyle(.white)
+		
 	}
 	
 	@ViewBuilder func TrainingStateView() -> some View
@@ -89,18 +117,24 @@ struct TrainerView : View
 	
 	func UpdateImage(cameraIndex:Int)
 	{
-		do
+		//	todo: make a queue!
+		Task
 		{
-			let renderWidth = Int(renderImageSize.width)
-			let renderHeight = Int(renderImageSize.height)
-			let image = try trainer.RenderCamera(cameraIndex: cameraIndex, width:renderWidth, height: renderHeight)
-			let imageNs = NSImage(cgImage:image, size: .zero)
-			lastRenderImage = Image(nsImage: imageNs)
+			do
+			{
+				let renderWidth = Int(renderImageSize.width)
+				let renderHeight = Int(renderImageSize.height)
+				
+				
+				let image = try await trainer.RenderCamera(cameraIndex: cameraIndex, width:renderWidth, height: renderHeight)
+				let imageNs = NSImage(cgImage:image, size: .zero)
+				lastRenderImage = Image(nsImage: imageNs)
+			}
+			catch
+			{
+				someError = error
+			}	
 		}
-		catch
-		{
-			someError = error
-		}	
 	}
 }
 
