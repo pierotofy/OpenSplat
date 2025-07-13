@@ -34,7 +34,7 @@ std::basic_string<T> lowercase(const std::basic_string<T>& s)
 
 void WriteTrainerPly(std::filesystem::path Filename,int TrainerInstance,int Step)
 {
-	std::vector<OpenSplat_Splat> Splats( 1000 );
+	std::vector<OpenSplat_Splat> Splats;
 	auto GetSplat = [&](int Index)
 	{
 		SplatElement Element;
@@ -42,7 +42,14 @@ void WriteTrainerPly(std::filesystem::path Filename,int TrainerInstance,int Step
 		return Element;
 	};
 	
-	auto SplatCount = OpenSplat_GetSnapshot(TrainerInstance, Splats.data(), Splats.size() );
+	//	get count, then allocate a buffer big enough
+	auto SplatCount = OpenSplat_GetSnapshot(TrainerInstance, nullptr, 0 );
+	Splats.resize(SplatCount);
+	
+	SplatCount = OpenSplat_GetSnapshot(TrainerInstance, Splats.data(), Splats.size() );
+	if ( SplatCount > Splats.size() )
+		std::cerr << "Warning: writing " << Splats.size() << "/" << SplatCount << " splats to PLY. Buffer too small" << std::endl;
+	
 	SplatCount = std::min<int>( SplatCount, Splats.size() );
 	
 	std::ofstream File(Filename,std::ios::binary);
