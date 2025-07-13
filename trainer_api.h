@@ -65,3 +65,6 @@ __export enum OpenSplat_Error	OpenSplat_RenderCamera(int TrainerInstance,int Cam
 //	copy ground truth [camera] image into an rgb buffer.
 //	todo: provide a byte buffer and json-meta buffer to copy directly without any library side resize/conversion etc (and copy other camera meta, extrinsics, intrisincs, number of iterations with this camera etc)
 __export enum OpenSplat_Error	OpenSplat_GetGroundTruthCameraImage(int TrainerInstance,int CameraIndex,uint8_t* ImageRgbBuffer,int ImageRgbBufferSize,int ImageRgbWidth,int ImageRgbHeight);
+
+//	MVP run - deprecate this for better iteration control
+__export enum OpenSplat_Error	OpenSplat_InstanceRunBlocking(int Instance);

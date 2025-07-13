@@ -192,3 +192,31 @@ __export enum OpenSplat_Error	OpenSplat_GetGroundTruthCameraImage(int TrainerIns
 		return OpenSplat_Error_Unknown;
 	}
 }
+
+
+__export OpenSplat_Error	OpenSplat_InstanceRunBlocking(int Instance)
+{
+	try
+	{
+		auto& Trainer = OpenSplat::GetInstance(Instance);
+		
+		auto OnIterationFinished = [&](TrainerIterationMeta IterationMeta)
+		{
+			auto step = IterationMeta.mStep;
+			std::cout << "Done step " << step << std::endl;
+		};
+		
+		auto OnRunFinished = [&](int numIters)
+		{
+		};
+		
+		Trainer.Run( OnIterationFinished, OnRunFinished );
+		
+		return OpenSplat_Error_Success;
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_Error_Unknown;
+	}
+}
