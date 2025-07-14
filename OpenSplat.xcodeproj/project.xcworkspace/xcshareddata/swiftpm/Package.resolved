@@ -1,12 +1,21 @@
 {
   "pins" : [
     {
+      "identity" : "mousetrackingmodifier.swiftpackage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NewChromantics/MouseTrackingModifier.SwiftPackage",
+      "state" : {
+        "branch" : "main",
+        "revision" : "9ae11a5d97558e9bf5fb92c00058dcd9e1850181"
+      }
+    },
+    {
       "identity" : "popmetalview.swiftpackage",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/NewChromantics/PopMetalView.SwiftPackage.git",
       "state" : {
         "branch" : "main",
-        "revision" : "e4a977cc2a16349c01f5bc80cba38a5a535ada7e"
+        "revision" : "a01a9a31bd7a00af38bd856e06ba335ecf84c630"
       }
     }
   ],

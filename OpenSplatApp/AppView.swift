@@ -26,10 +26,11 @@ struct SplatScene : PopScene
 	var actors: [any PopActor]
 	{
 		let splatActors : [any PopActor] = [splatAsset].compactMap{ $0 }
-		return splatActors
+		return otherActors + splatActors 
 	}
 	
 	var splatAsset : OpenSplatSplatAsset?
+	var otherActors : [any PopActor] = []
 	//var cameras : [TrainingCameraActor]
 }
 
@@ -77,8 +78,9 @@ class OpenSplatSplatAsset : PopActor
 															 nearZ: 0.1,
 															 farZ: 100.0)
 		
+		let localToViewTransform = camera.worldToCameraTransform * self.localToWorldTransform
 		
-		let camDescription = CameraDescriptor(projectionMatrix: projectionMatrix, viewMatrix: self.localToWorldTransform, screenSize:camera.viewportPixelSizeSimd)
+		let camDescription = CameraDescriptor(projectionMatrix: projectionMatrix, viewMatrix: localToViewTransform, screenSize:camera.viewportPixelSizeSimd)
 		
 		let renderer = try GetSplatAssetRenderer(metalKitView: metalView)
 		renderer.render(camera: camDescription, to: commandEncoder)
@@ -129,9 +131,10 @@ struct TrainerView : View
 	}
 
 	@StateObject var splatAsset = OpenSplatSplatAsset()
+	@StateObject var floorAsset = FloorPlaneActor()
 	var scene : PopScene
 	{
-		return SplatScene(splatAsset: splatAsset)
+		return SplatScene(splatAsset: splatAsset, otherActors: [floorAsset])
 	}
 	
 	@State var someError : Error?
@@ -270,7 +273,7 @@ struct TrainerView : View
 	
 	@ViewBuilder func TrainingView() -> some View
 	{
-		MetalSceneView(scene: scene, showGizmosOnActors: [splatAsset.id])
+		MetalSceneView(scene: scene, showGizmosOnActors: [])
 			.background
 			{
 				Rectangle()
