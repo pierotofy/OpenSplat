@@ -91,8 +91,12 @@ extension SplatElement
 		
 		let rgb3 = [r,g,b].map
 		{
+			//	gr: we're rendering to non-srgb metal buffer, but this produces colours
+			//		that are too dark - without is correct.
+			//		Find out where in the pipeline this is wrong (export? shader?)
 			//	convert srgb to linear
-			pow( $0, 2.2 )
+			//pow( $0, 2.2 )
+			$0
 		}
 		return rgb3
 	}
