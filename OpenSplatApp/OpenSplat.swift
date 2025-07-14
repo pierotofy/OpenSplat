@@ -16,6 +16,8 @@ public struct OpenSplatError : LocalizedError
 		{
 			case OpenSplat_Error_Unknown:	message = "Unknown OpenSplat API error"
 			case OpenSplat_Error_Success:	message = "OpenSplat success(not an error)"
+			case OpenSplat_Error_NoCamera:	message = "No such camera"
+			case OpenSplat_Error_NoInstance:	message = "No such instance"
 			default:
 				message = "OpenSplat unknown-error [\(apiError)]"
 		}

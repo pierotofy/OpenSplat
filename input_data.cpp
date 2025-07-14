@@ -2,6 +2,7 @@
 #include <nlohmann/json.hpp>
 #include "input_data.hpp"
 #include "cv_utils.hpp"
+#include "trainer.hpp"	//	NoCameraException
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
@@ -351,9 +352,7 @@ Camera& InputData::GetCamera(int CameraIndex)
 {
 	if ( CameraIndex < 0 || CameraIndex >= cameras.size() )
 	{
-		std::stringstream Error;
-		Error << "Camera index " << CameraIndex << "/" << cameras.size() << " out of range"; 
-		throw std::runtime_error(Error.str());
+		throw OpenSplat::NoCameraException(CameraIndex,cameras.size());
 	}
 
 	return cameras[CameraIndex];

@@ -11,6 +11,15 @@
 #include <torch/torch.h>
 
 
+OpenSplat::NoCameraException::NoCameraException(int CameraIndex,int CameraCount)
+{
+	std::stringstream Error;
+	//	with 1 camera, this will show 1/1 when 1 is out of range...
+	//	todo: better message
+	Error << "Camera index " << CameraIndex << "/" << CameraCount << " out of range";
+	mMessage = Error.str();
+}
+
 ImagePixels::ImagePixels(const torch::Tensor& tensor,Format TensorPixelFormat)
 {
 	//	from tensorToImage()

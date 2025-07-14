@@ -33,7 +33,33 @@ public:
 	float	mLoss = -1.0f;
 };
 
+
+namespace OpenSplat
+{
+	class ApiException : public std::exception
+	{
+	public:
+		virtual OpenSplat_Error	GetApiError()=0;
+	};
 	
+	class NoCameraException : public ApiException
+	{
+	public:
+		NoCameraException(int CameraIndex,int CameraCount);
+		
+		virtual OpenSplat_Error	GetApiError() override	{	return OpenSplat_Error_NoCamera;	}
+		virtual const char*		what() const noexcept override	{	return mMessage.c_str();	}
+
+		std::string		mMessage;
+	};
+	
+	class NoInstanceException : public ApiException
+	{
+	public:
+		virtual OpenSplat_Error	GetApiError() override	{	return OpenSplat_Error_NoInstance;	}
+	};
+}
+
 
 class ImagePixels
 {

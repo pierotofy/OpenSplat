@@ -28,9 +28,8 @@ enum OpenSplat_Error
 {
 	OpenSplat_Error_Success		= 0,
 	OpenSplat_Error_Unknown		= 1,
-	//	todo: turn c++ exceptions into specific errors
-	//OpenSplat_Error_NoInstance	= 2,
-	//OpenSplat_Error_NoCamera	= 3
+	OpenSplat_Error_NoInstance	= 2,
+	OpenSplat_Error_NoCamera	= 3
 };
 
 

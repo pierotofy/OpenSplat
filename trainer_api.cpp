@@ -81,9 +81,7 @@ void OpenSplat::FreeInstance(int Instance)
 {
 	if ( gSingleInstanceId != Instance )
 	{
-		std::stringstream Error;
-		Error << "No such instance " << Instance;
-		throw std::runtime_error(Error.str());
+		throw NoInstanceException();
 	}
 	
 	gSingleInstance.reset();
@@ -93,9 +91,7 @@ Trainer& OpenSplat::GetInstance(int Instance)
 {
 	if ( gSingleInstanceId != Instance || gSingleInstance == nullptr )
 	{
-		std::stringstream Error;
-		Error << "No such instance " << Instance;
-		throw std::runtime_error(Error.str());
+		throw NoInstanceException();
 	}
 	
 	return *gSingleInstance;
@@ -126,6 +122,11 @@ __export enum OpenSplat_Error	OpenSplat_RenderCamera(int TrainerInstance,int Cam
 		
 		std::copy( Image.mPixels.begin(), Image.mPixels.end(), RgbPixels.begin() );
 		return OpenSplat_Error_Success;
+	}
+	catch(OpenSplat::ApiException& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return e.GetApiError();
 	}
 	catch(std::exception& e)
 	{
@@ -186,6 +187,11 @@ __export enum OpenSplat_Error	OpenSplat_GetGroundTruthCameraImage(int TrainerIns
 		
 		return OpenSplat_Error_Success;
 	}
+	catch(OpenSplat::ApiException& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return e.GetApiError();
+	}
 	catch(std::exception& e)
 	{
 		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
@@ -213,6 +219,11 @@ __export OpenSplat_Error	OpenSplat_InstanceRunBlocking(int Instance)
 		Trainer.Run( OnIterationFinished, OnRunFinished );
 		
 		return OpenSplat_Error_Success;
+	}
+	catch(OpenSplat::ApiException& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return e.GetApiError();
 	}
 	catch(std::exception& e)
 	{
