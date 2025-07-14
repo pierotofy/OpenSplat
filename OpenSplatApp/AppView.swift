@@ -134,6 +134,7 @@ struct TrainerView : View
 	
 	@State var someError : Error?
 	@StateObject var trainer : OpenSplatTrainer
+	@State var trainerState = OpenSplat_TrainerState()
 	@State var cameraRender = [Int:CameraImageCache]()
 	@State var cameraUserView = [Int:CameraUserView]()
 	var noImageImage = Image(systemName: "questionmark.square.dashed")
@@ -246,6 +247,7 @@ struct TrainerView : View
 				}
 				.frame(maxHeight:20)
 			}
+			.padding(10)
 		}
 		.onTapGesture 
 		{
@@ -288,6 +290,18 @@ struct TrainerView : View
 			{
 				self.someError = error
 			}
+		}
+	}
+	
+	func OnClickedUpdateState()
+	{
+		do
+		{
+			trainerState = try trainer.GetState()
+		}
+		catch
+		{
+			self.someError = error
 		}
 	}
 	
@@ -336,6 +350,11 @@ struct TrainerView : View
 				.background(.black)
 				.foregroundStyle(.white)
 		}
+		
+		Text("\(trainerState.IterationsCompleted) Steps Completed (\(trainerState.SplatCount) splats)")
+			.padding(5)
+			.background(.black)
+			.foregroundStyle(.white)
 	}
 	
 	
@@ -396,6 +415,7 @@ struct TrainerView : View
 	{
 		while ( !Task.isCancelled )
 		{
+			OnClickedUpdateState()
 			OnClickedUpdateSplats()
 			let ms = 200
 			try? await Task.sleep(nanoseconds: UInt64(ms * 1_000_000))

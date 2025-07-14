@@ -8,6 +8,8 @@
 #include <thread>
 #include <functional>
 
+void CopyStringToBuffer(std::string_view input, char *dst, size_t dst_size);
+
 
 template <typename T>
 class InfiniteRandomIterator

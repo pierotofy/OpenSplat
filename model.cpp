@@ -614,6 +614,12 @@ void Model::findInvalidPoints()
 	iteratePoints( CheckPoint );
 }
 
+int Model::getPointCount()
+{
+	int numPoints = means.size(0);
+	return numPoints;
+}
+
 void Model::iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcfeatures,std::span<float> restfeatures)> OnFoundPoint)
 {
 	int numPoints = means.size(0);

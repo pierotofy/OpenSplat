@@ -67,6 +67,7 @@ public:
   void saveSplat(const std::string &filename,bool keepCrs);
   void saveDebugPly(const std::string &filename, int step,bool keepCrs);
   void iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcFeatures,std::span<float> restFeatures)> OnFoundPoint);
+  int getPointCount();
 	
   //	modelPointsNeedToBeNormalised == keepCrs
   //	it means that the PLY we're loading, was saved in it's original space instead of centered and scaled to -1...1

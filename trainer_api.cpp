@@ -231,3 +231,50 @@ __export OpenSplat_Error	OpenSplat_InstanceRunBlocking(int Instance)
 		return OpenSplat_Error_Unknown;
 	}
 }
+
+
+__export enum OpenSplat_Error	OpenSplat_GetState(int Instance,struct OpenSplat_TrainerState* State)
+{
+	try
+	{
+		if ( !State )
+			throw std::runtime_error("Missing state buffer");
+		
+		auto& Trainer = OpenSplat::GetInstance(Instance);
+		*State = Trainer.GetState();
+		return OpenSplat_Error_Success;
+	}
+	catch(OpenSplat::ApiException& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return e.GetApiError();
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_Error_Unknown;
+	}
+}
+
+__export enum OpenSplat_Error	OpenSplat_GetCameraMeta(int Instance,int CameraIndex,struct OpenSplat_CameraMeta* CameraMeta)
+{
+	try
+	{
+		if ( !CameraMeta )
+			throw std::runtime_error("Missing state buffer");
+		
+		auto& Trainer = OpenSplat::GetInstance(Instance);
+		*CameraMeta = Trainer.GetCameraMeta(CameraIndex);
+		return OpenSplat_Error_Success;
+	}
+	catch(OpenSplat::ApiException& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return e.GetApiError();
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_Error_Unknown;
+	}
+}

@@ -7,8 +7,36 @@
 #include "cv_utils.hpp"
 #include "constants.hpp"
 #include "trainer_params.hpp"
+#include "utils.hpp"
 
 #include <torch/torch.h>
+
+
+
+void CopyMatrix(const CameraTransform& CameraTransform,OpenSplat_Matrix4x4& Out)
+{
+	auto& t = CameraTransform.camToWorld;
+	
+	Out.m00 = t[0][0].item<float>();
+	Out.m01 = t[0][1].item<float>();
+	Out.m02 = t[0][2].item<float>();
+	Out.m03 = t[0][3].item<float>();
+	
+	Out.m10 = t[1][0].item<float>();
+	Out.m11 = t[1][1].item<float>();
+	Out.m12 = t[1][2].item<float>();
+	Out.m13 = t[1][3].item<float>();
+	
+	Out.m20 = t[2][0].item<float>();
+	Out.m21 = t[2][1].item<float>();
+	Out.m22 = t[2][2].item<float>();
+	Out.m23 = t[2][3].item<float>();
+	
+	Out.m30 = t[3][0].item<float>();
+	Out.m31 = t[3][1].item<float>();
+	Out.m32 = t[3][2].item<float>();
+	Out.m33 = t[3][3].item<float>();
+}
 
 
 OpenSplat::NoCameraException::NoCameraException(int CameraIndex,int CameraCount)
@@ -177,6 +205,15 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 	{
 		auto IterationMeta = Iteration(step);
 
+		//	update meta/cache
+		mIterationsCompleted = step;
+		mSplatCountCache = IterationMeta.mSplatCount;
+		if ( mCameraIterations.count(IterationMeta.mCameraIndex) == 0 )
+			mCameraIterations[IterationMeta.mCameraIndex] = 1;
+		else
+			mCameraIterations.at(IterationMeta.mCameraIndex)++;
+
+		//	callback
 		OnIterationFinished( IterationMeta );
 	}
 	
@@ -218,6 +255,7 @@ TrainerIterationMeta Trainer::Iteration(int step)
 	model.optimizersZeroGrad();
 	
 	//	rgb is a render of the scene
+	//	todo: cache this to allow a fast fetch from the API
 	auto ForwardResults = model.forward(cam, step);
 	torch::Tensor groundTruth = cam.getImage(model.getDownscaleFactor(step));
 	groundTruth = groundTruth.to(device);
@@ -233,6 +271,8 @@ TrainerIterationMeta Trainer::Iteration(int step)
 	model.optimizersStep();
 	model.schedulersStep(step);
 	model.afterTrain(step,ForwardResults);
+	
+	IterationMeta.mSplatCount = model.getPointCount();
 	
 	return IterationMeta;
 }
@@ -325,3 +365,38 @@ std::vector<OpenSplat_Splat> Trainer::GetModelSplats()
 	return Splats;
 }
 
+int Trainer::GetIterationsForCamera(int CameraIndex)
+{
+	//	verify index
+	auto& Camera = GetInputData().GetCamera(CameraIndex);
+	
+	if ( mCameraIterations.count(CameraIndex) == 0 )
+		return 0;
+	
+	auto Count = mCameraIterations[CameraIndex];
+	return Count;
+}
+
+OpenSplat_TrainerState Trainer::GetState()
+{
+	OpenSplat_TrainerState Meta;
+	
+	Meta.IterationsCompleted = mIterationsCompleted;
+	Meta.CameraCount = GetInputData().cameras.size();
+	Meta.SplatCount = mSplatCountCache;
+	
+	return Meta;
+}
+
+OpenSplat_CameraMeta Trainer::GetCameraMeta(int CameraIndex)
+{
+	auto& Camera = GetInputData().GetCamera(CameraIndex);
+	
+	OpenSplat_CameraMeta Meta;
+	
+	CopyStringToBuffer( Camera.getName(), Meta.Name, std::size(Meta.Name) );
+	CopyMatrix( Camera.camToWorld, Meta.LocalToWorld );
+	Meta.TrainedIterations = GetIterationsForCamera(CameraIndex);
+	
+	return Meta;
+}

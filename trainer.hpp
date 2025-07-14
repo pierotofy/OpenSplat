@@ -31,6 +31,7 @@ public:
 	int		mStep = -1;
 	int		mCameraIndex = -1;
 	float	mLoss = -1.0f;
+	int		mSplatCount = -1;
 };
 
 
@@ -114,14 +115,23 @@ public:
 	ImagePixels						GetForwardImage(Camera& Camera,int Step);
 	ImagePixels						GetForwardImage(int CameraIndex,int RenderWidth,int RenderHeight);
 	ImagePixels						GetCameraImage(int CameraIndex,int OutputWidth,int OutputHeight);
+	OpenSplat_TrainerState			GetState();
+	OpenSplat_CameraMeta			GetCameraMeta(int CameraIndex);
 	
 	//	public when ready
 protected:
-	TrainerIterationMeta	Iteration(int step); 
+	TrainerIterationMeta	Iteration(int step);
+	
+	int							GetIterationsForCamera(int CameraIndex);
 	
 public:
 	TrainerParams				mParams;
 
+	//	these should really have a shared_lock
+	int							mIterationsCompleted = 0;	//	could calculate this from mCameraIterations
+	std::map<int,int>			mCameraIterations;			//	[camera] = IterationsForCamera	
+	int							mSplatCountCache = 0;		//	to allow non-model-locking access to splat count, cache the splat count after iterations
+	
 	std::mutex					mModelLock;
 	std::shared_ptr<Model>		mModel;
 	std::shared_ptr<InputData>	mInputData;

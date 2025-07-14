@@ -45,10 +45,41 @@ struct OpenSplat_Splat
 	float dc0,dc1,dc2;
 };
 
+
+//	a fixed float[16] would be better - if it werent for swift's auto-conversion to tuples
+//		https://forums.swift.org/t/convert-an-array-of-known-fixed-size-to-a-tuple/31432
+struct OpenSplat_Matrix4x4
+{
+	float m00,m01,m02,m03;	//	row0
+	float m10,m11,m12,m13;
+	float m20,m21,m22,m23;
+	float m30,m31,m32,m33;
+};
+
+struct OpenSplat_CameraMeta
+{
+	char						Name[100];
+	struct OpenSplat_Matrix4x4	LocalToWorld;	//	extrinsics - camera space to world transform
+	int							TrainedIterations;	//	iterations trained on this camera
+};
+
+//	for long term compatibility (and serialisation) this might be better if the API
+//	writes Json
+struct OpenSplat_TrainerState
+{
+	int			IterationsCompleted;
+	int			CameraCount;	//	would be nice to include array of OpenSplat_CameraMeta here but dont want to send around naked pointers with unknown lifetimes
+	int			SplatCount;
+};
+
+
+
 //	deprecate this in future for pushing data - app should be repsonsible for i/o
 __export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath);
 __export void	OpenSplat_FreeInstance(int Instance);
 
+__export enum OpenSplat_Error	OpenSplat_GetState(int Instance,struct OpenSplat_TrainerState* State);
+__export enum OpenSplat_Error	OpenSplat_GetCameraMeta(int Instance,int CameraIndex,struct OpenSplat_CameraMeta* CameraMeta);
 
 //	returns number of points in model (which can be more or less than buffer size)
 __export int					OpenSplat_GetSnapshot(int TrainerInstance,struct OpenSplat_Splat* SplatBuffer,int SplatBufferCount);

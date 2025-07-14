@@ -35,7 +35,9 @@ public protocol SplatTrainer
 
 	init(projectPath:String)
 
-	func Run() async throws 
+	func Run() async throws
+	func GetState() throws -> OpenSplat_TrainerState
+	func GetCameraMeta() throws -> [OpenSplat_CameraMeta]	//	todo: cache this
 	func GetSplats() async throws -> [OpenSplat_Splat]
 	func RenderCamera(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
 	func GetCameraGroundTruthImage(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
@@ -45,6 +47,16 @@ public protocol SplatTrainer
 
 public class DummySplatTrainer : SplatTrainer
 {
+	public func GetState() throws -> OpenSplat_TrainerState 
+	{
+		return OpenSplat_TrainerState(IterationsCompleted:999,CameraCount:3, SplatCount:1000)
+	}
+	
+	public func GetCameraMeta() throws -> [OpenSplat_CameraMeta]
+	{
+		return []
+	}
+	
 	public var trainingError: Error?	{	nil	}
 	public var isTraining: Bool			{	false	}
 	
@@ -110,6 +122,35 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	{
 		OpenSplat_FreeInstance(instance)
 	}
+	
+	public func GetState() throws -> OpenSplat_TrainerState 
+	{
+		var state = OpenSplat_TrainerState()
+		let error = OpenSplat_GetState( instance, &state )
+		if error != OpenSplat_Error_Success
+		{
+			throw OpenSplatError(apiError: error)
+		}
+		return state
+	}
+	
+	public func GetCameraMeta() throws -> [OpenSplat_CameraMeta] 
+	{
+		let cameraCount = try GetState().CameraCount
+		let cameras = try (0..<cameraCount).map
+		{
+			cameraIndex in
+			var cameraMeta = OpenSplat_CameraMeta()
+			let error = OpenSplat_GetCameraMeta(instance, cameraIndex, &cameraMeta )
+			if error != OpenSplat_Error_Success
+			{
+				throw OpenSplatError(apiError: error)
+			}
+			return cameraMeta
+		}
+		return cameras
+	}
+	
 	
 	public func Run() async throws 
 	{
