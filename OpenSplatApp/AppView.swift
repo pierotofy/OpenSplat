@@ -65,6 +65,10 @@ class OpenSplatSplatAsset : PopActor
 	
 	func Render(camera: PopMetalView.PopRenderCamera, metalView: MTKView, commandEncoder: any MTLRenderCommandEncoder) throws 
 	{
+		//metalView.colorPixelFormat = MTLPixelFormat.bgra8Unorm_srgb
+		metalView.clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
+		//metalView.clearDepth = 0.0
+		
 		let fovy = Angle(degrees: 65)
 		let projectionMatrix = matrix_perspective_right_hand(fovyRadians: Float(fovy.radians),
 															 aspectRatio: Float(camera.viewportPixelSize.width / camera.viewportPixelSize.height),
@@ -116,8 +120,8 @@ struct TrainerView : View
 		{  
 			switch self 
 			{
-				case .Render:		return Image(systemName: "photo.circle")
-				case .GroundTruth:	return Image(systemName: "photo.circle.fill")
+				case .Render:		return Image(systemName: "sparkles.tv")
+				case .GroundTruth:	return Image(systemName: "photo")
 			}
 		}
 	}
@@ -142,18 +146,9 @@ struct TrainerView : View
 		HSplitView
 		{
 			TrainingView()
-				.overlay
-			{
-				VStack(alignment: .leading)
-				{
-					TrainingStateView()
-					Spacer()
-					TrainingViewControls()
-				}
-				.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
-			}
 			CameraGridView()
 		}
+		.task(AutoUpdateThread)
 	}
 	
 	@ViewBuilder func CameraGridView() -> some View
@@ -262,6 +257,22 @@ struct TrainerView : View
 	@ViewBuilder func TrainingView() -> some View
 	{
 		MetalSceneView(scene: scene, showGizmosOnActors: [splatAsset.id])
+			.background
+			{
+				Rectangle()
+					.foregroundStyle(.image(Image("TransparentBackground")))
+			}
+			.overlay
+			{
+				VStack(alignment: .leading)
+				{
+					TrainingStateView()
+					Spacer()
+					TrainingViewControls()
+				}
+				.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
+			}
+
 	}
 	
 	func OnClickedUpdateSplats()
