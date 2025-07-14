@@ -390,6 +390,17 @@ struct TrainerView : View
 			}	
 		}
 	}
+	
+	@MainActor
+	func AutoUpdateThread() async
+	{
+		while ( !Task.isCancelled )
+		{
+			OnClickedUpdateSplats()
+			let ms = 200
+			try? await Task.sleep(nanoseconds: UInt64(ms * 1_000_000))
+		}
+	}
 }
 
 struct AppView: View 

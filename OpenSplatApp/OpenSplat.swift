@@ -118,7 +118,17 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		}
 	}
 	
-	public func GetSplats() throws -> [OpenSplat_Splat]
+	public func GetSplats() async throws -> [OpenSplat_Splat]
+	{
+		let task = Task.detached(priority: .background)
+		{
+			try self.GetSplatsBlocking()
+		}
+		let result = try await task.result.get()
+		return result
+	}
+	
+	func GetSplatsBlocking() throws -> [OpenSplat_Splat]
 	{
 		let splatCount = OpenSplat_GetSnapshot( instance, nil, 0 )
 		
