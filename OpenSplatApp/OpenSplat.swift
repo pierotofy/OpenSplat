@@ -27,6 +27,12 @@ public struct OpenSplatError : LocalizedError
 }
 
 
+extension OpenSplat_CameraMeta
+{
+	//	todo: convert Name tuple to string
+	var name : String?	{	nil	}
+}
+
 
 public protocol SplatTrainer
 {
@@ -37,7 +43,7 @@ public protocol SplatTrainer
 
 	func Run() async throws
 	func GetState() throws -> OpenSplat_TrainerState
-	func GetCameraMeta() throws -> [OpenSplat_CameraMeta]	//	todo: cache this
+	func GetCameraMeta(cameraIndex:Int) throws -> OpenSplat_CameraMeta
 	func GetSplats() async throws -> [OpenSplat_Splat]
 	func RenderCamera(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
 	func GetCameraGroundTruthImage(cameraIndex:Int,width:Int,height:Int) async throws -> CGImage
@@ -52,9 +58,9 @@ public class DummySplatTrainer : SplatTrainer
 		return OpenSplat_TrainerState(IterationsCompleted:999,CameraCount:3, SplatCount:1000)
 	}
 	
-	public func GetCameraMeta() throws -> [OpenSplat_CameraMeta]
+	public func GetCameraMeta(cameraIndex:Int) throws -> OpenSplat_CameraMeta
 	{
-		return []
+		throw OpenSplatError("No such camera \(cameraIndex)")
 	}
 	
 	public var trainingError: Error?	{	nil	}
@@ -134,21 +140,15 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		return state
 	}
 	
-	public func GetCameraMeta() throws -> [OpenSplat_CameraMeta] 
+	public func GetCameraMeta(cameraIndex:Int) throws -> OpenSplat_CameraMeta
 	{
-		let cameraCount = try GetState().CameraCount
-		let cameras = try (0..<cameraCount).map
+		var cameraMeta = OpenSplat_CameraMeta()
+		let error = OpenSplat_GetCameraMeta(instance, Int32(cameraIndex), &cameraMeta )
+		if error != OpenSplat_Error_Success
 		{
-			cameraIndex in
-			var cameraMeta = OpenSplat_CameraMeta()
-			let error = OpenSplat_GetCameraMeta(instance, cameraIndex, &cameraMeta )
-			if error != OpenSplat_Error_Success
-			{
-				throw OpenSplatError(apiError: error)
-			}
-			return cameraMeta
+			throw OpenSplatError(apiError: error)
 		}
-		return cameras
+		return cameraMeta
 	}
 	
 	

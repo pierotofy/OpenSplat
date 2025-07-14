@@ -15,8 +15,10 @@ struct CameraImageCache
 {
 	//	cache
 	var render : Image?
+	var iterationsAtRender : Int?
 	var error : Error?
 	var groundTruth : Image?
+	var cameraMeta : OpenSplat_CameraMeta?
 }
 
 struct SplatScene : PopScene
@@ -183,6 +185,7 @@ struct TrainerView : View
 							}
 							.onAppear
 							{
+								UpdateCameraMeta(cameraIndex: cameraIndex)
 								UpdateGroundTruthImage(cameraIndex: cameraIndex)
 							}
 					}
@@ -213,7 +216,15 @@ struct TrainerView : View
 		{
 			VStack
 			{
-				Text("Camera \(cameraIndex)")
+				let name = cameraRender[cameraIndex]?.cameraMeta?.name ?? "Camera \(cameraIndex)"
+				let iterations = cameraRender[cameraIndex]?.cameraMeta?.TrainedIterations ?? 0
+				let renderIterations = cameraRender[cameraIndex]?.iterationsAtRender ?? 0
+				
+				Text(name)
+					.padding(4)
+					.background(.black.opacity(0.5))
+					.foregroundStyle(.white)
+				Text("\(iterations) iterations (viewing #\(renderIterations))")
 					.padding(4)
 					.background(.black.opacity(0.5))
 					.foregroundStyle(.white)
@@ -251,6 +262,7 @@ struct TrainerView : View
 		}
 		.onTapGesture 
 		{
+			UpdateCameraMeta(cameraIndex: cameraIndex)
 			UpdateRenderImage(cameraIndex: cameraIndex)
 			cameraUserView[cameraIndex] = .Render
 		}
@@ -373,6 +385,11 @@ struct TrainerView : View
 				var cameraCache = cameraRender[cameraIndex] ?? CameraImageCache()
 				cameraCache.render = Image(nsImage: imageNs)
 				cameraCache.error = nil
+
+				//	update the iteration counter at this render
+				let meta = try? trainer.GetCameraMeta(cameraIndex: cameraIndex)
+				cameraCache.iterationsAtRender = meta.map{ Int($0.TrainedIterations) }
+
 				cameraRender[cameraIndex] = cameraCache
 			}
 			catch
@@ -410,6 +427,29 @@ struct TrainerView : View
 		}
 	}
 	
+	
+	func UpdateCameraMeta(cameraIndex:Int)
+	{
+		Task
+		{
+			do
+			{
+				let meta = try await trainer.GetCameraMeta(cameraIndex: cameraIndex)
+				var cameraCache = cameraRender[cameraIndex] ?? CameraImageCache()
+				cameraCache.cameraMeta = meta
+				cameraRender[cameraIndex] = cameraCache
+			}
+			catch
+			{
+				if var cameraCache = cameraRender[cameraIndex]
+				{
+					cameraCache.error = error
+					cameraRender[cameraIndex] = cameraCache
+				}
+			}	
+		}
+	}
+	
 	@MainActor
 	func AutoUpdateThread() async
 	{
@@ -417,6 +457,13 @@ struct TrainerView : View
 		{
 			OnClickedUpdateState()
 			OnClickedUpdateSplats()
+			
+			//	update state of cameras (iteration counts)
+			for c in 0..<Int(self.trainerState.CameraCount)
+			{
+				UpdateCameraMeta(cameraIndex: c)
+			}
+			
 			let ms = 200
 			try? await Task.sleep(nanoseconds: UInt64(ms * 1_000_000))
 		}
