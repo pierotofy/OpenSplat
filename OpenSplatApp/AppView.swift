@@ -115,6 +115,7 @@ class OpenSplatSplatAsset : PopActor
 	}
 }
 
+
 struct TrainerView : View
 {
 	enum CameraUserView
@@ -133,12 +134,19 @@ struct TrainerView : View
 
 	@StateObject var splatAsset = OpenSplatSplatAsset()
 	@StateObject var floorAsset = FloorPlaneActor()
-	var scene : PopScene
+	func GetScene() -> Binding<SplatScene>
 	{
-		return SplatScene(splatAsset: splatAsset, otherActors: [floorAsset])
+		Binding<SplatScene>( 
+			get:
+				{
+					return SplatScene(splatAsset: splatAsset, otherActors: [renderCamera,floorAsset]+trainerCameras )
+				},
+			set:{_ in}
+		)
 	}
 	
 	@State var someError : Error?
+	@State var renderCamera = PopCamera()
 	@StateObject var trainer : OpenSplatTrainer
 	@State var trainerState = OpenSplat_TrainerState()
 	@State var cameraRender = [Int:CameraImageCache]()
@@ -147,6 +155,18 @@ struct TrainerView : View
 	var cameraUserViewDefault : CameraUserView = .Render
 	
 	@State var renderImageSize = CGSize(width: 400, height: 400)
+	
+	var trainerCameras : [PopCamera]
+	{
+		return cameraRender.values.compactMap
+		{
+			if let localToWorld = $0.cameraMeta?.LocalToWorld
+			{
+				return PopCamera(localToWorldTransform: localToWorld.float4x4)
+			}
+			return nil
+		}
+	}
 	
 	var body: some View 
 	{
@@ -274,7 +294,7 @@ struct TrainerView : View
 	
 	@ViewBuilder func TrainingView() -> some View
 	{
-		MetalSceneView(scene: scene, showGizmosOnActors: [])
+		MetalSceneView(scene: GetScene(), camera:Binding(get:{renderCamera},set:{_ in}), showGizmosOnActors: [])
 			.background
 			{
 				Rectangle()

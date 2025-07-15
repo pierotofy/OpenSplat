@@ -1,6 +1,7 @@
 import OpenSplat
 import CoreGraphics
 import Accelerate
+import simd
 
 public struct OpenSplatError : LocalizedError
 {
@@ -26,11 +27,23 @@ public struct OpenSplatError : LocalizedError
 	public var errorDescription: String?	{	message	}
 }
 
+extension OpenSplat_Matrix4x4
+{
+	var row0 : simd_float4	{	simd_float4(m00,m01,m02,m03)	}
+	var row1 : simd_float4	{	simd_float4(m10,m11,m12,m13)	}
+	var row2 : simd_float4	{	simd_float4(m20,m21,m22,m23)	}
+	var row3 : simd_float4	{	simd_float4(m30,m31,m32,m33)	}
+	var float4x4 : simd_float4x4	
+	{
+		simd_float4x4(row0,row1,row2,row3)	
+	}
+}
 
 extension OpenSplat_CameraMeta
 {
 	//	todo: convert Name tuple to string
 	var name : String?	{	nil	}
+	var localToWorld : simd_float4x4	{	LocalToWorld.float4x4	}
 }
 
 
