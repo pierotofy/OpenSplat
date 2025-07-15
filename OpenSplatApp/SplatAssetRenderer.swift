@@ -5,6 +5,11 @@ import Metal
 import MetalKit
 
 
+public struct SplatRenderParams
+{
+	var minAlpha : Float = 0.0
+	var clipMaxAlpha : Float = 0.0
+}
 
 struct PackedHalf3 {
 	var x: Float16
@@ -231,7 +236,7 @@ public class SplatAssetRenderer
 		static let sortByDistance = true
 		// TODO: compare the performance of useAccelerateForSort, both for small and large scenes
 		static let useAccelerateForSort = false
-		static let renderFrontToBack = true
+		static let renderFrontToBack = false
 	}
 	
 	
@@ -329,7 +334,7 @@ public class SplatAssetRenderer
 	
 		let depthStateDescriptor = MTLDepthStencilDescriptor()
 		depthStateDescriptor.depthCompareFunction = MTLCompareFunction.lessEqual
-		depthStateDescriptor.isDepthWriteEnabled = false
+		depthStateDescriptor.isDepthWriteEnabled = true
 		self.depthState = device.makeDepthStencilState(descriptor:depthStateDescriptor)!
 
 		//self.sortCounter = FrameCounterModel(OnLap:self.OnSortCounterLap)
@@ -397,7 +402,7 @@ public class SplatAssetRenderer
 	}
 	
 	
-	public func render(camera: CameraDescriptor, to renderEncoder: MTLRenderCommandEncoder)
+	public func render(camera: CameraDescriptor, to renderEncoder: MTLRenderCommandEncoder,params:SplatRenderParams)
 	{
 		guard splatBuffer.count != 0 else { return }
 		
@@ -420,6 +425,11 @@ public class SplatAssetRenderer
 		renderEncoder.setVertexBytes( &uniforms, length: MemoryLayout<Uniforms>.size, index: BufferIndex.uniforms.rawValue)
 		renderEncoder.setVertexBuffer(splatBuffer.buffer, offset: 0, index: BufferIndex.splat.rawValue)
 		renderEncoder.setVertexBuffer(orderBuffer.buffer, offset: 0, index: BufferIndex.order.rawValue)
+		
+		let renderParamsFragBufferIndex = 0
+		var paramsMutable = params
+		renderEncoder.setFragmentBytes( &paramsMutable, length: MemoryLayout<SplatRenderParams>.size, index: renderParamsFragBufferIndex)
+		
 		
 		renderEncoder.drawPrimitives(type: .triangleStrip,
 									 vertexStart: 0,

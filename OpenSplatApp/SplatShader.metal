@@ -12,6 +12,15 @@ enum BufferIndex: int32_t
     BufferIndexSplat    = 1,
     BufferIndexOrder    = 2,
 };
+	
+	
+typedef struct 
+{
+	float	minAlpha;
+	float	clipMaxAlpha;
+	
+} SplatRenderParams;
+
 
 typedef struct
 {
@@ -167,14 +176,28 @@ vertex ColorInOut splatVertexShader(uint vertexID [[vertex_id]],
     return out;
 }
 
-fragment float4 splatFragmentShader(ColorInOut in [[stage_in]]) {
+fragment float4 splatFragmentShader(ColorInOut in [[stage_in]],
+									constant SplatRenderParams& Params[[buffer(0)]]
+									 ) 
+{
+	//	uv to -0.5...0.5
+	//	clip to circle
     float2 v = kBoundsRadius * float2(in.textureCoordinates.x * 2 - 1, in.textureCoordinates.y * 2 - 1);
     float negativeVSquared = -dot(v, v);
     if (negativeVSquared < -kBoundsRadiusSquared) {
         discard_fragment();
     }
 
-    float alpha = saturate(exp(negativeVSquared)) * in.color.a;
+	float alpha = saturate(exp(negativeVSquared)) * in.color.a;
+	
+	//	debug
+	alpha = max(Params.minAlpha,alpha);
+	
+	if ( alpha < Params.clipMaxAlpha )
+	{
+		discard_fragment();
+	}
+	
     return float4(alpha * in.color.rgb, alpha);
 }
 

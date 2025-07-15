@@ -38,12 +38,13 @@ class OpenSplatSplatAsset : PopActor
 {
 	var id = UUID()
 	
-	var translation = simd_float3(0,0,0)
-	var rotationPitch = Angle(degrees: 0)
-	var rotationYaw = Angle(degrees: 0)
+	@Published var translation = simd_float3(0,0,0)
+	@Published var rotationPitch = Angle(degrees: 0)
+	@Published var rotationYaw = Angle(degrees: 0)
 	
 	var splatAssetRenderer : SplatAssetRenderer?
 	var newSplats : [SplatElement]? = nil
+	@Published var renderParams = SplatRenderParams()
 
 	var splats : [OpenSplat_Splat]
 	{
@@ -83,7 +84,7 @@ class OpenSplatSplatAsset : PopActor
 		let camDescription = CameraDescriptor(projectionMatrix: projectionMatrix, viewMatrix: localToViewTransform, screenSize:camera.viewportPixelSizeSimd)
 		
 		let renderer = try GetSplatAssetRenderer(metalKitView: metalView)
-		renderer.render(camera: camDescription, to: commandEncoder)
+		renderer.render(camera: camDescription, to: commandEncoder, params:renderParams)
 	}
 		
 	func GetSplatAssetRenderer(metalKitView:MTKView) throws -> SplatAssetRenderer
@@ -285,7 +286,11 @@ struct TrainerView : View
 				{
 					TrainingStateView()
 					Spacer()
-					TrainingViewControls()
+					VStack
+					{
+						TrainingViewControls()
+					}
+					.padding(10)
 				}
 				.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
 			}
@@ -326,6 +331,22 @@ struct TrainerView : View
 		{
 			Text("Update splats")
 		}
+		
+		Slider(value: $splatAsset.renderParams.minAlpha, in:0...1)
+		{
+			Text("Min-Alpha")
+				.foregroundStyle(.white)
+				.frame(width: 100)
+		}
+		.background(.black.opacity(0.5))
+		
+		Slider(value: $splatAsset.renderParams.clipMaxAlpha, in:0...1)
+		{
+			Text("Clip-Max-Alpha")
+				.foregroundStyle(.white)
+				.frame(width: 100)
+		}
+		.background(.black.opacity(0.5))
 	}
 	
 	@ViewBuilder func TrainingStateView() -> some View
