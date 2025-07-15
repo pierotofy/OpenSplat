@@ -624,6 +624,8 @@ void Model::iteratePoints(std::function<void(std::span<float> xyz,std::span<floa
 {
 	int numPoints = means.size(0);
 	
+	//	gr: api needs these without translation/scale restored otherwise the scale params are wrong
+	//		this function may need KeepCrs passed in for different cases
 	torch::Tensor meansCpu = means.cpu();
 	torch::Tensor featuresDcCpu = featuresDc.cpu();
 	//torch::Tensor featuresRestCpu = featuresRest.cpu().transpose(1, 2).reshape({numPoints, -1});
