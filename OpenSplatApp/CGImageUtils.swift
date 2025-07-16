@@ -82,6 +82,8 @@ public extension ImagePixels
 		{
 			throw OpenSplatError("Failed to get cgimage from NSImage")
 		}
+		
+		//	gr: this causes a copy - can we access the data in-place with a callback?
 		guard let pixelData = cgImage.dataProvider?.data else
 		{
 			throw OpenSplatError("Failed to get data out of cgimage")

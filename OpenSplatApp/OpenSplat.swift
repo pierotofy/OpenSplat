@@ -253,6 +253,7 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		{
 			rgbBuffer in
 			let format = OpenSplat_PixelFormat_Bgr
+			//	expense here is cv::undistort.... implement in a shader and pass in pre-undistorted image & intrinsics
 			let error = OpenSplat_AddCamera(instance, &meta, rgbBuffer.baseAddress!, Int32(rgbBufferSize), format )
 			if error != OpenSplat_Error_Success
 			{

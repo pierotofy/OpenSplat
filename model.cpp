@@ -640,6 +640,8 @@ void Model::iteratePoints(std::function<void(std::span<float> xyz,std::span<floa
 		auto DcFeaturesCount = featuresDcCpu.size(1);
 		auto RestFeaturesCount = featuresRestCpu.size(1);
 		
+		//	gr: these accessors are slow (bounds checked) - is the data contigious so we can grab a span once?
+		
 		std::span xyz( reinterpret_cast<float*>( meansCpu[i].data_ptr() ), 3 );
 		std::span dcFeatures( reinterpret_cast<float*>( featuresDcCpu[i].data_ptr() ), DcFeaturesCount );
 		std::span restFeatures( reinterpret_cast<float*>(featuresRestCpu[i].data_ptr()), RestFeaturesCount );
