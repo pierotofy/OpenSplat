@@ -59,6 +59,13 @@ namespace OpenSplat
 	public:
 		virtual OpenSplat_Error	GetApiError() override	{	return OpenSplat_Error_NoInstance;	}
 	};
+	
+	
+	class InstanceFreedException : public ApiException
+	{
+	public:
+		virtual OpenSplat_Error	GetApiError() override	{	return OpenSplat_Error_InstanceFreed;	}
+	};
 }
 
 
@@ -98,6 +105,7 @@ public:
 	//	callbacks to events during refactor
 	//	later iterations will be manually called and this class will become more pure/modularised
 	Trainer(const TrainerParams& Params);
+	~Trainer();
 
 	//	this blocking call will be repalced with manually called init(), iterate()
 	void				Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,std::function<void(int)> OnRunFinished);
@@ -132,9 +140,10 @@ public:
 	std::map<int,int>			mCameraIterations;			//	[camera] = IterationsForCamera	
 	int							mSplatCountCache = 0;		//	to allow non-model-locking access to splat count, cache the splat count after iterations
 	
-	std::mutex					mModelLock;
+	std::recursive_mutex		mModelLock;
 	std::shared_ptr<Model>		mModel;
 	std::shared_ptr<InputData>	mInputData;
+	bool						mRunning = true;		//	false when trying to free
 	
 	//	random index generator. default_random_engine is implementation defined, so different on different platforms
 	//	if this wants to be deterministic... make a new one

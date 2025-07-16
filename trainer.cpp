@@ -152,6 +152,22 @@ Trainer::Trainer(const TrainerParams& Params) :
 	mIterationRandomCameraIndex.seed( Params.iterationRandomCameraIndexSeed );
 }
 
+Trainer::~Trainer()
+{
+	//	lock when setting free'd state
+	{
+		std::lock_guard Lock(mModelLock);
+		mRunning = false;
+	}
+	//	any locks occurring now should bail out if !mRunning
+	
+	//	todo: use a mutex to make sure the blocking Run() is done
+	//		wont use that in future when api controls iterations 
+	{
+		std::lock_guard Lock(mModelLock);
+	}
+}
+
 torch::Device Trainer::GetDevice()
 {
 	auto ForceCpuDevice = mParams.ForceCpuDevice;
@@ -190,6 +206,8 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 
 	{
 		std::lock_guard Lock(mModelLock);
+		if ( !mRunning )
+			throw OpenSplat::InstanceFreedException();
 		mModel = std::make_shared<Model>(inputData, Params, numIters, mParams.BackgroundRgb, device );
 	}
 	size_t step = 1;
@@ -197,12 +215,18 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 	if (!resume.empty())
 	{
 		std::lock_guard Lock(mModelLock);
+		if ( !mRunning )
+			throw OpenSplat::InstanceFreedException();
 		auto& model = *mModel;
 		step = model.loadPly(resume,Params.resumeFromPlyNeedsNormalising) + 1;
 	}
 	
 	for (; step <= numIters; step++)
 	{
+		std::lock_guard Lock(mModelLock);
+		if ( !mRunning )
+			throw OpenSplat::InstanceFreedException();
+		
 		auto IterationMeta = Iteration(step);
 
 		//	update meta/cache
@@ -224,6 +248,8 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 TrainerIterationMeta Trainer::Iteration(int step)
 {
 	std::lock_guard Lock(mModelLock);
+	if ( !mRunning )
+		throw OpenSplat::InstanceFreedException();
 
 	auto& model = GetModel();
 	auto& inputData = GetInputData();
