@@ -471,8 +471,7 @@ OpenSplat_CameraMeta Trainer::GetCameraMeta(int CameraIndex)
 	OpenSplat_CameraMeta Meta;
 	
 	CopyStringToBuffer( Camera.getName(), Meta.Name, std::size(Meta.Name) );
-	//	output as row major - opensplat's transform is column major
-	CopyMatrixTransposed( Camera.camToWorld, Meta.LocalToWorld );
+	CopyMatrix( Camera.camToWorld, Meta.LocalToWorld );
 	Meta.TrainedIterations = GetIterationsForCamera(CameraIndex);
 	
 	return Meta;

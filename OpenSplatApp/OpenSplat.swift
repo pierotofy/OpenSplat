@@ -36,9 +36,7 @@ extension OpenSplat_Matrix4x4
 	var row3 : simd_float4	{	simd_float4(m30,m31,m32,m33)	}
 	var float4x4 : simd_float4x4	
 	{
-		//	todo: fix somewhere else...
-		//		opensplat matrixes are column major
-		simd_float4x4(row0,row1,row2,row3)
+		simd_float4x4(rows:[row0,row1,row2,row3])
 	}
 }
 
