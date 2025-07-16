@@ -12,18 +12,18 @@ namespace OpenSplat
 	std::shared_ptr<Trainer> gSingleInstance;
 	int gSingleInstanceId = OpenSplat_NullInstance;
 	
-	int			AllocateInstance(TrainerParams Params,const std::string& InputPath);
+	int			AllocateInstance(TrainerParams Params,const std::string& InputPath,bool LoadCameraImages);
 	void		FreeInstance(int Instance);
 	Trainer&	GetInstance(int Instance);
 }
 
-__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath)
+__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath,bool loadCameraImages)
 {
 	try
 	{
 		TrainerParams Params;
 		std::string InputPath( InputDataPath ? InputDataPath : "" );
-		auto Instance = OpenSplat::AllocateInstance( Params, InputPath );
+		auto Instance = OpenSplat::AllocateInstance( Params, InputPath, loadCameraImages );
 		return Instance;
 	}
 	catch(std::exception& e)
@@ -47,7 +47,7 @@ __export void	OpenSplat_FreeInstance(int Instance)
 
 
 //	this wants to be simpler and initialise data with a different call
-int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPath)
+int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPath,bool loadCameraImages)
 {
 	if ( gSingleInstance )
 	{
@@ -59,7 +59,8 @@ int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPat
 	InputData inputData = inputDataFromX( InputPath, colmapImageSourcePath );
 	parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&](Camera &cam)
 	{
-		cam.loadImageFromFilename(DownscaleFactor);
+		if ( loadCameraImages )
+			cam.loadImageFromFilename(DownscaleFactor);
 	});
 
 	gSingleInstance = std::make_shared<Trainer>( Params );
@@ -265,6 +266,36 @@ __export enum OpenSplat_Error	OpenSplat_GetCameraMeta(int Instance,int CameraInd
 		
 		auto& Trainer = OpenSplat::GetInstance(Instance);
 		*CameraMeta = Trainer.GetCameraMeta(CameraIndex);
+		return OpenSplat_Error_Success;
+	}
+	catch(OpenSplat::ApiException& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return e.GetApiError();
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_Error_Unknown;
+	}
+}
+
+
+__export enum OpenSplat_Error OpenSplat_AddCamera(int Instance,const struct OpenSplat_CameraMeta* pMeta,const uint8_t* pPixelBuffer,int PixelBufferSize,enum OpenSplat_PixelFormat PixelFormat)
+{
+	try
+	{
+		auto& Trainer = OpenSplat::GetInstance(Instance);
+
+		if ( !pMeta )
+			throw std::runtime_error("Missing Camera Meta");
+		auto& CameraMeta = *pMeta;
+
+		if ( !pPixelBuffer )
+			throw std::runtime_error("Missing Pixel buffer");
+		std::span PixelBuffer( const_cast<uint8_t*>(pPixelBuffer), PixelBufferSize );
+
+		Trainer.LoadCameraImage( CameraMeta, PixelBuffer, PixelFormat );
 		return OpenSplat_Error_Success;
 	}
 	catch(OpenSplat::ApiException& e)

@@ -287,8 +287,13 @@ struct TrainerView : View
 		.onTapGesture 
 		{
 			UpdateCameraMeta(cameraIndex: cameraIndex)
-			UpdateRenderImage(cameraIndex: cameraIndex)
-			cameraUserView[cameraIndex] = .Render
+			UpdateCameraRenderImage(cameraIndex: cameraIndex)
+			
+			//	if there's no ground truth (eg, fetched before they were ready) try and reload it now
+			if cameraRender[cameraIndex]?.groundTruth == nil
+			{
+				UpdateGroundTruthImage(cameraIndex:cameraIndex)
+			}
 		}
 	}
 	
@@ -392,6 +397,14 @@ struct TrainerView : View
 					trainer.trainingError = nil
 				}
 		}
+		else
+		{
+			Text( trainer.status )
+				.padding(5)
+				.background(.green)
+				.foregroundStyle(.white)
+		}
+		/*
 		else if trainer.isTraining
 		{
 			Text("Training...")
@@ -399,14 +412,14 @@ struct TrainerView : View
 				.background(.green)
 				.foregroundStyle(.white)
 		}
-		else if trainer.isTraining
+		else if !trainer.isTraining
 		{
 			Text("Training Finished.")
 				.padding(5)
 				.background(.black)
 				.foregroundStyle(.white)
 		}
-		
+		*/
 		Text("\(trainerState.IterationsCompleted) Steps Completed (\(trainerState.SplatCount) splats)")
 			.padding(5)
 			.background(.black)
@@ -414,7 +427,7 @@ struct TrainerView : View
 	}
 	
 	
-	func UpdateRenderImage(cameraIndex:Int)
+	func UpdateCameraRenderImage(cameraIndex:Int)
 	{
 		Task
 		{
@@ -435,6 +448,9 @@ struct TrainerView : View
 				cameraCache.iterationsAtRender = meta.map{ Int($0.TrainedIterations) }
 
 				cameraRender[cameraIndex] = cameraCache
+				
+				//	switch whenever new data appears
+				cameraUserView[cameraIndex] = .Render
 			}
 			catch
 			{
@@ -461,6 +477,10 @@ struct TrainerView : View
 				cameraCache.groundTruth = Image(nsImage: imageNs)
 				cameraCache.error = nil
 				cameraRender[cameraIndex] = cameraCache
+				
+				//	switch whenever new data appears
+				cameraUserView[cameraIndex] = .GroundTruth
+
 			}
 			catch
 			{

@@ -149,7 +149,8 @@ int main(int argc, char *argv[])
 		throw std::runtime_error(Error.str());
 	}
 	
-	auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str() );
+	auto LoadCameraImages = true;
+	auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str(), LoadCameraImages );
 	try
 	{
 		if ( TrainerInstance == OpenSplat_NullInstance )

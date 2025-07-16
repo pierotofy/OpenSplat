@@ -26,11 +26,14 @@ enum { OpenSplat_NullInstance=0 };
 
 enum OpenSplat_Error 
 {
-	OpenSplat_Error_Success			= 0,
-	OpenSplat_Error_Unknown			= 1,
-	OpenSplat_Error_NoInstance		= 2,
-	OpenSplat_Error_NoCamera		= 3,
-	OpenSplat_Error_InstanceFreed	= 4,
+	OpenSplat_Error_Success				= 0,
+	OpenSplat_Error_Unknown				= 1,
+	OpenSplat_Error_NoInstance			= 2,
+	OpenSplat_Error_NoCamera			= 3,
+	OpenSplat_Error_AlreadyInitialised	= 4,	//	too late to make changes
+	//	instance exists, but being freed and too late to do operations
+	//	gr: should this just be no-instance? perhaps never occurs with CAPI
+	OpenSplat_Error_InstanceFreed		= 5,	
 };
 
 
@@ -57,11 +60,26 @@ struct OpenSplat_Matrix4x4
 	float m30,m31,m32,m33;
 };
 
+//	intrinsics are in pixel space, thus we also include an image width/height
+struct OpenSplat_CameraIntrinsics
+{
+	int		Width;
+	int		Height;
+	float	FocalWidth;
+	float	FocalHeight;
+	float	CenterX;
+	float	CenterY;
+	//	distortion parameters
+	float	k1,k2,k3;
+	float	p1,p2;
+};
+
 struct OpenSplat_CameraMeta
 {
-	char						Name[100];
-	struct OpenSplat_Matrix4x4	LocalToWorld;	//	extrinsics - camera space to world transform
-	int							TrainedIterations;	//	iterations trained on this camera
+	char								Name[100];
+	struct OpenSplat_Matrix4x4			LocalToWorld;		//	extrinsics - camera space to world transform
+	int									TrainedIterations;	//	iterations trained on this camera
+	struct OpenSplat_CameraIntrinsics	Intrinsics;
 };
 
 //	for long term compatibility (and serialisation) this might be better if the API
@@ -73,11 +91,27 @@ struct OpenSplat_TrainerState
 	int			SplatCount;
 };
 
+enum OpenSplat_PixelFormat
+{
+	OpenSplat_PixelFormat_Rgb		= 3,
+	//OpenSplat_PixelFormat_Rgba		= 4,
+	OpenSplat_PixelFormat_Bgr		= 5,
+};
+
+//	long term replace this with json instead of fixed struct
+struct OpenSplat_TrainerParams
+{
+};
 
 
 //	deprecate this in future for pushing data - app should be repsonsible for i/o
-__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath);
+__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath,bool loadCameraImages);
+__export int	OpenSplat_AllocateInstanceWithParams(struct OpenSplat_TrainerParams* Params);
 __export void	OpenSplat_FreeInstance(int Instance);
+
+//	provide size for verification
+__export enum OpenSplat_Error	OpenSplat_AddCamera(int Instance,const struct OpenSplat_CameraMeta* Meta,const uint8_t* PixelBuffer,int PixelBufferSize,enum OpenSplat_PixelFormat PixelFormat);
+
 
 __export enum OpenSplat_Error	OpenSplat_GetState(int Instance,struct OpenSplat_TrainerState* State);
 __export enum OpenSplat_Error	OpenSplat_GetCameraMeta(int Instance,int CameraIndex,struct OpenSplat_CameraMeta* CameraMeta);

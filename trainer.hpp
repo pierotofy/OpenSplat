@@ -72,24 +72,21 @@ namespace OpenSplat
 class ImagePixels
 {
 public:
-	enum Format
-	{
-		Rgb = 0,
-		Bgr = 1,
-	};
-public:
-	ImagePixels(const torch::Tensor& Tensor,Format TensorPixelFormat=Rgb);
-	ImagePixels(const cv::Mat& OpencvImage,Format OpencvImagePixelFormat=Bgr);
+	ImagePixels(std::span<uint8_t> Pixels,int Width,int Height,OpenSplat_PixelFormat Format);
+	ImagePixels(const torch::Tensor& Tensor,OpenSplat_PixelFormat TensorPixelFormat=OpenSplat_PixelFormat_Rgb);
+	ImagePixels(const cv::Mat& OpencvImage,OpenSplat_PixelFormat OpencvImagePixelFormat=OpenSplat_PixelFormat_Bgr);
 	
 	//	callback so we can use pixels in place - mat is only valid for lifetime of callback
 	//	if not-AllowConversion rgb will be passed in-place.
 	void					GetOpenCvImage(std::function<void(cv::Mat&)> OnImage,bool AllowConversion=true);
+	//	assumes format is BGR
+	static void				GetOpenCvImage(std::span<uint8_t> Pixels,int Width,int Height,std::function<void(cv::Mat&)> OnImage);
 	
-	void					ConvertTo(Format NewFormat);
+	void					ConvertTo(OpenSplat_PixelFormat NewFormat);
 	
 	int						mWidth = 0;
 	int						mHeight = 0;
-	Format					mFormat = Rgb;
+	OpenSplat_PixelFormat	mFormat = OpenSplat_PixelFormat_Rgb;
 	std::vector<uint8_t>	mPixels;
 };
 
@@ -111,13 +108,20 @@ public:
 	void				Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,std::function<void(int)> OnRunFinished);
 
 	torch::Device		GetDevice();
-	Model&				GetModel()		{	return *mModel;	}
+	Model&				GetModel()		
+	{
+		if ( !mModel )
+			throw std::runtime_error("Model not initialised");
+		return *mModel;	
+	}
 	InputData&			GetInputData()	
 	{
 		if ( !mInputData )
 			throw std::runtime_error("Input data not setup");
 		return *mInputData;	
 	}
+	
+	void							LoadCameraImage(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat);
 	
 	std::vector<OpenSplat_Splat>	GetModelSplats();
 	ImagePixels						GetForwardImage(Camera& Camera,int Step);

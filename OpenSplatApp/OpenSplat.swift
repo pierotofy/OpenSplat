@@ -1,4 +1,5 @@
 import OpenSplat
+import AppKit
 import CoreGraphics
 import Accelerate
 import simd
@@ -41,18 +42,78 @@ extension OpenSplat_Matrix4x4
 	}
 }
 
-extension OpenSplat_CameraMeta
+extension UInt8 
 {
-	//	todo: convert Name tuple to string
-	var name : String?	{	nil	}
-	var localToWorld : simd_float4x4	{	LocalToWorld.float4x4	}
+	var char: Character 
+	{
+		return Character(UnicodeScalar(self))
+	}
 }
 
+extension OpenSplat_CameraMeta
+{
+	var localToWorld : simd_float4x4	{	LocalToWorld.float4x4	}
+
+	//	convert Name tuple to string
+	var name : String
+	{	
+		get
+		{
+			return withUnsafeBytes(of: self.Name)
+			{
+				namePtr in
+				var out = String()
+				for i in namePtr.indices
+				{
+					if namePtr[i] == 0
+					{
+						break
+					}
+					out.append(namePtr[i].char)
+				}
+				//	gr; this is giving a null string... because of junk after terminator?
+				//let nameString = String(bytes:namePtr,encoding: .utf8) 
+				//return nameString ?? out
+				return out
+			}
+		}
+		set
+		{
+			let chars = newValue.utf8CString
+			withUnsafeMutableBytes(of: &self.Name)
+			{
+				namePtr in
+				for i in chars.indices
+				{
+					let c = UInt8(chars[i])
+					if c == 0
+					{
+						break
+					}
+					namePtr[i] = c
+				}
+			}
+		}
+	}
+
+	//	construct a new instance but make a name from the file path
+	//	this needs to be the reverse of c++ Camera::getName
+	public init(nameFromFilename:String)
+	{
+		//	strip path 
+		let parts = nameFromFilename.components(separatedBy: "/")
+		let filename = parts.last ?? ""
+		
+		self.init()
+		self.name = filename
+	}
+}
 
 public protocol SplatTrainer
 {
 	var trainingError : Error?	{	get	}
-	var isTraining : Bool		{	get	}
+	//var isTraining : Bool		{	get	}
+	var status : String			{	get	}
 
 	init(projectPath:String)
 
@@ -68,6 +129,8 @@ public protocol SplatTrainer
 
 public class DummySplatTrainer : SplatTrainer
 {
+	public var status : String			{	"Dummy Status"	}
+
 	public func GetState() throws -> OpenSplat_TrainerState 
 	{
 		return OpenSplat_TrainerState(IterationsCompleted:999,CameraCount:3, SplatCount:1000)
@@ -114,15 +177,23 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	var trainingTask : Task<Void,Error>!
 	@Published public var trainingError : Error? = nil
 	@Published public var trainingThreadFinished : Bool = false
-	public var isTraining : Bool	{	(trainingError == nil) && !trainingThreadFinished	}
+	//public var isTraining : Bool	{	(trainingError == nil) && !trainingThreadFinished	}
+
+	@Published public var status : String = "init"
 	
 	required public init(projectPath:String)
 	{
-		instance = OpenSplat_AllocateInstanceFromPath(projectPath)
+		let loadCameraImages = false
+		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImages)
 		trainingTask = Task.detached(priority: .background)
 		{
 			do
 			{
+				if !loadCameraImages
+				{
+					try self.LoadCameras(projectPath:projectPath)
+				}
+				
 				try await self.Run()
 				DispatchQueue.main.async
 				{
@@ -142,6 +213,52 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	deinit
 	{
 		OpenSplat_FreeInstance(instance)
+	}
+	
+	func LoadCameras(projectPath:String) throws
+	{
+		let nerfStudioData = try NerfStudioData(projectRoot: projectPath)
+		
+		//	load each camera
+		for camera in nerfStudioData.transforms.frames
+		{
+			let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
+			try LoadCamera(projectPath: projectPath, camera: camera)
+		}
+	}
+	
+	func LoadCamera(projectPath:String,camera:NerfStudioFrame) throws
+	{
+		DispatchQueue.main.async
+		{
+			self.status = "Loading camera \(camera.file_path)..."
+		}
+		
+		//let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
+		let cameraImagePath = URL(fileURLWithPath: "\(projectPath)/\(camera.file_path)" )
+		guard let image = NSImage(contentsOf:cameraImagePath) else
+		{
+			throw OpenSplatError("Failed to load image at \(cameraImagePath)")
+		}
+		
+		//	read pixels
+		let pixels = try ImagePixels(image: image)
+		
+		var meta = OpenSplat_CameraMeta(nameFromFilename:camera.file_path)
+		meta.Intrinsics.Width = Int32(pixels.width)
+		meta.Intrinsics.Height = Int32(pixels.height)
+		let rgbBufferSize = pixels.pixels.count
+		
+		try pixels.pixels.withUnsafeBufferPointer
+		{
+			rgbBuffer in
+			let format = OpenSplat_PixelFormat_Bgr
+			let error = OpenSplat_AddCamera(instance, &meta, rgbBuffer.baseAddress!, Int32(rgbBufferSize), format )
+			if error != OpenSplat_Error_Success
+			{
+				throw OpenSplatError(apiError: error)
+			}
+		}
 	}
 	
 	public func GetState() throws -> OpenSplat_TrainerState 
@@ -169,6 +286,11 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	
 	public func Run() async throws 
 	{
+		DispatchQueue.main.async
+		{
+			self.status = "Training..."
+		}
+		
 		let error = OpenSplat_InstanceRunBlocking( instance )
 		if error != OpenSplat_Error_Success
 		{

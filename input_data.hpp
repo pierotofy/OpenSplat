@@ -91,6 +91,7 @@ struct InputData
 	//	remove camera from the training data (typically for application to use for validation)
 	std::shared_ptr<Camera>	PopCamera(std::string_view CameraImageName=OpenSplat::randomValidationImageName);
 	Camera&					GetCamera(int CameraIndex);
+	Camera&					GetCamera(std::string_view CameraName);
 	
     void saveCamerasJson(const std::string &filename, bool keepCrs);
 	

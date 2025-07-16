@@ -73,7 +73,24 @@ OpenSplat::NoCameraException::NoCameraException(int CameraIndex,int CameraCount)
 	mMessage = Error.str();
 }
 
-ImagePixels::ImagePixels(const torch::Tensor& tensor,Format TensorPixelFormat)
+
+ImagePixels::ImagePixels(std::span<uint8_t> Pixels,int Width,int Height,OpenSplat_PixelFormat Format)
+{
+	mWidth = Width;
+	mHeight = Height;
+	mFormat = Format;
+	
+	//	verify size
+	auto ExpectedSize = 3 * mWidth * mHeight;
+	if ( Pixels.size() != ExpectedSize )
+	{
+		throw std::runtime_error("Wrong pixel count");
+	}
+	std::copy( Pixels.begin(), Pixels.end(), std::back_inserter(mPixels) );
+}
+
+
+ImagePixels::ImagePixels(const torch::Tensor& tensor,OpenSplat_PixelFormat TensorPixelFormat)
 {
 	//	from tensorToImage()
 	torch::Tensor Tensor8 = tensor.cpu();
@@ -97,7 +114,7 @@ ImagePixels::ImagePixels(const torch::Tensor& tensor,Format TensorPixelFormat)
 }
 
 
-ImagePixels::ImagePixels(const cv::Mat& OpencvImage,Format OpencvImagePixelFormat)
+ImagePixels::ImagePixels(const cv::Mat& OpencvImage,OpenSplat_PixelFormat OpencvImagePixelFormat)
 {
 	auto OpencvPixels = std::span( OpencvImage.data, OpencvImage.total() * OpencvImage.elemSize() );
 	
@@ -116,7 +133,7 @@ ImagePixels::ImagePixels(const cv::Mat& OpencvImage,Format OpencvImagePixelForma
 	std::copy( OpencvPixels.begin(), OpencvPixels.end(), std::back_inserter(mPixels) );
 }
 
-void ImagePixels::ConvertTo(Format NewFormat)
+void ImagePixels::ConvertTo(OpenSplat_PixelFormat NewFormat)
 {
 	if ( mFormat == NewFormat )
 		return;
@@ -127,14 +144,14 @@ void ImagePixels::ConvertTo(Format NewFormat)
 	};
 	
 	//	checks in case of future changes
-	if ( mFormat == Bgr && NewFormat == Rgb )
+	if ( mFormat == OpenSplat_PixelFormat_Bgr && NewFormat == OpenSplat_PixelFormat_Rgb )
 	{
 		GetOpenCvImage( SwapBgrRgb, false );
 		mFormat = NewFormat;
 		return;
 	}
 	
-	if ( mFormat == Rgb && NewFormat == Bgr )
+	if ( mFormat == OpenSplat_PixelFormat_Rgb && NewFormat == OpenSplat_PixelFormat_Bgr )
 	{
 		GetOpenCvImage( SwapBgrRgb, false );
 		mFormat = NewFormat;
@@ -149,23 +166,29 @@ void ImagePixels::ConvertTo(Format NewFormat)
 //	callback so we can use pixels in place - mat is only valid for lifetime of callback
 void ImagePixels::GetOpenCvImage(std::function<void(cv::Mat&)> OnImage,bool AllowConversion)
 {
+	if ( mFormat == OpenSplat_PixelFormat_Bgr )
+	{
+		GetOpenCvImage( mPixels, mWidth, mHeight, OnImage );
+		return;
+	}
+
 	int type = CV_8UC3;
 	cv::Mat ImageInPlace( mHeight, mWidth, type, mPixels.data() );
 
 	//	slow path to convert to Rgb
-	if ( mFormat != Bgr )
-	{
-		if ( AllowConversion )
-		{
-			cv::Mat BgrCopy;
-			cv::cvtColor( ImageInPlace, BgrCopy, cv::COLOR_RGB2BGR);
-			OnImage(BgrCopy);
-			return;
-		}
-		
+	if ( !AllowConversion )
 		throw std::runtime_error("ImagePixels::GetOpencvImage cannot convert to bgr");
-	}
-	
+
+	cv::Mat BgrCopy;
+	cv::cvtColor( ImageInPlace, BgrCopy, cv::COLOR_RGB2BGR);
+	OnImage(BgrCopy);
+}
+
+
+void ImagePixels::GetOpenCvImage(std::span<uint8_t> Pixels,int Width,int Height,std::function<void(cv::Mat&)> OnImage)
+{
+	int type = CV_8UC3;
+	cv::Mat ImageInPlace( Height, Width, type, Pixels.data() );
 	OnImage(ImageInPlace);
 }
 
@@ -369,14 +392,16 @@ ImagePixels Trainer::GetCameraImage(int CameraIndex,int OutputWidth,int OutputHe
 
 	//	todo: if we keep this function, we can pass in the pixel buffer to opencv and rescale in-place and avoid all these allocs & copies
 	cv::Mat ImageScaled = Camera.getOpencvRgbImageStretched( OutputWidth, OutputHeight );
-	ImagePixels Pixels(ImageScaled,ImagePixels::Rgb);
-	Pixels.ConvertTo(ImagePixels::Rgb);
+	ImagePixels Pixels(ImageScaled,OpenSplat_PixelFormat_Rgb);
+	Pixels.ConvertTo(OpenSplat_PixelFormat_Rgb);
 	return Pixels;
 }
 
 std::vector<OpenSplat_Splat> Trainer::GetModelSplats()
 {
 	std::lock_guard Lock(mModelLock);
+	if ( !mModel )
+		return {};
 	
 	auto& Model = GetModel();
 
@@ -451,4 +476,29 @@ OpenSplat_CameraMeta Trainer::GetCameraMeta(int CameraIndex)
 	Meta.TrainedIterations = GetIterationsForCamera(CameraIndex);
 	
 	return Meta;
+}
+
+void Trainer::LoadCameraImage(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat)
+{
+	auto& InputData = GetInputData();
+	
+	//	find matching camera
+	std::string CameraName(CameraMeta.Name);
+	auto& Camera = InputData.GetCamera(CameraName);
+	
+	auto Load = [&](cv::Mat& Pixels)
+	{
+		Camera.loadImage(Pixels,1);
+	};
+
+	if ( PixelFormat == OpenSplat_PixelFormat_Bgr )
+	{
+		ImagePixels::GetOpenCvImage( PixelBuffer, CameraMeta.Intrinsics.Width, CameraMeta.Intrinsics.Height, Load );
+	}
+	else
+	{
+		//	a copy here is extremely slow!
+		ImagePixels Pixels( PixelBuffer, CameraMeta.Intrinsics.Width, CameraMeta.Intrinsics.Height, PixelFormat );
+		Pixels.GetOpenCvImage(Load);
+	}
 }

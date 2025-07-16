@@ -357,3 +357,14 @@ Camera& InputData::GetCamera(int CameraIndex)
 
 	return cameras[CameraIndex];
 }
+
+Camera& InputData::GetCamera(std::string_view CameraName)
+{
+	for ( auto& Camera : cameras )
+	{
+		if ( Camera.getName() != CameraName )
+			continue;
+		return Camera;
+	}
+	throw std::runtime_error( std::string("No camera named ") + std::string(CameraName) );
+}
