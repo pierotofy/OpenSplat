@@ -206,27 +206,33 @@ std::string Camera::getName() const
 }
 
 
-torch::Tensor Camera::getImage(int downscaleFactor){
-    if (downscaleFactor <= 1) return image;
-    else{
+torch::Tensor Camera::getImage(int downscaleFactor)
+{
+	//	image isn't loaded if missing 2nd dimension (default is 0 width 1 dimension)
+	if ( image.dim() <= 1 )
+		throw std::runtime_error(std::string("No image loaded for camera ") + getName() );
+	
+	if (downscaleFactor <= 1) 
+		return image;
 
-        // torch::jit::script::Module container = torch::jit::load("gt.pt");
-        // return container.attr("val").toTensor();
+	// torch::jit::script::Module container = torch::jit::load("gt.pt");
+	// return container.attr("val").toTensor();
 
-        if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
-            return imagePyramids[downscaleFactor];
-        }
+	auto ExistingIt = imagePyramids.find(downscaleFactor);
+	if ( ExistingIt != imagePyramids.end() )
+	{
+		return ExistingIt->second;
+	}
 
-        // Rescale, store and return
-		int NewHeight = image.size(0);
-		int NewWidth = image.size(1);
-		NewWidth /= downscaleFactor;
-		NewHeight /= downscaleFactor;
-		cv::Mat cImg = getOpencvRgbImageStretched(NewWidth,NewHeight);
-        torch::Tensor t = imageToTensor(cImg);
-        imagePyramids[downscaleFactor] = t;
-        return t;
-    }
+	// Rescale, store and return
+	int NewHeight = image.size(0);
+	int NewWidth = image.size(1);
+	NewWidth /= downscaleFactor;
+	NewHeight /= downscaleFactor;
+	cv::Mat cImg = getOpencvRgbImageStretched(NewWidth,NewHeight);
+	torch::Tensor t = imageToTensor(cImg);
+	imagePyramids[downscaleFactor] = t;
+	return t;
 }
 
 cv::Mat Camera::getOpencvRgbImageStretched(int Width,int Height)

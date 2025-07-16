@@ -29,13 +29,20 @@ torch::Tensor floatNxNMatToTensor(const cv::Mat &m){
     return torch::from_blob(m.data, { m.rows, m.cols }, torch::kFloat32).clone();
 }
 
-cv::Mat tensorToImage(const torch::Tensor &t){
+cv::Mat tensorToImage(const torch::Tensor &t)
+{
+	//if ( t.dim() <= 1 )
     int h = t.sizes()[0];
     int w = t.sizes()[1];
     int c = t.sizes()[2];
 
     int type = CV_8UC3;
-    if (c != 3) throw std::runtime_error("Only images with 3 channels are supported");
+    if (c != 3) 
+	{
+		std::stringstream Error;
+		Error << __FUNCTION__ << " Only images with 3 channels are supported (this: " << w << "x" << h << "x" << c << ")";
+		throw std::runtime_error(Error.str());
+	}
 
     cv::Mat image(h, w, type);
     torch::Tensor scaledTensor = (t * 255.0).toType(torch::kU8);
