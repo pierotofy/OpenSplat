@@ -87,7 +87,7 @@ torch::Tensor CameraIntrinsics::GetProjectionMatrix() const
 }
 
 
-torch::Tensor CameraTransform::GetCamToWorldRotation()
+torch::Tensor CameraTransform::GetCamToWorldRotation() const
 {
 	torch::Tensor R = camToWorld.index({Slice(None, 3), Slice(None, 3)});
 	
@@ -98,7 +98,7 @@ torch::Tensor CameraTransform::GetCamToWorldRotation()
 }
 
 
-torch::Tensor CameraTransform::GetWorldToCamRotation()
+torch::Tensor CameraTransform::GetWorldToCamRotation() const
 {
 	torch::Tensor R = GetCamToWorldRotation();
 	
@@ -108,7 +108,7 @@ torch::Tensor CameraTransform::GetWorldToCamRotation()
 }
 
 
-torch::Tensor CameraTransform::GetWorldToCamTranslation()
+torch::Tensor CameraTransform::GetWorldToCamTranslation() const
 {
 	auto Rinv = GetWorldToCamRotation();
 	
@@ -117,7 +117,7 @@ torch::Tensor CameraTransform::GetWorldToCamTranslation()
 	return Tinv;
 }
 
-torch::Tensor CameraTransform::GetCamToWorldTranslation()
+torch::Tensor CameraTransform::GetCamToWorldTranslation() const
 {
 	torch::Tensor T = camToWorld.index({Slice(None, 3), Slice(3,4)});
 	return T;

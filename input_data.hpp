@@ -40,10 +40,10 @@ class CameraTransform
 public:
 	torch::Tensor	camToWorld;		//	todo: initialise to identity!
 	
-	torch::Tensor	GetCamToWorldRotation();
-	torch::Tensor	GetCamToWorldTranslation();
-	torch::Tensor	GetWorldToCamRotation();
-	torch::Tensor	GetWorldToCamTranslation();
+	torch::Tensor	GetCamToWorldRotation() const;
+	torch::Tensor	GetCamToWorldTranslation() const;
+	torch::Tensor	GetWorldToCamRotation() const;
+	torch::Tensor	GetWorldToCamTranslation() const;
 };
 
 enum CameraType { Perspective };
