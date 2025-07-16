@@ -37,7 +37,7 @@ extension OpenSplat_Matrix4x4
 	{
 		//	todo: fix somewhere else...
 		//		opensplat matrixes are column major
-		simd_float4x4(row0,row1,row2,row3).transpose
+		simd_float4x4(row0,row1,row2,row3)
 	}
 }
 
