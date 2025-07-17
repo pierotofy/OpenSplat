@@ -150,7 +150,8 @@ int main(int argc, char *argv[])
 	}
 	
 	auto LoadCameraImages = true;
-	auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str(), LoadCameraImages );
+	auto CenterAndNormalisePoints = true;
+	auto TrainerInstance = OpenSplat_AllocateInstanceFromPath( AppParams.projectRoot.c_str(), LoadCameraImages, CenterAndNormalisePoints );
 	try
 	{
 		if ( TrainerInstance == OpenSplat_NullInstance )

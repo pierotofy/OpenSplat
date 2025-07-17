@@ -6,6 +6,13 @@
 
 namespace fs = std::filesystem;
 
+
+
+PointSet::~PointSet()
+{
+	freeIndex<KdTree>();
+}
+
 double PointSet::spacing(int kNeighbors) {
     if (m_spacing != -1) return m_spacing;
 
@@ -97,22 +104,24 @@ size_t getVertexCount(const std::string &line) {
     return std::stoi(tokens[2]);
 }
 
-PointSet *readPointSet(const std::string &filename) {
-    PointSet *r;
-    const fs::path p(filename);
-    if (p.extension().string() == ".ply") r = fastPlyReadPointSet(filename);
-    else if (p.extension().string() == ".bin") r = colmapReadPointSet(filename);
-    else r = pdalReadPointSet(filename);
-
-    return r;
+std::shared_ptr<PointSet> readPointSet(const std::string &filename) 
+{
+	const fs::path p(filename);
+    if (p.extension().string() == ".ply") 
+		return fastPlyReadPointSet(filename);
+	
+    if (p.extension().string() == ".bin") 
+		return colmapReadPointSet(filename);
+    
+	return pdalReadPointSet(filename);
 }
 
-PointSet *fastPlyReadPointSet(const std::string &filename) {
+std::shared_ptr<PointSet> fastPlyReadPointSet(const std::string &filename) {
     std::ifstream reader(filename, std::ios::binary);
     if (!reader.is_open())
         throw std::runtime_error("Cannot open file " + filename);
 
-    auto *r = new PointSet();
+    auto r = std::make_shared<PointSet>();
 
     std::string line;
     std::getline(reader, line);
@@ -261,7 +270,7 @@ PointSet *fastPlyReadPointSet(const std::string &filename) {
     return r;
 }
 
-PointSet *pdalReadPointSet(const std::string &filename) {
+std::shared_ptr<PointSet> pdalReadPointSet(const std::string &filename) {
     #ifdef WITH_PDAL
     pdal::StageFactory factory;
     const std::string driver = pdal::StageFactory::inferReaderDriver(filename);
@@ -358,12 +367,13 @@ PointSet *pdalReadPointSet(const std::string &filename) {
     #endif
 }
 
-PointSet *colmapReadPointSet(const std::string &filename){
+std::shared_ptr<PointSet> colmapReadPointSet(const std::string &filename){
     
     std::ifstream reader(filename, std::ios::binary);
-    if (!reader.is_open()) throw std::runtime_error("Cannot open " + filename);
+    if (!reader.is_open()) 
+		throw std::runtime_error("Cannot open " + filename);
 
-    auto *r = new PointSet();
+	auto r = std::make_shared<PointSet>();
     size_t numPoints = readBinary<uint64_t>(reader);
     std::cout << "Reading " << numPoints << " points" << std::endl;
 

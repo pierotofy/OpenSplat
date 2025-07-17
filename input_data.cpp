@@ -3,21 +3,22 @@
 #include "input_data.hpp"
 #include "cv_utils.hpp"
 #include "trainer.hpp"	//	NoCameraException
+#include "nerfstudio.hpp"
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 using json = nlohmann::json;
 
-namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
 namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot, const std::string& imageSourcePath); }
 namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot); }
 namespace omvg { InputData inputDataFromOpenMVG(const std::string &projectRoot); }
 
-InputData inputDataFromX(const std::string &projectRoot, const std::string& colmapImageSourcePath){
+InputData inputDataFromX(const std::string &projectRoot, const std::string& colmapImageSourcePath,bool CenterAndNormalisePoints)
+{
     fs::path root(projectRoot);
 
     if (fs::exists(root / "transforms.json")){
-        return ns::inputDataFromNerfStudio(projectRoot);
+        return ns::inputDataFromNerfStudio(projectRoot,CenterAndNormalisePoints);
     }else if (fs::exists(root / "sparse") || fs::exists(root / "cameras.bin")){
         return cm::inputDataFromColmap(projectRoot, colmapImageSourcePath);
     }else if (fs::exists(root / "reconstruction.json")){
@@ -251,6 +252,21 @@ std::vector<float> CameraIntrinsics::GetOpencvUndistortionParameters(){
     return p;
 }
 
+
+void InputData::TransformPoints(float3 translate,float scale)
+{
+	//	apply to data
+	torch::Tensor translation = torch::tensor({translate.x,translate.y,translate.z});
+	points.xyz = (points.xyz - translation) * scale;
+	
+	//	save change
+	this->translation.x -= translate.x;
+	this->translation.y -= translate.y;
+	this->translation.z -= translate.z;
+	this->scale *= scale;
+}
+
+
 std::vector<std::string> InputData::GetCameraNames()
 {
 	std::vector<std::string> Names;
@@ -326,8 +342,11 @@ void InputData::saveCamerasJson(const std::string &filename, bool keepCrs){
         torch::Tensor T = cam.camToWorld.GetCamToWorldTranslation().squeeze();
         
         //	undo centering transform applied when loading data
-        if (keepCrs) 
-			T = (T / scale) + translation;
+        if (keepCrs)
+		{
+			auto translate = torch::tensor({translation.x,translation.y,translation.z});
+			T = (T / scale) + translate;
+		}
 
         std::vector<float> position(3);
         std::vector<std::vector<float>> rotation(3, std::vector<float>(3));

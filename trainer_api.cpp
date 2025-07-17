@@ -12,18 +12,18 @@ namespace OpenSplat
 	std::shared_ptr<Trainer> gSingleInstance;
 	int gSingleInstanceId = OpenSplat_NullInstance;
 	
-	int			AllocateInstance(TrainerParams Params,const std::string& InputPath,bool LoadCameraImages);
+	int			AllocateInstance(TrainerParams Params,const std::string& InputPath,bool LoadCameraImages,bool CenterAndNormalisePoints);
 	void		FreeInstance(int Instance);
 	Trainer&	GetInstance(int Instance);
 }
 
-__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath,bool loadCameraImages)
+__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath,bool loadCameraImages,bool CenterAndNormalisePoints)
 {
 	try
 	{
 		TrainerParams Params;
 		std::string InputPath( InputDataPath ? InputDataPath : "" );
-		auto Instance = OpenSplat::AllocateInstance( Params, InputPath, loadCameraImages );
+		auto Instance = OpenSplat::AllocateInstance( Params, InputPath, loadCameraImages, CenterAndNormalisePoints );
 		return Instance;
 	}
 	catch(std::exception& e)
@@ -47,7 +47,7 @@ __export void	OpenSplat_FreeInstance(int Instance)
 
 
 //	this wants to be simpler and initialise data with a different call
-int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPath,bool loadCameraImages)
+int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPath,bool loadCameraImages,bool CenterAndNormalisePoints)
 {
 	if ( gSingleInstance )
 	{
@@ -56,7 +56,7 @@ int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPat
 	
 	auto DownscaleFactor = 1;
 	auto colmapImageSourcePath = "";
-	InputData inputData = inputDataFromX( InputPath, colmapImageSourcePath );
+	InputData inputData = inputDataFromX( InputPath, colmapImageSourcePath, CenterAndNormalisePoints );
 	parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&](Camera &cam)
 	{
 		if ( loadCameraImages )

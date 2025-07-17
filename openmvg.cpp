@@ -307,11 +307,12 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
 
     auto r = autoScaleAndCenterPoses(unorientedPoses);
     torch::Tensor tposes = std::get<0>(r);
-    ret.translation = std::get<1>(r);
-    ret.scale = std::get<2>(r);
+    auto center = std::get<1>(r);
+    auto normalisingScale = std::get<2>(r);
 
-    for (const auto &item : views){
-        std::uint32_t view_id = item.first;
+    for (const auto &item : views)
+	{
+        //std::uint32_t view_id = item.first;
         View v = item.second;
 
         Intrinsic intrinsic = intrinsics.at(v.id_intrinsic);
@@ -344,14 +345,14 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
                             tposes[current_pose], image_path.string()));
     }
 
-    PointSet *pSet = readPointSet(colorPointCloud.string());
+    auto pSet = readPointSet(colorPointCloud.string());
 
     torch::Tensor points = pSet->pointsTensor().clone();
     
-    ret.points.xyz = (points - ret.translation) * ret.scale;
+	ret.points.xyz = points;
     ret.points.rgb = pSet->colorsTensor().clone();
 
-    RELEASE_POINTSET(pSet);
+	ret.TransformPoints( center, normalisingScale );
 
     return ret;
 }

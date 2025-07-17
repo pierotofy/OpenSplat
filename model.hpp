@@ -108,6 +108,7 @@ public:
   int stopSplitAt;	//	maxsteps/2
   int maxSteps;
 
+	//	transform of input data - only used for restoring into original space
   float scale;
   torch::Tensor translation;
 };

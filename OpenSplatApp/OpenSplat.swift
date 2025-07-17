@@ -183,7 +183,8 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	required public init(projectPath:String)
 	{
 		let loadCameraImagesInApi = false
-		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi)
+		let centerAndNormalisePoints = false
+		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints)
 		
 		trainingTask = Task
 		{

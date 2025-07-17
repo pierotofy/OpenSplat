@@ -46,7 +46,7 @@ namespace ns{
     Transforms readTransforms(const std::string &filename);
     torch::Tensor posesFromTransforms(const Transforms &t);
 
-    InputData inputDataFromNerfStudio(const std::string &projectRoot);
+   InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndNormalise);
 }   
 
 

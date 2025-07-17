@@ -102,8 +102,8 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
 
     auto r = autoScaleAndCenterPoses(unorientedPoses);
     torch::Tensor poses = std::get<0>(r);
-    ret.translation = std::get<1>(r);
-    ret.scale = std::get<2>(r);
+    auto center = std::get<1>(r);
+    auto normaliseScale = std::get<2>(r);
 
     i = 0;
     for (const auto &s : shots){
@@ -155,8 +155,10 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
         i++;
     }
 
-    ret.points.xyz = (xyz - ret.translation) * ret.scale;
+    ret.points.xyz = xyz;
     ret.points.rgb = rgb;
+	
+	ret.TransformPoints( center, normaliseScale );
 
     return ret;
 }

@@ -76,6 +76,15 @@ private:
 	std::unordered_map<int, torch::Tensor> imagePyramids;
 };
 
+
+struct float3
+{
+	float x = 0;
+	float y = 0;
+	float z = 0;
+};
+
+
 struct Points{
     torch::Tensor xyz;
     torch::Tensor rgb;
@@ -83,9 +92,11 @@ struct Points{
 struct InputData
 {
     std::vector<Camera> cameras;
-    float scale;
-    torch::Tensor translation;
     Points points;
+
+	//	transform that's been applied to the data
+	float scale;				//	multiply that's been applied
+	float3 translation;	//	negate thats been applied. todo: store this as a positive
 
 	//	remove camera from the training data (typically for application to use for validation)
 	std::shared_ptr<Camera>	PopCamera(std::string_view CameraImageName=OpenSplat::randomValidationImageName);
@@ -97,11 +108,16 @@ struct InputData
 	//	this finds the center & bounds of the camera poses and moves all
 	//	points to be centered in the middle. It then normalises all points to be -1...1
 	//	transform is saved to scale&translation for future restoration
-	void NormalisePoints();
+	void 		NormalisePoints();
+	void		TransformPoints(float3 translate,float scale);
 	
 	std::vector<std::string>	GetCameraNames();
 };
+
 // The colmapImageSourcePath is only used in Colmap. In other methods, this path is ignored.
-InputData inputDataFromX(const std::string& projectRoot, const std::string& colmapImageSourcePath = "");
+InputData inputDataFromX(const std::string& projectRoot, const std::string& colmapImageSourcePath,bool CenterAndNormalisePoints);
+
+std::tuple<torch::Tensor, float3, float> autoScaleAndCenterPoses(const torch::Tensor &poses);
+
 
 #endif

@@ -140,20 +140,20 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
 
     auto r = autoScaleAndCenterPoses(unorientedPoses);
     torch::Tensor poses = std::get<0>(r);
-    ret.translation = std::get<1>(r);
-    ret.scale = std::get<2>(r);
+    auto center = std::get<1>(r);
+    auto normalisingScale = std::get<2>(r);
 
     for (size_t i = 0; i < ret.cameras.size(); i++){
         ret.cameras[i].camToWorld.camToWorld = poses[i];
     }
 
-    PointSet *pSet = readPointSet(pointsPath.string());
-    torch::Tensor points = pSet->pointsTensor().clone();
+    auto pointSet = readPointSet(pointsPath.string());
+    torch::Tensor points = pointSet->pointsTensor().clone();
 
-    ret.points.xyz = (points - ret.translation) * ret.scale;
-    ret.points.rgb = pSet->colorsTensor().clone();
+	ret.points.xyz = points;
+    ret.points.rgb = pointSet->colorsTensor().clone();
 
-    RELEASE_POINTSET(pSet);
+	ret.TransformPoints( center, normalisingScale );
 
     return ret;
 }

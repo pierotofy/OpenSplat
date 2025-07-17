@@ -71,7 +71,7 @@ Model::Model(const InputData &inputData,
 	
 	long long numPoints = inputData.points.xyz.size(0);
 	scale = inputData.scale;
-	translation = inputData.translation;
+	translation = torch::tensor( {inputData.translation.x, inputData.translation.y, inputData.translation.z } );
 	
 	torch::manual_seed(42);
 	

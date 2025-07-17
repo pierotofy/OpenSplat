@@ -130,7 +130,8 @@ torch::Tensor posesFromTransforms(const Transforms &t)
 	
 
 
-InputData inputDataFromNerfStudio(const std::string &projectRoot){
+InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndNormalisePoints)
+{
     InputData ret;
     fs::path nsRoot(projectRoot);
     fs::path transformsPath = nsRoot / "transforms.json";
@@ -140,14 +141,28 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
     Transforms t = readTransforms(transformsPath.string());
     if (t.plyFilePath.empty()) 
 		throw std::runtime_error("ply_file_path is empty");
-    PointSet *pSet = readPointSet((nsRoot / t.plyFilePath).string());
+    auto pSet = readPointSet((nsRoot / t.plyFilePath).string());
 
     torch::Tensor unorientedPoses = posesFromTransforms(t);
 
-    auto r = autoScaleAndCenterPoses(unorientedPoses);
-    torch::Tensor poses = std::get<0>(r);
-    ret.translation = std::get<1>(r);
-    ret.scale = std::get<2>(r);
+	torch::Tensor poses;
+	float3 center;
+	float normalisingScale = 1;
+	if ( CenterAndNormalisePoints )
+	{
+		auto r = autoScaleAndCenterPoses(unorientedPoses);
+		torch::Tensor poses = std::get<0>(r);
+		center = std::get<1>(r);
+		normalisingScale = std::get<2>(r);
+	}
+	else
+	{
+		//	merge together
+		torch::Tensor origins = unorientedPoses.index({"...", Slice(None, 3), 3});
+		torch::Tensor transformedPoses = unorientedPoses.clone();
+		transformedPoses.index_put_({"...", Slice(None, 3), 3}, origins);
+		poses = transformedPoses;
+	}
 
     // aabbScale = [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]]
 
@@ -163,15 +178,18 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
 
     torch::Tensor points = pSet->pointsTensor().clone();
     
-    ret.points.xyz = (points - ret.translation) * ret.scale;
+    ret.points.xyz = points;
     ret.points.rgb = pSet->colorsTensor().clone();
 
-    RELEASE_POINTSET(pSet);
+	ret.TransformPoints( center, normalisingScale );
+	
 
     return ret;
 }
 
 }
+
+
 
 CameraIntrinsics ns::Frame::GetIntrinsics() const
 {
