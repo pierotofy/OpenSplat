@@ -271,13 +271,10 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 	
 	for (; step <= numIters; step++)
 	{
-		std::lock_guard Lock(mModelLock);
-		if ( !mRunning )
-			throw OpenSplat::InstanceFreedException();
-		
 		auto IterationMeta = Iteration(step);
 
 		//	update meta/cache
+		//	this can get a bit racy with std::map...
 		mIterationsCompleted = step;
 		mSplatCountCache = IterationMeta.mSplatCount;
 		if ( mCameraIterations.count(IterationMeta.mCameraIndex) == 0 )
