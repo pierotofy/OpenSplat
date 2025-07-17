@@ -326,15 +326,20 @@ struct TrainerView : View
 	{
 		Task
 		{
-			do
-			{
-				let splats = try await trainer.GetSplats()
-				splatAsset.splats = splats
-			}
-			catch
-			{
-				self.someError = error
-			}
+			await UpdateSplats()
+		}
+	}
+	
+	func UpdateSplats() async
+	{
+		do
+		{
+			let splats = try await trainer.GetSplats()
+			splatAsset.splats = splats
+		}
+		catch
+		{
+			self.someError = error
 		}
 	}
 	
@@ -496,22 +501,27 @@ struct TrainerView : View
 	{
 		Task
 		{
-			do
+			await UpdateCameraMetaAsync(cameraIndex: cameraIndex)	
+		}
+	}
+	
+	func UpdateCameraMetaAsync(cameraIndex:Int) async
+	{
+		do
+		{
+			let meta = try await trainer.GetCameraMeta(cameraIndex: cameraIndex)
+			var cameraCache = cameraRender[cameraIndex] ?? CameraImageCache()
+			cameraCache.cameraMeta = meta
+			cameraRender[cameraIndex] = cameraCache
+		}
+		catch
+		{
+			if var cameraCache = cameraRender[cameraIndex]
 			{
-				let meta = try await trainer.GetCameraMeta(cameraIndex: cameraIndex)
-				var cameraCache = cameraRender[cameraIndex] ?? CameraImageCache()
-				cameraCache.cameraMeta = meta
+				cameraCache.error = error
 				cameraRender[cameraIndex] = cameraCache
 			}
-			catch
-			{
-				if var cameraCache = cameraRender[cameraIndex]
-				{
-					cameraCache.error = error
-					cameraRender[cameraIndex] = cameraCache
-				}
-			}	
-		}
+		}	
 	}
 	
 	@MainActor
@@ -520,15 +530,15 @@ struct TrainerView : View
 		while ( !Task.isCancelled )
 		{
 			OnClickedUpdateState()
-			OnClickedUpdateSplats()
+			await UpdateSplats()
 			
 			//	update state of cameras (iteration counts)
 			for c in 0..<Int(self.trainerState.CameraCount)
 			{
-				UpdateCameraMeta(cameraIndex: c)
+				await UpdateCameraMetaAsync(cameraIndex: c)
 			}
 			
-			let ms = 200
+			let ms = 500
 			try? await Task.sleep(nanoseconds: UInt64(ms * 1_000_000))
 		}
 	}

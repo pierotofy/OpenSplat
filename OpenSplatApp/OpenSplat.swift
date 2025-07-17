@@ -190,17 +190,11 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			do
 			{
 				try await self.Thread(projectPath: projectPath,loadCameraImages: !loadCameraImagesInApi)
-				DispatchQueue.main.async
-				{
-					self.trainingThreadFinished = true
-				}
+				self.trainingThreadFinished = true
 			}
 			catch
 			{
-				DispatchQueue.main.async
-				{
-					self.trainingError = error
-				}
+				self.trainingError = error
 			}
 		}
 				
@@ -223,10 +217,10 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			}
 		}
 		try await loadTask.value
-				
+
 		//	high priority blocks other task-calls to the API... (but runs noticably faster)
 		//	is this because of locks or task scheduling?
-		let runTask = Task.detached(priority: .low)
+		let runTask = Task.detached(priority: .high)
 		{
 			try await self.Run()
 		}
