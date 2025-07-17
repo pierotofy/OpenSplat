@@ -5,7 +5,7 @@
 #include "utils.hpp"
 #include "cv_utils.hpp"
 #include "constants.hpp"
-#include <cxxopts.hpp>
+#include "cxxopts.hpp"
 #include "trainer_params.hpp"
 #include "trainer.hpp"
 #include "ply.hpp"
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 			{
 				const float percentage = static_cast<float>(step) / numIters;
 				std::cout << "Step " << step << ": " << IterationMeta.mLoss << " (" << floor(percentage * 100) << "%)" <<  std::endl;
-			}			
+			}
 			
 			if (AppParams.saveModelEvery > 0 && step % AppParams.saveModelEvery == 0)
 			{
