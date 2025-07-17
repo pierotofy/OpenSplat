@@ -88,6 +88,56 @@ torch::Tensor CameraIntrinsics::GetProjectionMatrix() const
 }
 
 
+CameraTransform::CameraTransform() :
+	CameraTransform(	{1,0,0,0,	0,1,0,0,	0,0,1,0,	0,0,0,1	})
+{
+}
+	
+CameraTransform::CameraTransform(const torch::Tensor& Transform) :
+	camToWorld	( Transform.clone().detach() )
+{
+	//	check dimensions are correct
+}
+
+CameraTransform::CameraTransform(const OpenSplat_Matrix4x4& Transform)
+{
+	camToWorld = torch::tensor({ 
+		{Transform.m00,Transform.m01,Transform.m02,Transform.m03}, 
+		{Transform.m10,Transform.m11,Transform.m12,Transform.m13}, 
+		{Transform.m20,Transform.m21,Transform.m22,Transform.m23}, 
+		{Transform.m30,Transform.m31,Transform.m32,Transform.m33}, 
+	});
+}
+
+OpenSplat_Matrix4x4 CameraTransform::GetCamToWorldMatrix() const
+{
+	auto& t = this->camToWorld;
+	OpenSplat_Matrix4x4 Out;
+	
+	Out.m00 = t[0][0].item<float>();
+	Out.m01 = t[0][1].item<float>();
+	Out.m02 = t[0][2].item<float>();
+	Out.m03 = t[0][3].item<float>();
+	
+	Out.m10 = t[1][0].item<float>();
+	Out.m11 = t[1][1].item<float>();
+	Out.m12 = t[1][2].item<float>();
+	Out.m13 = t[1][3].item<float>();
+	
+	Out.m20 = t[2][0].item<float>();
+	Out.m21 = t[2][1].item<float>();
+	Out.m22 = t[2][2].item<float>();
+	Out.m23 = t[2][3].item<float>();
+	
+	Out.m30 = t[3][0].item<float>();
+	Out.m31 = t[3][1].item<float>();
+	Out.m32 = t[3][2].item<float>();
+	Out.m33 = t[3][3].item<float>();
+	
+	return Out;
+}
+
+
 torch::Tensor CameraTransform::GetCamToWorldRotation() const
 {
 	torch::Tensor R = camToWorld.index({Slice(None, 3), Slice(None, 3)});
@@ -265,6 +315,7 @@ void InputData::TransformPoints(float3 translate,float scale)
 	this->translation.z -= translate.z;
 	this->scale *= scale;
 }
+
 
 
 std::vector<std::string> InputData::GetCameraNames()

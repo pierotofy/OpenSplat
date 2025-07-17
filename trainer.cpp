@@ -13,57 +13,6 @@
 
 
 
-void CopyMatrix(const CameraTransform& CameraTransform,OpenSplat_Matrix4x4& Out)
-{
-	auto& t = CameraTransform.camToWorld;
-	
-	Out.m00 = t[0][0].item<float>();
-	Out.m01 = t[0][1].item<float>();
-	Out.m02 = t[0][2].item<float>();
-	Out.m03 = t[0][3].item<float>();
-	
-	Out.m10 = t[1][0].item<float>();
-	Out.m11 = t[1][1].item<float>();
-	Out.m12 = t[1][2].item<float>();
-	Out.m13 = t[1][3].item<float>();
-	
-	Out.m20 = t[2][0].item<float>();
-	Out.m21 = t[2][1].item<float>();
-	Out.m22 = t[2][2].item<float>();
-	Out.m23 = t[2][3].item<float>();
-	
-	Out.m30 = t[3][0].item<float>();
-	Out.m31 = t[3][1].item<float>();
-	Out.m32 = t[3][2].item<float>();
-	Out.m33 = t[3][3].item<float>();
-
-}
-
-void CopyMatrixTransposed(const CameraTransform& CameraTransform,OpenSplat_Matrix4x4& Out)
-{
-	auto& t = CameraTransform.camToWorld;
-
-	Out.m00 = t[0][0].item<float>();
-	Out.m01 = t[1][0].item<float>();
-	Out.m02 = t[2][0].item<float>();
-	Out.m03 = t[3][0].item<float>();
-	
-	Out.m10 = t[0][1].item<float>();
-	Out.m11 = t[1][1].item<float>();
-	Out.m12 = t[2][2].item<float>();
-	Out.m13 = t[3][3].item<float>();
-	
-	Out.m20 = t[0][2].item<float>();
-	Out.m21 = t[1][2].item<float>();
-	Out.m22 = t[2][2].item<float>();
-	Out.m23 = t[3][2].item<float>();
-	
-	Out.m30 = t[0][3].item<float>();
-	Out.m31 = t[1][3].item<float>();
-	Out.m32 = t[2][3].item<float>();
-	Out.m33 = t[3][3].item<float>();
-}
-
 OpenSplat::NoCameraException::NoCameraException(int CameraIndex,int CameraCount)
 {
 	std::stringstream Error;
@@ -468,13 +417,13 @@ OpenSplat_CameraMeta Trainer::GetCameraMeta(int CameraIndex)
 	OpenSplat_CameraMeta Meta;
 	
 	CopyStringToBuffer( Camera.getName(), Meta.Name, std::size(Meta.Name) );
-	CopyMatrix( Camera.camToWorld, Meta.LocalToWorld );
+	Meta.LocalToWorld = Camera.camToWorld.GetCamToWorldMatrix();
 	Meta.TrainedIterations = GetIterationsForCamera(CameraIndex);
 	
 	return Meta;
 }
 
-void Trainer::LoadCameraImage(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat)
+void Trainer::LoadCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat)
 {
 	auto& InputData = GetInputData();
 	
@@ -482,6 +431,13 @@ void Trainer::LoadCameraImage(const OpenSplat_CameraMeta& CameraMeta,std::span<u
 	std::string CameraName(CameraMeta.Name);
 	auto& Camera = InputData.GetCamera(CameraName);
 	
+	
+	//	save meta
+	//	todo: verify is good pose!
+	Camera.camToWorld = CameraTransform(CameraMeta.LocalToWorld);
+	
+	
+	//	load pixels
 	auto Load = [&](cv::Mat& Pixels)
 	{
 		Camera.loadImage(Pixels,1);

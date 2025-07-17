@@ -37,7 +37,30 @@ extension OpenSplat_Matrix4x4
 	var row3 : simd_float4	{	simd_float4(m30,m31,m32,m33)	}
 	var float4x4 : simd_float4x4	
 	{
-		simd_float4x4(rows:[row0,row1,row2,row3])
+		get
+		{
+			simd_float4x4(rows:[row0,row1,row2,row3])
+		}
+		set
+		{
+			//	accessor is [col][row]
+			m00 = newValue[0][0]
+			m01 = newValue[1][0]
+			m02 = newValue[2][0]
+			m03 = newValue[3][0]
+			m10 = newValue[0][1]
+			m11 = newValue[1][1]
+			m12 = newValue[2][1]
+			m13 = newValue[3][1]
+			m20 = newValue[0][2]
+			m21 = newValue[1][2]
+			m22 = newValue[2][2]
+			m23 = newValue[3][2]
+			m30 = newValue[0][3]
+			m31 = newValue[1][3]
+			m32 = newValue[2][3]
+			m33 = newValue[3][3]
+		}
 	}
 }
 
@@ -278,6 +301,7 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			u8pointer,width,height,rowStride,isArgb in
 			
 			var meta = OpenSplat_CameraMeta(nameFromFilename:camera.file_path)
+			meta.LocalToWorld.float4x4 = camera.localToWorld
 			meta.Intrinsics.Width = Int32(width)
 			meta.Intrinsics.Height = Int32(height)
 			let rgbBufferSize = rowStride * height

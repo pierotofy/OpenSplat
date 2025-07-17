@@ -295,7 +295,8 @@ __export enum OpenSplat_Error OpenSplat_AddCamera(int Instance,const struct Open
 			throw std::runtime_error("Missing Pixel buffer");
 		std::span PixelBuffer( const_cast<uint8_t*>(pPixelBuffer), PixelBufferSize );
 
-		Trainer.LoadCameraImage( CameraMeta, PixelBuffer, PixelFormat );
+		Trainer.LoadCamera( CameraMeta, PixelBuffer, PixelFormat );
+		
 		return OpenSplat_Error_Success;
 	}
 	catch(OpenSplat::ApiException& e)

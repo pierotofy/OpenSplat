@@ -8,6 +8,7 @@
 #include <opencv2/calib3d.hpp>
 #include <torch/torch.h>
 #include "trainer_params.hpp"
+#include "trainer_api.h"
 
 struct CameraIntrinsics
 {
@@ -38,12 +39,19 @@ struct CameraIntrinsics
 class CameraTransform
 {
 public:
-	torch::Tensor	camToWorld;		//	todo: initialise to identity!
+	CameraTransform();
+	CameraTransform(const torch::Tensor& Transform);
+	CameraTransform(const OpenSplat_Matrix4x4& Transform);
 	
-	torch::Tensor	GetCamToWorldRotation() const;
-	torch::Tensor	GetCamToWorldTranslation() const;
-	torch::Tensor	GetWorldToCamRotation() const;
-	torch::Tensor	GetWorldToCamTranslation() const;
+	OpenSplat_Matrix4x4	GetCamToWorldMatrix() const;
+	
+	torch::Tensor		GetCamToWorldRotation() const;
+	torch::Tensor		GetCamToWorldTranslation() const;
+	torch::Tensor		GetWorldToCamRotation() const;
+	torch::Tensor		GetWorldToCamTranslation() const;
+	
+public:
+	torch::Tensor	camToWorld;		//	todo: initialise to identity!
 };
 
 enum CameraType { Perspective };
@@ -108,7 +116,7 @@ struct InputData
 	//	this finds the center & bounds of the camera poses and moves all
 	//	points to be centered in the middle. It then normalises all points to be -1...1
 	//	transform is saved to scale&translation for future restoration
-	void 		NormalisePoints();
+	void 		NormalisePointsAndPoses();
 	void		TransformPoints(float3 translate,float scale);
 	
 	std::vector<std::string>	GetCameraNames();

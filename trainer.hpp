@@ -121,7 +121,7 @@ public:
 		return *mInputData;	
 	}
 	
-	void							LoadCameraImage(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat);
+	void							LoadCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat);
 	
 	std::vector<OpenSplat_Splat>	GetModelSplats();
 	ImagePixels						GetForwardImage(Camera& Camera,int Step);
