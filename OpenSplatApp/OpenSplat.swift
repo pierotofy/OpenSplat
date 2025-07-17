@@ -179,6 +179,7 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	//public var isTraining : Bool	{	(trainingError == nil) && !trainingThreadFinished	}
 
 	@Published public var status : String = "init"
+	@Published public var inputCameras = [NerfStudioFrame]()
 	
 	required public init(projectPath:String)
 	{
@@ -242,6 +243,10 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			{
 				taskGroup.addTask
 				{ 
+					DispatchQueue.main.async
+					{
+						self.inputCameras.append( camera )
+					}
 					let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
 					try self.LoadCamera(projectPath: projectPath, camera: camera)
 				}

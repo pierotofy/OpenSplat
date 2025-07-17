@@ -139,7 +139,9 @@ struct TrainerView : View
 		Binding<SplatScene>( 
 			get:
 				{
-					return SplatScene(splatAsset: splatAsset, otherActors: [renderCamera,floorAsset]+trainerCameras )
+					let trainerCameras = showTrainerCameras ? self.trainerCameras : []
+					let inputCameras = showInputCameras ? self.inputDataCameras : []
+					return SplatScene(splatAsset: splatAsset, otherActors: [renderCamera,floorAsset]+trainerCameras+inputCameras )
 				},
 			set:{_ in}
 		)
@@ -155,6 +157,8 @@ struct TrainerView : View
 	var cameraUserViewDefault : CameraUserView = .Render
 	
 	@State var renderImageSize = CGSize(width: 400, height: 400)
+	@State var showInputCameras : Bool = true
+	@State var showTrainerCameras : Bool = true
 	
 	var trainerCameras : [PopCamera]
 	{
@@ -165,6 +169,15 @@ struct TrainerView : View
 				return PopCamera(localToWorldTransform: localToWorld.float4x4)
 			}
 			return nil
+		}
+	}
+	
+	//	temp to verify input vs API
+	var inputDataCameras : [PopCamera]
+	{
+		return trainer.inputCameras.map
+		{
+			return PopCamera(localToWorldTransform: $0.localToWorld )
 		}
 	}
 	
@@ -361,6 +374,9 @@ struct TrainerView : View
 		{
 			Text("Update splats")
 		}
+		
+		Toggle(isOn:$showInputCameras){	Text("Show Input Cameras")	}
+		Toggle(isOn:$showTrainerCameras){	Text("Show trainer Cameras")	}
 		
 		Slider(value: $splatAsset.renderParams.minAlpha, in:0...1)
 		{
