@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BF7FAAC82E2915F900C4EBDE /* PopCommon in Frameworks */ = {isa = PBXBuildFile; productRef = BF7FAAC72E2915F900C4EBDE /* PopCommon */; };
 		BFAA59B92E1D27510006AEAA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B72E1D27510006AEAA /* Metal.framework */; };
 		BFAA59BA2E1D27510006AEAA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B82E1D27510006AEAA /* MetalKit.framework */; };
 		BFAF46062E243FF50046A070 /* PopMetalView in Frameworks */ = {isa = PBXBuildFile; productRef = BFAF46052E243FF50046A070 /* PopMetalView */; };
@@ -61,6 +62,9 @@
 
 /* Begin PBXFileReference section */
 		BF0155722E1D530200994B91 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
+		BF46B2EB2E26784000DA0EC3 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
+		BF7F4F082E26A48000C4EBDE /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
+		BF7FAAC92E29161C00C4EBDE /* PopCommon.SwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = PopCommon.SwiftPackage; path = ../PopCommon.SwiftPackage; sourceTree = SOURCE_ROOT; };
 		BFAA27192E1D4B8B0006AEAA /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAA559E2E1D241F0006AEAA /* OpenSplatExe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSplatExe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFAA57E72E1D25500006AEAA /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
@@ -71,6 +75,8 @@
 		BFAFE9C42E23FEB30046A070 /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
 		BFAFEA012E23FED00046A070 /* OpenSplatApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSplatApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFAFEA1C2E23FF260046A070 /* OpenSplat.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OpenSplat.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		BFDDD7E22E257DBA00B94CED /* OpenSplat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = OpenSplat.xcodeproj; sourceTree = "<group>"; };
+		BFDDD8872E26780800B94CED /* PopMetalView.SwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = PopMetalView.SwiftPackage; path = ../PopSplatApp/PopMetalView.SwiftPackage; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -256,6 +262,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF7FAAC82E2915F900C4EBDE /* PopCommon in Frameworks */,
 				BFAFEA222E23FF260046A070 /* OpenSplat.framework in Frameworks */,
 				BFAF46062E243FF50046A070 /* PopMetalView in Frameworks */,
 			);
@@ -277,6 +284,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		BF46B30A2E26784000DA0EC3 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BF7F4F272E26A48000C4EBDE /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		BFAA27322E1D4B8B0006AEAA /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -285,6 +302,8 @@
 		BFAA55952E1D241F0006AEAA = {
 			isa = PBXGroup;
 			children = (
+				BF7FAAC92E29161C00C4EBDE /* PopCommon.SwiftPackage */,
+				BFDDD8872E26780800B94CED /* PopMetalView.SwiftPackage */,
 				BFAA55B62E1D25090006AEAA /* AppleApp */,
 				BFAFEA022E23FED00046A070 /* OpenSplatApp */,
 				BFAFEA1D2E23FF260046A070 /* OpenSplat */,
@@ -342,6 +361,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		BFDDD8012E257DBA00B94CED /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -395,6 +419,7 @@
 			name = OpenSplatApp;
 			packageProductDependencies = (
 				BFAF46052E243FF50046A070 /* PopMetalView */,
+				BF7FAAC72E2915F900C4EBDE /* PopCommon */,
 			);
 			productName = OpenSplatApp;
 			productReference = BFAFEA012E23FED00046A070 /* OpenSplatApp.app */;
@@ -457,11 +482,32 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */,
+				BF7FAAC62E2915F900C4EBDE /* XCRemoteSwiftPackageReference "PopCommon.SwiftPackage" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BFAA559F2E1D241F0006AEAA /* Products */;
 			projectDirPath = "";
 			projectReferences = (
+				{
+					ProductGroup = BFDDD8012E257DBA00B94CED /* Products */;
+					ProjectRef = BFDDD7E22E257DBA00B94CED /* OpenSplat.xcodeproj */;
+				},
+				{
+					ProductGroup = BF46B30A2E26784000DA0EC3 /* Products */;
+					ProjectRef = BF46B2EB2E26784000DA0EC3 /* OpenSplat.xcodeproj */;
+				},
+				{
+					ProductGroup = BFAFE9E32E23FEB30046A070 /* Products */;
+					ProjectRef = BFAFE9C42E23FEB30046A070 /* OpenSplat.xcodeproj */;
+				},
+				{
+					ProductGroup = BF7F4F272E26A48000C4EBDE /* Products */;
+					ProjectRef = BF7F4F082E26A48000C4EBDE /* OpenSplat.xcodeproj */;
+				},
+				{
+					ProductGroup = BFAA57FE2E1D25500006AEAA /* Products */;
+					ProjectRef = BFAA57E72E1D25500006AEAA /* OpenSplat.xcodeproj */;
+				},
 				{
 					ProductGroup = BF01558D2E1D530200994B91 /* Products */;
 					ProjectRef = BF0155722E1D530200994B91 /* OpenSplat.xcodeproj */;
@@ -471,16 +517,8 @@
 					ProjectRef = BFAA27192E1D4B8B0006AEAA /* OpenSplat.xcodeproj */;
 				},
 				{
-					ProductGroup = BFAFE9E32E23FEB30046A070 /* Products */;
-					ProjectRef = BFAFE9C42E23FEB30046A070 /* OpenSplat.xcodeproj */;
-				},
-				{
 					ProductGroup = BFAD08322E1E7C3300301BF0 /* Products */;
 					ProjectRef = BFAD08172E1E7C3300301BF0 /* OpenSplat.xcodeproj */;
-				},
-				{
-					ProductGroup = BFAA57FE2E1D25500006AEAA /* Products */;
-					ProjectRef = BFAA57E72E1D25500006AEAA /* OpenSplat.xcodeproj */;
 				},
 				{
 					ProductGroup = BFAD8B372E21710200301BF0 /* Products */;
@@ -968,6 +1006,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		BF7FAAC62E2915F900C4EBDE /* XCRemoteSwiftPackageReference "PopCommon.SwiftPackage" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/NewChromantics/PopCommon.SwiftPackage.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.12;
+			};
+		};
 		BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/NewChromantics/PopMetalView.SwiftPackage.git";
@@ -979,6 +1025,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		BF7FAAC72E2915F900C4EBDE /* PopCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BF7FAAC62E2915F900C4EBDE /* XCRemoteSwiftPackageReference "PopCommon.SwiftPackage" */;
+			productName = PopCommon;
+		};
 		BFAF46052E243FF50046A070 /* PopMetalView */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */;

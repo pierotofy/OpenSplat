@@ -3,6 +3,7 @@ import AppKit
 import CoreGraphics
 import Accelerate
 import simd
+import PopCommon
 
 public struct OpenSplatError : LocalizedError
 {
@@ -181,18 +182,14 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	
 	required public init(projectPath:String)
 	{
-		let loadCameraImages = false
-		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImages)
-		trainingTask = Task.detached(priority: .background)
+		let loadCameraImagesInApi = false
+		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi)
+		
+		trainingTask = Task
 		{
 			do
 			{
-				if !loadCameraImages
-				{
-					try self.LoadCameras(projectPath:projectPath)
-				}
-				
-				try await self.Run()
+				try await self.Thread(projectPath: projectPath,loadCameraImages: !loadCameraImagesInApi)
 				DispatchQueue.main.async
 				{
 					self.trainingThreadFinished = true
@@ -206,6 +203,8 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 				}
 			}
 		}
+				
+		
 	}
 	
 	deinit
@@ -213,16 +212,48 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		OpenSplat_FreeInstance(instance)
 	}
 	
-	func LoadCameras(projectPath:String) throws
+	func Thread(projectPath:String,loadCameraImages:Bool) async throws
+	{
+		//	load these at high priority
+		let loadTask = Task.detached(priority: .high)
+		{
+			if loadCameraImages
+			{
+				try await self.LoadCameras(projectPath:projectPath)
+			}
+		}
+		try await loadTask.value
+				
+		//	high priority blocks other task-calls to the API... (but runs noticably faster)
+		//	is this because of locks or task scheduling?
+		let runTask = Task.detached(priority: .low)
+		{
+			try await self.Run()
+		}
+		try await runTask.value
+		print("Run finished")
+	}
+	
+	
+	func LoadCameras(projectPath:String) async throws
 	{
 		let nerfStudioData = try NerfStudioData(projectRoot: projectPath)
-		
-		//	load each camera
-		for camera in nerfStudioData.transforms.frames
+
+		try await withThrowingTaskGroup(of: Void.self) 
 		{
-			let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
-			try LoadCamera(projectPath: projectPath, camera: camera)
+			taskGroup in
+			//	load each camera
+			for camera in nerfStudioData.transforms.frames
+			{
+				taskGroup.addTask
+				{ 
+					let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
+					try self.LoadCamera(projectPath: projectPath, camera: camera)
+				}
+			}
+			try await taskGroup.waitForAll()
 		}
+		
 	}
 	
 	func LoadCamera(projectPath:String,camera:NerfStudioFrame) throws
@@ -232,6 +263,8 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			self.status = "Loading camera \(camera.file_path)..."
 		}
 		
+		print("Loading camera \(camera.file_path)...")
+		
 		//let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
 		let cameraImagePath = URL(fileURLWithPath: "\(projectPath)/\(camera.file_path)" )
 		guard let image = NSImage(contentsOf:cameraImagePath) else
@@ -239,25 +272,27 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			throw OpenSplatError("Failed to load image at \(cameraImagePath)")
 		}
 		
-		//	read pixels
-		let pixels = try ImagePixels(image: image)
-		
-		var meta = OpenSplat_CameraMeta(nameFromFilename:camera.file_path)
-		meta.Intrinsics.Width = Int32(pixels.width)
-		meta.Intrinsics.Height = Int32(pixels.height)
-		let rgbBufferSize = pixels.pixels.count
-		
-		try pixels.pixels.withUnsafeBufferPointer
+		//	use pixels in-place
+		try image.withUnsafePixels
 		{
-			rgbBuffer in
+			u8pointer,width,height,rowStride,isArgb in
+			
+			var meta = OpenSplat_CameraMeta(nameFromFilename:camera.file_path)
+			meta.Intrinsics.Width = Int32(width)
+			meta.Intrinsics.Height = Int32(height)
+			let rgbBufferSize = rowStride * height
+			
 			let format = OpenSplat_PixelFormat_Bgr
 			//	expense here is cv::undistort.... implement in a shader and pass in pre-undistorted image & intrinsics
-			let error = OpenSplat_AddCamera(instance, &meta, rgbBuffer.baseAddress!, Int32(rgbBufferSize), format )
+			let error = OpenSplat_AddCamera(instance, &meta, u8pointer, Int32(rgbBufferSize), format )
 			if error != OpenSplat_Error_Success
 			{
 				throw OpenSplatError(apiError: error)
 			}
 		}
+		
+		print("Loaded camera \(camera.file_path).")
+		
 	}
 	
 	public func GetState() throws -> OpenSplat_TrainerState 

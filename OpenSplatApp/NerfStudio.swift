@@ -1,5 +1,5 @@
 import Foundation
-
+import simd
 
 
 public struct NerfDataError : LocalizedError
@@ -34,6 +34,15 @@ public struct NerfStudioFrame : Decodable
 {
 	var file_path : String
 	var transform_matrix : [[Float]]
+	var localToWorld : simd_float4x4
+	{
+		//	todo: check if column or row major
+		let row0 = simd_float4( transform_matrix[0] )
+		let row1 = simd_float4( transform_matrix[1] )
+		let row2 = simd_float4( transform_matrix[2] )
+		let row3 = simd_float4( transform_matrix[3] )
+		return simd_float4x4(rows: [row0,row1,row2,row3] )
+	}
 	
 	//	optional intrinsics
 	var w : Float?

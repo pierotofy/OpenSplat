@@ -8,15 +8,6 @@
         "branch" : "main",
         "revision" : "9ae11a5d97558e9bf5fb92c00058dcd9e1850181"
       }
-    },
-    {
-      "identity" : "popmetalview.swiftpackage",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/NewChromantics/PopMetalView.SwiftPackage.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "a01a9a31bd7a00af38bd856e06ba335ecf84c630"
-      }
     }
   ],
   "version" : 2
