@@ -103,8 +103,11 @@ struct Points{
     torch::Tensor xyz;
     torch::Tensor rgb;
 };
+
 struct InputData
 {
+	//	note: we need a lock for the cameras (due to AddCamera being used in multiple threads - and Camera can be copied)
+	//			but InputData then wont be copyable - so needs fixing higher level at the moment
     std::vector<Camera> cameras;
     Points points;
 
