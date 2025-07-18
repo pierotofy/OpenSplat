@@ -390,6 +390,7 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 		return;
 
 	Model2DVisibility visibility;
+	int numPointsBefore = means.size(0);
 	
     if (step < stopSplitAt)
 	{
@@ -401,8 +402,6 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 	auto resetAlphaEvery = params.resetAlphaEvery;
 	
     if (step % refineEvery == 0 && step > warmupLength){
-		auto& xysGradNorm = visibility.xysGradNorm;
-		auto& visCounts = visibility.visCounts;
 		auto& max2DSize = visibility.max2DSize;
 		
 		
@@ -413,87 +412,7 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
         if (doDensification)
 		{
 			std::cout << "Doing large-gaussian splits..." << std::endl;
-            int numPointsBefore = means.size(0);
-            torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( std::max(ForwardMeta.lastWidth, ForwardMeta.lastHeight) );
-            torch::Tensor highGrads = (avgGradNorm > params.minSplitGradient).squeeze();
-
-            // Split gaussians that are too large
-            torch::Tensor splits = (std::get<0>(scales.exp().max(-1)) > params.minSplitScale).squeeze();
-            if (step < params.stopScreenSizeCullingAfterStepNumber)
-			{
-                splits |= (max2DSize > params.minSplitScreenSize).squeeze();
-            }
-
-            splits &= highGrads;
-            const int nSplitSamples = 2;
-            int nSplits = splits.sum().item<int>();
-
-            torch::Tensor centeredSamples = torch::randn({nSplitSamples * nSplits, 3}, device);  // Nx3 of axis-aligned scales
-            torch::Tensor scaledSamples = torch::exp(scales.index({splits}).repeat({nSplitSamples, 1})) * centeredSamples;
-            torch::Tensor qs = quats.index({splits}) / torch::linalg_vector_norm(quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
-            torch::Tensor rots = quatToRotMat(qs.repeat({nSplitSamples, 1}));
-            torch::Tensor rotatedSamples = torch::bmm(rots, scaledSamples.index({"...", None})).squeeze();
-            torch::Tensor splitMeans = rotatedSamples + means.index({splits}).repeat({nSplitSamples, 1});
-            
-            torch::Tensor splitFeaturesDc = featuresDc.index({splits}).repeat({nSplitSamples, 1});
-            torch::Tensor splitFeaturesRest = featuresRest.index({splits}).repeat({nSplitSamples, 1, 1});
-            
-            torch::Tensor splitOpacities = opacities.index({splits}).repeat({nSplitSamples, 1});
-        
-			//	gr: is this the new size after splitting?
-            torch::Tensor splitScales = torch::log(torch::exp(scales.index({splits})) * params.scaleAfterSplit).repeat({nSplitSamples, 1});
-            scales.index({splits}) = torch::log(torch::exp(scales.index({splits})) * params.scaleAfterSplit);
-            torch::Tensor splitQuats = quats.index({splits}).repeat({nSplitSamples, 1});
-
-            // Duplicate gaussians that are too small
-			//	^^ should this be merging?
-			//	tolerance is so close to splitting so spun off
-            torch::Tensor dups = (std::get<0>(scales.exp().max(-1)) <= params.maxDuplicateScale ).squeeze();
-            dups &= highGrads;
-            torch::Tensor dupMeans = means.index({dups});
-            torch::Tensor dupFeaturesDc = featuresDc.index({dups});
-            torch::Tensor dupFeaturesRest = featuresRest.index({dups});
-            torch::Tensor dupOpacities = opacities.index({dups});
-            torch::Tensor dupScales = scales.index({dups});
-            torch::Tensor dupQuats = quats.index({dups});
-
-            means = torch::cat({means.detach(), splitMeans, dupMeans}, 0).requires_grad_();
-            featuresDc = torch::cat({featuresDc.detach(), splitFeaturesDc, dupFeaturesDc}, 0).requires_grad_();
-            featuresRest = torch::cat({featuresRest.detach(), splitFeaturesRest, dupFeaturesRest}, 0).requires_grad_();
-            opacities = torch::cat({opacities.detach(), splitOpacities, dupOpacities}, 0).requires_grad_();
-            scales = torch::cat({scales.detach(), splitScales, dupScales}, 0).requires_grad_();
-            quats = torch::cat({quats.detach(), splitQuats, dupQuats}, 0).requires_grad_();
-            
-			//	pad temp vars 
-            max2DSize = torch::cat({
-                max2DSize,
-                torch::zeros_like(splitScales.index({Slice(), 0})),
-                torch::zeros_like(dupScales.index({Slice(), 0}))
-            }, 0);
-
-            torch::Tensor splitIdcs = torch::where(splits)[0];
-
-			//	add splits
-			addToOptimizer(*meansOpt, means, splitIdcs, nSplitSamples);
-            addToOptimizer(*scalesOpt, scales, splitIdcs, nSplitSamples);
-            addToOptimizer(*quatsOpt, quats, splitIdcs, nSplitSamples);
-            addToOptimizer(*featuresDcOpt, featuresDc, splitIdcs, nSplitSamples);
-            addToOptimizer(*featuresRestOpt, featuresRest, splitIdcs, nSplitSamples);
-            addToOptimizer(*opacitiesOpt, opacities, splitIdcs, nSplitSamples);
-            
-			//	add duplicates
-            torch::Tensor dupIdcs = torch::where(dups)[0];
-            addToOptimizer(*meansOpt, means, dupIdcs, 1);
-            addToOptimizer(*scalesOpt, scales, dupIdcs, 1);
-            addToOptimizer(*quatsOpt, quats, dupIdcs, 1);
-            addToOptimizer(*featuresDcOpt, featuresDc, dupIdcs, 1);
-            addToOptimizer(*featuresRestOpt, featuresRest, dupIdcs, 1);
-            addToOptimizer(*opacitiesOpt, opacities, dupIdcs, 1);
-
-            splitsMask = torch::cat({
-                splits,
-                torch::full({nSplitSamples * splits.sum().item<int>() + dups.sum().item<int>()}, false, torch::TensorOptions().dtype(torch::kBool).device(device))
-            }, 0);
+			splitsMask = doSplits(step,visibility,ForwardMeta);
 
             std::cout << "Added " << (means.size(0) - numPointsBefore) << " gaussians, new count " << means.size(0) << std::endl;
         }
@@ -605,6 +524,96 @@ Model2DVisibility Model::calculateVisibility(ModelForwardResults& ForwardMeta)
 													   ));
 
 	return visibility;	
+}
+
+torch::Tensor Model::doSplits(int step,Model2DVisibility& Visibility,ModelForwardResults& ForwardMeta)
+{
+	auto& xysGradNorm = Visibility.xysGradNorm;
+	auto& max2DSize = Visibility.max2DSize;
+	auto& visCounts = Visibility.visCounts;
+	
+	torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( std::max(ForwardMeta.lastWidth, ForwardMeta.lastHeight) );
+	torch::Tensor highGrads = (avgGradNorm > params.minSplitGradient).squeeze();
+	
+	// Split gaussians that are too large
+	torch::Tensor splits = (std::get<0>(scales.exp().max(-1)) > params.minSplitScale).squeeze();
+	if (step < params.stopScreenSizeCullingAfterStepNumber)
+	{
+		splits |= (max2DSize > params.minSplitScreenSize).squeeze();
+	}
+	
+	splits &= highGrads;
+	const int nSplitSamples = 2;
+	int nSplits = splits.sum().item<int>();
+	
+	torch::Tensor centeredSamples = torch::randn({nSplitSamples * nSplits, 3}, device);  // Nx3 of axis-aligned scales
+	torch::Tensor scaledSamples = torch::exp(scales.index({splits}).repeat({nSplitSamples, 1})) * centeredSamples;
+	torch::Tensor qs = quats.index({splits}) / torch::linalg_vector_norm(quats.index({splits}), 2, { -1 }, true, torch::kFloat32);
+	torch::Tensor rots = quatToRotMat(qs.repeat({nSplitSamples, 1}));
+	torch::Tensor rotatedSamples = torch::bmm(rots, scaledSamples.index({"...", None})).squeeze();
+	torch::Tensor splitMeans = rotatedSamples + means.index({splits}).repeat({nSplitSamples, 1});
+	
+	torch::Tensor splitFeaturesDc = featuresDc.index({splits}).repeat({nSplitSamples, 1});
+	torch::Tensor splitFeaturesRest = featuresRest.index({splits}).repeat({nSplitSamples, 1, 1});
+	
+	torch::Tensor splitOpacities = opacities.index({splits}).repeat({nSplitSamples, 1});
+	
+	//	gr: is this the new size after splitting?
+	torch::Tensor splitScales = torch::log(torch::exp(scales.index({splits})) * params.scaleAfterSplit).repeat({nSplitSamples, 1});
+	scales.index({splits}) = torch::log(torch::exp(scales.index({splits})) * params.scaleAfterSplit);
+	torch::Tensor splitQuats = quats.index({splits}).repeat({nSplitSamples, 1});
+	
+	// Duplicate gaussians that are too small
+	//	^^ should this be merging?
+	//	tolerance is so close to splitting so spun off
+	torch::Tensor dups = (std::get<0>(scales.exp().max(-1)) <= params.maxDuplicateScale ).squeeze();
+	dups &= highGrads;
+	torch::Tensor dupMeans = means.index({dups});
+	torch::Tensor dupFeaturesDc = featuresDc.index({dups});
+	torch::Tensor dupFeaturesRest = featuresRest.index({dups});
+	torch::Tensor dupOpacities = opacities.index({dups});
+	torch::Tensor dupScales = scales.index({dups});
+	torch::Tensor dupQuats = quats.index({dups});
+	
+	means = torch::cat({means.detach(), splitMeans, dupMeans}, 0).requires_grad_();
+	featuresDc = torch::cat({featuresDc.detach(), splitFeaturesDc, dupFeaturesDc}, 0).requires_grad_();
+	featuresRest = torch::cat({featuresRest.detach(), splitFeaturesRest, dupFeaturesRest}, 0).requires_grad_();
+	opacities = torch::cat({opacities.detach(), splitOpacities, dupOpacities}, 0).requires_grad_();
+	scales = torch::cat({scales.detach(), splitScales, dupScales}, 0).requires_grad_();
+	quats = torch::cat({quats.detach(), splitQuats, dupQuats}, 0).requires_grad_();
+	
+	//	pad temp vars 
+	max2DSize = torch::cat({
+		max2DSize,
+		torch::zeros_like(splitScales.index({Slice(), 0})),
+		torch::zeros_like(dupScales.index({Slice(), 0}))
+	}, 0);
+	
+	torch::Tensor splitIdcs = torch::where(splits)[0];
+	
+	//	add splits
+	addToOptimizer(*meansOpt, means, splitIdcs, nSplitSamples);
+	addToOptimizer(*scalesOpt, scales, splitIdcs, nSplitSamples);
+	addToOptimizer(*quatsOpt, quats, splitIdcs, nSplitSamples);
+	addToOptimizer(*featuresDcOpt, featuresDc, splitIdcs, nSplitSamples);
+	addToOptimizer(*featuresRestOpt, featuresRest, splitIdcs, nSplitSamples);
+	addToOptimizer(*opacitiesOpt, opacities, splitIdcs, nSplitSamples);
+	
+	//	add duplicates
+	torch::Tensor dupIdcs = torch::where(dups)[0];
+	addToOptimizer(*meansOpt, means, dupIdcs, 1);
+	addToOptimizer(*scalesOpt, scales, dupIdcs, 1);
+	addToOptimizer(*quatsOpt, quats, dupIdcs, 1);
+	addToOptimizer(*featuresDcOpt, featuresDc, dupIdcs, 1);
+	addToOptimizer(*featuresRestOpt, featuresRest, dupIdcs, 1);
+	addToOptimizer(*opacitiesOpt, opacities, dupIdcs, 1);
+	
+	auto splitsMask = torch::cat({
+		splits,
+		torch::full({nSplitSamples * splits.sum().item<int>() + dups.sum().item<int>()}, false, torch::TensorOptions().dtype(torch::kBool).device(device))
+	}, 0);
+
+	return splitsMask;
 }
 
 void Model::findInvalidPoints()

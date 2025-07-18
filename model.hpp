@@ -69,7 +69,8 @@ public:
 	void schedulersStep(int step);
 	void afterTrain(int step,ModelForwardResults& ForwardMeta);
 	Model2DVisibility calculateVisibility(ModelForwardResults& ForwardMeta);
-	torch::Tensor calculateSplits(int step);
+	torch::Tensor doSplits(int step,Model2DVisibility& Visibility,ModelForwardResults& ForwardMeta);
+	void doCulls(int step,torch::Tensor& SplitsMask,Model2DVisibility& Visibility);
 	
 	int getDownscaleFactor(int step);
 	void save(const std::string &filename, int step,bool keepCrs);
