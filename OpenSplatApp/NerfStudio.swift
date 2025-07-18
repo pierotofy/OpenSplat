@@ -164,6 +164,7 @@ public struct NerfStudioData
 	public var transforms : NerfStudioTransforms
 	var pointsXyz : [Float]
 	var pointsRgb : [Float]
+	var pointCount : Int		{	pointsXyz.count / 3	}
 	
 	public init(projectRoot:String) throws
 	{

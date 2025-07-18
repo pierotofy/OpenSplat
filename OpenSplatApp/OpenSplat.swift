@@ -223,16 +223,20 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	@Published public var trainingThreadFinished : Bool = false
 	//public var isTraining : Bool	{	(trainingError == nil) && !trainingThreadFinished	}
 
-	@Published public var status : String = "init"
-	@Published public var inputCameras = [NerfStudioFrame]()
+	@Published public var	status : String = "init"
+
+	//	data used to populate trainer, exposed for debug
+	@Published public var	inputNerfData : NerfStudioData?
+	public var				inputCameras : [NerfStudioFrame]	{	inputNerfData.map{ $0.transforms.frames } ?? []	}
+	@Published var			inputPointsActor : OpenSplatSplatAsset?
 	
 	required public init(projectPath:String)
 	{
-		let loadCameraImagesInApi = false
-		let centerAndNormalisePoints = false
-		let addCameras = false
-		//instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints,addCameras)
+		let loadCameraImagesInApi = true
+		let centerAndNormalisePoints = true
+		let addCameras = true
 		var params = OpenSplat_TrainerParams()
+		//instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints,addCameras)
 		instance = OpenSplat_AllocateInstanceWithParams(&params)
 		
 		trainingTask = Task
@@ -280,26 +284,60 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	}
 	
 	
+	func MakeActor(_ inputNerfData:NerfStudioData) -> OpenSplatSplatAsset
+	{
+		var actor = OpenSplatSplatAsset()
+		let range = Int(0)..<Int(inputNerfData.pointCount)
+		actor.newSplats = range.map
+		{
+			pointIndex in
+			var xyzIndex = pointIndex * 3
+			var rgbIndex = pointIndex * 3
+			let x = inputNerfData.pointsXyz[xyzIndex+0]
+			let y = inputNerfData.pointsXyz[xyzIndex+1]
+			let z = inputNerfData.pointsXyz[xyzIndex+2]
+			let r = inputNerfData.pointsRgb[rgbIndex+0]
+			let g = inputNerfData.pointsRgb[rgbIndex+1]
+			let b = inputNerfData.pointsRgb[rgbIndex+2]
+			let a : Float = 0.5
+			let scale : Float = 0.01
+			
+			let position = MTLPackedFloat3Make(x,y,z)
+			let colour = SIMD4<Float>(r,g,b,a)
+			let scale3 = SIMD3<Float>(scale,scale,scale)
+			let rotation = simd_quatf(ix: 0,iy: 0,iz: 0,r: 1)
+			
+			return SplatElement(position: position, color: colour, scale: scale3, rotation: rotation)
+		}
+		return actor
+	}
+	
 	func LoadCameras(projectPath:String) async throws
 	{
-		let nerfStudioData = try NerfStudioData(projectRoot: projectPath)
+		let inputNerfData = try NerfStudioData(projectRoot: projectPath)
+		DispatchQueue.main.async
+		{
+			self.inputNerfData = inputNerfData
+		}
 
-		try self.LoadPoints(xyzs: nerfStudioData.pointsXyz, rgbs: nerfStudioData.pointsRgb)
-
+		let inputActor = MakeActor(inputNerfData)
+		DispatchQueue.main.async
+		{
+			self.inputPointsActor = inputActor
+		}
+		
+		//	load points
+		try self.LoadPoints(xyzs: inputNerfData.pointsXyz, rgbs: inputNerfData.pointsRgb)
 		
 		try await withThrowingTaskGroup(of: Void.self) 
 		{
 			taskGroup in
 			//	load each camera
-			for camera in nerfStudioData.transforms.frames
+			for camera in inputNerfData.transforms.frames
 			{
 				taskGroup.addTask
 				{ 
-					DispatchQueue.main.async
-					{
-						self.inputCameras.append( camera )
-					}
-					let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
+					let intrinsics = try inputNerfData.transforms.GetCameraIntrinsics(frame: camera)
 					try self.LoadCamera(projectPath: projectPath, camera: camera, cameraIntrinsics: intrinsics)
 				}
 			}

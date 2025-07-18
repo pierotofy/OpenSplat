@@ -143,7 +143,8 @@ struct TrainerView : View
 				{
 					let trainerCameras = showTrainerCameras ? self.cameraRender.values.compactMap{$0.cameraActor} : []
 					let inputCameras = showInputCameras ? self.inputDataCameras : []
-					return SplatScene(splatAsset: splatAsset, otherActors: [renderCamera,floorAsset]+trainerCameras+inputCameras )
+					let others = showInputPoints ? [self.trainer.inputPointsActor].compactMap{$0} : []
+					return SplatScene(splatAsset: splatAsset, otherActors: [renderCamera,floorAsset]+trainerCameras+inputCameras+others )
 				},
 			set:{_ in}
 		)
@@ -162,6 +163,8 @@ struct TrainerView : View
 	@State var renderImageSize = CGSize(width: 400, height: 400)
 	@State var showInputCameras : Bool = false
 	@State var showTrainerCameras : Bool = true
+	@State var showInputPoints : Bool = true
+	
 	
 	//	temp to verify input vs API
 	var inputDataCameras : [PopCamera]
@@ -339,11 +342,12 @@ struct TrainerView : View
 				{
 					TrainingStateView()
 					Spacer()
-					VStack
+					VStack(alignment: .leading)
 					{
 						TrainingViewControls()
 					}
 					.padding(10)
+					.background(.black.opacity(0.5))
 				}
 				.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
 			}
@@ -413,6 +417,7 @@ struct TrainerView : View
 		
 		Toggle(isOn:$showInputCameras){	Text("Show Input Cameras")	}
 		Toggle(isOn:$showTrainerCameras){	Text("Show trainer Cameras")	}
+		Toggle(isOn:$showInputPoints){	Text("Show input points")	}
 		
 		Slider(value: $splatAsset.renderParams.minAlpha, in:0...1)
 		{
@@ -420,7 +425,6 @@ struct TrainerView : View
 				.foregroundStyle(.white)
 				.frame(width: 100)
 		}
-		.background(.black.opacity(0.5))
 		
 		Slider(value: $splatAsset.renderParams.clipMaxAlpha, in:0...1)
 		{
@@ -428,7 +432,6 @@ struct TrainerView : View
 				.foregroundStyle(.white)
 				.frame(width: 100)
 		}
-		.background(.black.opacity(0.5))
 	}
 	
 	@ViewBuilder func TrainingStateView() -> some View
