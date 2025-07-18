@@ -401,7 +401,8 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 	auto warmupLength = params.warmupLength;
 	auto resetAlphaEvery = params.resetAlphaEvery;
 	
-    if (step % refineEvery == 0 && step > warmupLength){
+    if (step % refineEvery == 0 && step > warmupLength)
+	{
 		auto& max2DSize = visibility.max2DSize;
 		
 		
@@ -419,51 +420,11 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 
         if (doDensification){
 			std::cout << "Doing gaussian culling..." << std::endl;
-           // Cull
-            int numPointsBefore = means.size(0);
-
-            torch::Tensor culls = (torch::sigmoid(opacities) < params.minCullAlpha).squeeze();
-            if (splitsMask.numel())
-			{
-				//	gr: is this add all splits to the cull list??
-				auto cullAlphaCount = culls.size(0);
-				auto splitsCount = splitsMask.size(0);
-                culls |= splitsMask;
-				auto newCullAlphaCount = culls.size(0);
-				std::cout << "Min-Alpha cull; " << cullAlphaCount << "|" << splitsCount << " (splits) results in " << newCullAlphaCount << " pending cull count" << std::endl; 
-            }
-
-            if (step > refineEvery * resetAlphaEvery)
-			{
-                torch::Tensor huge = std::get<0>(torch::exp(scales).max(-1)) > params.minCullScale;
-                if (step < params.stopScreenSizeCullingAfterStepNumber)
-				{
-                    huge |= max2DSize > params.minCullScreenSize;
-                }
-				auto hugeCount = huge.size(0);
-				std::cout << "Culling " << hugeCount << " screen-huge gaussians" << std::endl;
-                culls |= huge;
-            }
-
-            int cullCount = torch::sum(culls).item<int>();
-            if (cullCount > 0)
-			{
-                means = means.index({~culls}).detach().requires_grad_();
-                scales = scales.index({~culls}).detach().requires_grad_();
-                quats = quats.index({~culls}).detach().requires_grad_();
-                featuresDc = featuresDc.index({~culls}).detach().requires_grad_();
-                featuresRest = featuresRest.index({~culls}).detach().requires_grad_();
-                opacities = opacities.index({~culls}).detach().requires_grad_();
-
-                removeFromOptimizer(*meansOpt, means, culls);
-                removeFromOptimizer(*scalesOpt, scales, culls);
-                removeFromOptimizer(*quatsOpt, quats, culls);
-                removeFromOptimizer(*featuresDcOpt, featuresDc, culls);
-                removeFromOptimizer(*featuresRestOpt, featuresRest, culls);
-                removeFromOptimizer(*opacitiesOpt, opacities, culls);
-                
-                std::cout << "Culled " << (numPointsBefore - means.size(0)) << " gaussians, remaining " << means.size(0) << std::endl;
-            }
+			doCulls(step,splitsMask,visibility);
+			
+			auto PointCount = means.size(0);
+			auto CullCount = numPointsBefore - PointCount;
+			std::cout << "Culled " << CullCount << " gaussians, remaining " << PointCount << std::endl;
         }
 
         if (step < stopSplitAt && step % resetInterval == refineEvery)
@@ -486,7 +447,8 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));
         }
 
-        if (device != torch::kCPU){
+        if (device != torch::kCPU)
+		{
             #ifdef USE_HIP
                     c10::hip::HIPCachingAllocator::emptyCache();
             #elif defined(USE_CUDA)
@@ -614,6 +576,57 @@ torch::Tensor Model::doSplits(int step,Model2DVisibility& Visibility,ModelForwar
 	}, 0);
 
 	return splitsMask;
+}
+
+void Model::doCulls(int step,torch::Tensor& SplitsMask,Model2DVisibility& Visibility)
+{
+	auto refineEvery = params.refineEvery;
+	auto warmupLength = params.warmupLength;
+	auto resetAlphaEvery = params.resetAlphaEvery;
+
+	auto numPointsBefore = means.size(0);
+	
+	torch::Tensor culls = (torch::sigmoid(opacities) < params.minCullAlpha).squeeze();
+	if (SplitsMask.numel())
+	{
+		//	gr: is this add all splits to the cull list??
+		auto cullAlphaCount = culls.size(0);
+		auto splitsCount = SplitsMask.size(0);
+		culls |= SplitsMask;
+		auto newCullAlphaCount = culls.size(0);
+		std::cout << "Min-Alpha cull; " << cullAlphaCount << "|" << splitsCount << " (splits) results in " << newCullAlphaCount << " pending cull count" << std::endl; 
+	}
+	
+	if (step > refineEvery * resetAlphaEvery)
+	{
+		torch::Tensor huge = std::get<0>(torch::exp(scales).max(-1)) > params.minCullScale;
+		if (step < params.stopScreenSizeCullingAfterStepNumber)
+		{
+			huge |= Visibility.max2DSize > params.minCullScreenSize;
+		}
+		auto hugeCount = huge.size(0);
+		std::cout << "Culling " << hugeCount << " screen-huge gaussians" << std::endl;
+		culls |= huge;
+	}
+	
+	int cullCount = torch::sum(culls).item<int>();
+	if (cullCount == 0)
+		return;
+
+	means = means.index({~culls}).detach().requires_grad_();
+	scales = scales.index({~culls}).detach().requires_grad_();
+	quats = quats.index({~culls}).detach().requires_grad_();
+	featuresDc = featuresDc.index({~culls}).detach().requires_grad_();
+	featuresRest = featuresRest.index({~culls}).detach().requires_grad_();
+	opacities = opacities.index({~culls}).detach().requires_grad_();
+	
+	removeFromOptimizer(*meansOpt, means, culls);
+	removeFromOptimizer(*scalesOpt, scales, culls);
+	removeFromOptimizer(*quatsOpt, quats, culls);
+	removeFromOptimizer(*featuresDcOpt, featuresDc, culls);
+	removeFromOptimizer(*featuresRestOpt, featuresRest, culls);
+	removeFromOptimizer(*opacitiesOpt, opacities, culls);
+
 }
 
 void Model::findInvalidPoints()
