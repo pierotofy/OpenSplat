@@ -39,6 +39,15 @@ public:
 	int				lastWidth;
 };
 
+//	ephemeral post-training data for culling/splitting
+class Model2DVisibility
+{
+public:
+	torch::Tensor xysGradNorm;
+	torch::Tensor visCounts;  
+	torch::Tensor max2DSize;
+};
+
 
 class Model
 {
@@ -92,11 +101,6 @@ public:
 	std::shared_ptr<torch::optim::Adam> opacitiesOpt;
 
 	std::shared_ptr<OptimScheduler> meansOptScheduler;
-
-
-  torch::Tensor xysGradNorm; // set in afterTrain()
-  torch::Tensor visCounts; // set in afterTrain()  
-  torch::Tensor max2DSize; // set in afterTrain()
 
 
   torch::Tensor backgroundColor;

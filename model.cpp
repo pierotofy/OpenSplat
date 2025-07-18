@@ -389,7 +389,14 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
     if (!ForwardMeta.xys.grad().defined()) 
 		return;
 
-    if (step < stopSplitAt){
+	Model2DVisibility visibility;
+	
+    if (step < stopSplitAt)
+	{
+		auto& xysGradNorm = visibility.xysGradNorm;
+		auto& visCounts = visibility.visCounts;
+		auto& max2DSize = visibility.max2DSize;
+		
         torch::Tensor visibleMask = (ForwardMeta.radii > 0).flatten();
         
         torch::Tensor grads = torch::linalg_vector_norm(ForwardMeta.xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
@@ -416,6 +423,11 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 	auto resetAlphaEvery = params.resetAlphaEvery;
 	
     if (step % refineEvery == 0 && step > warmupLength){
+		auto& xysGradNorm = visibility.xysGradNorm;
+		auto& visCounts = visibility.visCounts;
+		auto& max2DSize = visibility.max2DSize;
+		
+		
         int resetInterval = resetAlphaEvery * refineEvery;
         bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
         torch::Tensor splitsMask;
@@ -561,11 +573,6 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));
             std::cout << "Alpha reset" << std::endl;
         }
-
-        // Clear
-        xysGradNorm = torch::Tensor();
-        visCounts = torch::Tensor();
-        max2DSize = torch::Tensor();
 
         if (device != torch::kCPU){
             #ifdef USE_HIP
