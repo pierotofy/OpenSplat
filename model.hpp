@@ -64,19 +64,22 @@ public:
 
 	ModelForwardResults forward(Camera& cam, int step);
 	ModelForwardResults forward(CameraTransform& CameraToWorldTransform,CameraIntrinsics RenderIntrinsics,int step);
-  void optimizersZeroGrad();
-  void optimizersStep();
-  void schedulersStep(int step);
-  int getDownscaleFactor(int step);
-  void afterTrain(int step,ModelForwardResults& ForwardMeta);
-  void findInvalidPoints();
+	void optimizersZeroGrad();
+	void optimizersStep();
+	void schedulersStep(int step);
+	void afterTrain(int step,ModelForwardResults& ForwardMeta);
+	Model2DVisibility calculateVisibility(ModelForwardResults& ForwardMeta);
+	torch::Tensor calculateSplits(int step);
 	
-  void save(const std::string &filename, int step,bool keepCrs);
-  void savePly(const std::string &filename, int step,bool keepCrs);
-  void saveSplat(const std::string &filename,bool keepCrs);
-  void saveDebugPly(const std::string &filename, int step,bool keepCrs);
-  void iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcFeatures,std::span<float> restFeatures)> OnFoundPoint);
-  int getPointCount();
+	int getDownscaleFactor(int step);
+	void save(const std::string &filename, int step,bool keepCrs);
+	void savePly(const std::string &filename, int step,bool keepCrs);
+	void saveSplat(const std::string &filename,bool keepCrs);
+	void saveDebugPly(const std::string &filename, int step,bool keepCrs);
+	void iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcFeatures,std::span<float> restFeatures)> OnFoundPoint);
+	int getPointCount();
+	void findInvalidPoints();
+	
 	
   //	modelPointsNeedToBeNormalised == keepCrs
   //	it means that the PLY we're loading, was saved in it's original space instead of centered and scaled to -1...1

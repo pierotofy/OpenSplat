@@ -24,6 +24,7 @@ public:
 	float	minCullAlpha = 0.1f;		//	above this gets culled
 	float	minCullScale = 0.5f; 		//	above this gets culled
 	float	minCullScreenSize = 0.15f;	//	size in screenspace (for a camera) gets culled
+	float	resetNewAlphaMin = 0.2f;	//	when doing alpha reset, alphas will be at least this
 
 	float	scaleAfterSplit = 1.0 / 1.6f;		//	scale gaussians by this much after splitting
 	

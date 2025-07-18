@@ -393,29 +393,7 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 	
     if (step < stopSplitAt)
 	{
-		auto& xysGradNorm = visibility.xysGradNorm;
-		auto& visCounts = visibility.visCounts;
-		auto& max2DSize = visibility.max2DSize;
-		
-        torch::Tensor visibleMask = (ForwardMeta.radii > 0).flatten();
-        
-        torch::Tensor grads = torch::linalg_vector_norm(ForwardMeta.xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
-        if (!xysGradNorm.numel()){
-            xysGradNorm = grads;
-            visCounts = torch::ones_like(xysGradNorm);
-        }else{
-            visCounts.index_put_({visibleMask}, visCounts.index({visibleMask}) + 1);
-            xysGradNorm.index_put_({visibleMask}, grads.index({visibleMask}) + xysGradNorm.index({visibleMask}));
-        }
-
-        if (!max2DSize.numel()){
-            max2DSize = torch::zeros_like(ForwardMeta.radii, torch::kFloat32);
-        }
-
-        torch::Tensor newRadii = ForwardMeta.radii.detach().index({visibleMask});
-        max2DSize.index_put_({visibleMask}, torch::maximum(
-                max2DSize.index({visibleMask}), newRadii / static_cast<float>( std::max(ForwardMeta.lastHeight, ForwardMeta.lastWidth) )
-            ));
+		visibility = calculateVisibility(ForwardMeta);
     }
 
 	auto refineEvery = params.refineEvery;
@@ -432,7 +410,9 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
         bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
         torch::Tensor splitsMask;
 
-        if (doDensification){
+        if (doDensification)
+		{
+			std::cout << "Doing large-gaussian splits..." << std::endl;
             int numPointsBefore = means.size(0);
             torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( std::max(ForwardMeta.lastWidth, ForwardMeta.lastHeight) );
             torch::Tensor highGrads = (avgGradNorm > params.minSplitGradient).squeeze();
@@ -519,12 +499,19 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
         }
 
         if (doDensification){
-            // Cull
+			std::cout << "Doing gaussian culling..." << std::endl;
+           // Cull
             int numPointsBefore = means.size(0);
 
             torch::Tensor culls = (torch::sigmoid(opacities) < params.minCullAlpha).squeeze();
-            if (splitsMask.numel()){
+            if (splitsMask.numel())
+			{
+				//	gr: is this add all splits to the cull list??
+				auto cullAlphaCount = culls.size(0);
+				auto splitsCount = splitsMask.size(0);
                 culls |= splitsMask;
+				auto newCullAlphaCount = culls.size(0);
+				std::cout << "Min-Alpha cull; " << cullAlphaCount << "|" << splitsCount << " (splits) results in " << newCullAlphaCount << " pending cull count" << std::endl; 
             }
 
             if (step > refineEvery * resetAlphaEvery)
@@ -534,11 +521,14 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 				{
                     huge |= max2DSize > params.minCullScreenSize;
                 }
+				auto hugeCount = huge.size(0);
+				std::cout << "Culling " << hugeCount << " screen-huge gaussians" << std::endl;
                 culls |= huge;
             }
 
             int cullCount = torch::sum(culls).item<int>();
-            if (cullCount > 0){
+            if (cullCount > 0)
+			{
                 means = means.index({~culls}).detach().requires_grad_();
                 scales = scales.index({~culls}).detach().requires_grad_();
                 quats = quats.index({~culls}).detach().requires_grad_();
@@ -557,8 +547,12 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             }
         }
 
-        if (step < stopSplitAt && step % resetInterval == refineEvery){
-            float resetValue = params.minCullAlpha * 2.0f;
+        if (step < stopSplitAt && step % resetInterval == refineEvery)
+		{
+			float resetValue = params.resetNewAlphaMin;
+
+			std::cout << "Doing gaussian alpha-reset (" << resetValue << ")..." << std::endl;
+			
             opacities = torch::clamp_max(opacities, torch::logit(torch::tensor(resetValue)).item<float>());
 
             // Reset optimizer
@@ -571,7 +565,6 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*opacitiesOpt->state()[pId]));
             paramState->exp_avg(torch::zeros_like(paramState->exp_avg()));
             paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));
-            std::cout << "Alpha reset" << std::endl;
         }
 
         if (device != torch::kCPU){
@@ -582,6 +575,36 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             #endif
         }
     }
+}
+
+Model2DVisibility Model::calculateVisibility(ModelForwardResults& ForwardMeta)
+{
+	Model2DVisibility visibility;
+	auto& xysGradNorm = visibility.xysGradNorm;
+	auto& visCounts = visibility.visCounts;
+	auto& max2DSize = visibility.max2DSize;
+	
+	torch::Tensor visibleMask = (ForwardMeta.radii > 0).flatten();
+	
+	torch::Tensor grads = torch::linalg_vector_norm(ForwardMeta.xys.grad().detach(), 2, { -1 }, false, torch::kFloat32);
+	if (!xysGradNorm.numel()){
+		xysGradNorm = grads;
+		visCounts = torch::ones_like(xysGradNorm);
+	}else{
+		visCounts.index_put_({visibleMask}, visCounts.index({visibleMask}) + 1);
+		xysGradNorm.index_put_({visibleMask}, grads.index({visibleMask}) + xysGradNorm.index({visibleMask}));
+	}
+	
+	if (!max2DSize.numel()){
+		max2DSize = torch::zeros_like(ForwardMeta.radii, torch::kFloat32);
+	}
+	
+	torch::Tensor newRadii = ForwardMeta.radii.detach().index({visibleMask});
+	max2DSize.index_put_({visibleMask}, torch::maximum(
+													   max2DSize.index({visibleMask}), newRadii / static_cast<float>( std::max(ForwardMeta.lastHeight, ForwardMeta.lastWidth) )
+													   ));
+
+	return visibility;	
 }
 
 void Model::findInvalidPoints()

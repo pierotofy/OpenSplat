@@ -209,8 +209,6 @@ __export OpenSplat_Error	OpenSplat_InstanceRunBlocking(int Instance)
 		
 		auto OnIterationFinished = [&](TrainerIterationMeta IterationMeta)
 		{
-			auto step = IterationMeta.mStep;
-			std::cout << "Done step " << step << std::endl;
 		};
 		
 		auto OnRunFinished = [&](int numIters)
