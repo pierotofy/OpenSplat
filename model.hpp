@@ -71,6 +71,7 @@ public:
 	Model2DVisibility calculateVisibility(ModelForwardResults& ForwardMeta);
 	torch::Tensor doSplits(int step,Model2DVisibility& Visibility,ModelForwardResults& ForwardMeta);
 	void doCulls(int step,torch::Tensor& SplitsMask,Model2DVisibility& Visibility);
+	void doAlphaReset();
 	
 	int getDownscaleFactor(int step);
 	void save(const std::string &filename, int step,bool keepCrs);

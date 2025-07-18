@@ -403,9 +403,6 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 	
     if (step % refineEvery == 0 && step > warmupLength)
 	{
-		auto& max2DSize = visibility.max2DSize;
-		
-		
         int resetInterval = resetAlphaEvery * refineEvery;
         bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
         torch::Tensor splitsMask;
@@ -430,23 +427,11 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
         if (step < stopSplitAt && step % resetInterval == refineEvery)
 		{
 			float resetValue = params.resetNewAlphaMin;
-
-			std::cout << "Doing gaussian alpha-reset (" << resetValue << ")..." << std::endl;
-			
-            opacities = torch::clamp_max(opacities, torch::logit(torch::tensor(resetValue)).item<float>());
-
-            // Reset optimizer
-            torch::Tensor param = opacitiesOpt->param_groups()[0].params()[0];
-            #if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
-                auto pId = param.unsafeGetTensorImpl();
-            #else
-                auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
-            #endif    
-            auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*opacitiesOpt->state()[pId]));
-            paramState->exp_avg(torch::zeros_like(paramState->exp_avg()));
-            paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));
+			std::cout << "Doing gaussian alpha-reset..." << std::endl;
+			doAlphaReset();
         }
 
+		//	gr: why only clear cache during possible refines?
         if (device != torch::kCPU)
 		{
             #ifdef USE_HIP
@@ -486,6 +471,23 @@ Model2DVisibility Model::calculateVisibility(ModelForwardResults& ForwardMeta)
 													   ));
 
 	return visibility;	
+}
+
+void Model::doAlphaReset()
+{
+	opacities = torch::clamp_max(opacities, torch::logit(torch::tensor(params.resetNewAlphaMin)).item<float>());
+	
+	// Reset optimizer
+	torch::Tensor param = opacitiesOpt->param_groups()[0].params()[0];
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR > 1
+	auto pId = param.unsafeGetTensorImpl();
+#else
+	auto pId = c10::guts::to_string(param.unsafeGetTensorImpl());
+#endif    
+	auto paramState = std::make_unique<torch::optim::AdamParamState>(static_cast<torch::optim::AdamParamState&>(*opacitiesOpt->state()[pId]));
+	paramState->exp_avg(torch::zeros_like(paramState->exp_avg()));
+	paramState->exp_avg_sq(torch::zeros_like(paramState->exp_avg_sq()));
+
 }
 
 torch::Tensor Model::doSplits(int step,Model2DVisibility& Visibility,ModelForwardResults& ForwardMeta)
