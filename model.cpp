@@ -711,13 +711,13 @@ void Model::iteratePoints(std::function<void(std::span<float> xyz,std::span<floa
 	torch::Tensor scalesCpu = scales.cpu();
 	torch::Tensor quatsCpu = quats.cpu();
 	
+	auto DcFeaturesCount = featuresDcCpu.size(1);
+	auto RestFeaturesCount = featuresRestCpu.size(1);
 		
 	for (size_t i = 0; i < numPoints; i++) 
 	{
-		auto DcFeaturesCount = featuresDcCpu.size(1);
-		auto RestFeaturesCount = featuresRestCpu.size(1);
-		
 		//	gr: these accessors are slow (bounds checked) - is the data contigious so we can grab a span once?
+		//	gr: these are not contigious (and .contigious() doesnt help)
 		
 		std::span xyz( reinterpret_cast<float*>( meansCpu[i].data_ptr() ), 3 );
 		std::span dcFeatures( reinterpret_cast<float*>( featuresDcCpu[i].data_ptr() ), DcFeaturesCount );
