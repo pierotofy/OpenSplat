@@ -121,7 +121,8 @@ public:
 		return *mInputData;	
 	}
 	
-	void							LoadCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat);
+	void							AddCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat);
+	void							AddSeedPoints(std::span<float> Xyzs,std::span<float> Rgbs);
 	
 	std::vector<OpenSplat_Splat>	GetModelSplats();
 	ImagePixels						GetForwardImage(Camera& Camera,int Step);

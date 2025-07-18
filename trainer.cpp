@@ -423,7 +423,7 @@ OpenSplat_CameraMeta Trainer::GetCameraMeta(int CameraIndex)
 	return Meta;
 }
 
-void Trainer::LoadCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat)
+void Trainer::AddCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_t> PixelBuffer,OpenSplat_PixelFormat PixelFormat)
 {
 	auto& InputData = GetInputData();
 	
@@ -453,3 +453,22 @@ void Trainer::LoadCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_
 
 	InputData.AddCamera(camera);
 }
+
+
+void Trainer::AddSeedPoints(std::span<float> Xyzs,std::span<float> Rgbs)
+{
+	auto& InputData = GetInputData();
+	
+	//	turn into tensors
+	long long PointCount = Xyzs.size() / 3;
+	
+	auto xyzTensor = torch::from_blob( Xyzs.data(), {PointCount,3} );
+	auto rgbTensor = torch::from_blob( Rgbs.data(), {PointCount,3} );
+	
+	InputData.points.xyz = xyzTensor.clone();
+	
+	//	data is expecting 255 (but doesnt have to be u8...)
+	//InputData.points.rgb = (rgbTensor * 255).clone();
+	InputData.points.rgb = (rgbTensor * 255.0f).toType(torch::kU8);
+}
+

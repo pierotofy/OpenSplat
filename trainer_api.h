@@ -111,6 +111,7 @@ __export void	OpenSplat_FreeInstance(int Instance);
 
 //	provide size for verification
 __export enum OpenSplat_Error	OpenSplat_AddCamera(int Instance,const struct OpenSplat_CameraMeta* Meta,const uint8_t* PixelBuffer,int PixelBufferSize,enum OpenSplat_PixelFormat PixelFormat);
+__export enum OpenSplat_Error	OpenSplat_AddSeedPoints(int Instance,const float* PointXyzs,const float* PointRgbs,int PointCount);
 
 
 __export enum OpenSplat_Error	OpenSplat_GetState(int Instance,struct OpenSplat_TrainerState* State);

@@ -69,11 +69,24 @@ Model::Model(const InputData &inputData,
 	if ( numCameras < 1 )
 		throw std::runtime_error("Model requires at least one camera");
 	
-	long long numPoints = inputData.points.xyz.size(0);
 	scale = inputData.scale;
 	translation = torch::tensor( {inputData.translation.x, inputData.translation.y, inputData.translation.z } );
 	
 	torch::manual_seed(42);
+	
+	//	catch data errors before obscure torch error 
+	auto numPoints = inputData.points.xyz.size(0);
+	auto numPointColours = inputData.points.rgb.size(0);
+
+	if ( numPoints != numPointColours )
+	{
+		std::stringstream Error;
+		Error << "Model seed point position count(" << numPoints << ") does not much number of colours (" << numPointColours << ")";
+		throw std::runtime_error(Error.str());
+	}
+	
+	if ( numPoints == 0 )
+		throw std::runtime_error("Model has no seed points");
 	
 	means = inputData.points.xyz.to(device).requires_grad_();
 	scales = PointsTensor(inputData.points.xyz).scales().repeat({1, 3}).log().to(device).requires_grad_();

@@ -13,6 +13,7 @@ namespace OpenSplat
 	int gSingleInstanceId = OpenSplat_NullInstance;
 	
 	int			AllocateInstance(TrainerParams Params,const std::string& InputPath,bool LoadCameraImages,bool CenterAndNormalisePoints,bool AddCameras);
+	int			AllocateInstance(TrainerParams Params);
 	void		FreeInstance(int Instance);
 	Trainer&	GetInstance(int Instance);
 }
@@ -24,6 +25,22 @@ __export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath,bool l
 		TrainerParams Params;
 		std::string InputPath( InputDataPath ? InputDataPath : "" );
 		auto Instance = OpenSplat::AllocateInstance( Params, InputPath, loadCameraImages, CenterAndNormalisePoints, AddCameras );
+		return Instance;
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_NullInstance;
+	}
+}
+
+
+__export int	OpenSplat_AllocateInstanceWithParams(struct OpenSplat_TrainerParams* Params)
+{
+	try
+	{
+		TrainerParams Params;
+		auto Instance = OpenSplat::AllocateInstance( Params );
 		return Instance;
 	}
 	catch(std::exception& e)
@@ -49,10 +66,8 @@ __export void	OpenSplat_FreeInstance(int Instance)
 //	this wants to be simpler and initialise data with a different call
 int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPath,bool loadCameraImages,bool CenterAndNormalisePoints,bool AddCameras)
 {
-	if ( gSingleInstance )
-	{
-		throw std::runtime_error("Currently only supporting one instance, which is already allocated");
-	}
+	auto InstanceUid = AllocateInstance(Params);
+	auto& Instance = *gSingleInstance;
 	
 	auto DownscaleFactor = 1;
 	auto colmapImageSourcePath = "";
@@ -63,6 +78,21 @@ int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPat
 			cam.loadImageFromFilename(DownscaleFactor);
 	});
 
+	//	copy in input data
+	auto pInputData = std::make_shared<InputData>(inputData);
+	Instance.mInputData = pInputData;
+	
+	return InstanceUid;
+}
+
+//	this wants to be simpler and initialise data with a different call
+int OpenSplat::AllocateInstance(TrainerParams Params)
+{
+	if ( gSingleInstance )
+	{
+		throw std::runtime_error("Currently only supporting one instance, which is already allocated");
+	}
+	
 	gSingleInstance = std::make_shared<Trainer>( Params );
 	if ( gSingleInstanceId == OpenSplat_NullInstance )
 	{
@@ -72,7 +102,7 @@ int OpenSplat::AllocateInstance(TrainerParams Params,const std::string& InputPat
 	
 	//	copy in input data
 	//	todo: setup input data via other API calls
-	auto pInputData = std::make_shared<InputData>(inputData);
+	auto pInputData = std::make_shared<InputData>();
 	gSingleInstance->mInputData = pInputData;
 	
 	return gSingleInstanceId;
@@ -278,6 +308,36 @@ __export enum OpenSplat_Error	OpenSplat_GetCameraMeta(int Instance,int CameraInd
 	}
 }
 
+__export enum OpenSplat_Error	OpenSplat_AddSeedPoints(int Instance,const float* PointXyzs,const float* PointRgbs,int PointCount)
+{
+	try
+	{
+		auto& Trainer = OpenSplat::GetInstance(Instance);
+		
+		if ( !PointXyzs )
+			throw std::runtime_error("Missing point xyzs");
+		if ( !PointRgbs )
+			throw std::runtime_error("Missing point rgbs");
+		
+		std::span XyzBuffer( const_cast<float*>(PointXyzs), PointCount*3 );
+		std::span RgbBuffer( const_cast<float*>(PointRgbs), PointCount*3 );
+		
+		Trainer.AddSeedPoints( XyzBuffer, RgbBuffer );
+		
+		return OpenSplat_Error_Success;
+	}
+	catch(OpenSplat::ApiException& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return e.GetApiError();
+	}
+	catch(std::exception& e)
+	{
+		std::cerr << __FUNCTION__ << ": " << e.what() << std::endl;
+		return OpenSplat_Error_Unknown;
+	}
+}
+
 
 __export enum OpenSplat_Error OpenSplat_AddCamera(int Instance,const struct OpenSplat_CameraMeta* pMeta,const uint8_t* pPixelBuffer,int PixelBufferSize,enum OpenSplat_PixelFormat PixelFormat)
 {
@@ -293,7 +353,7 @@ __export enum OpenSplat_Error OpenSplat_AddCamera(int Instance,const struct Open
 			throw std::runtime_error("Missing Pixel buffer");
 		std::span PixelBuffer( const_cast<uint8_t*>(pPixelBuffer), PixelBufferSize );
 
-		Trainer.LoadCamera( CameraMeta, PixelBuffer, PixelFormat );
+		Trainer.AddCamera( CameraMeta, PixelBuffer, PixelFormat );
 		
 		return OpenSplat_Error_Success;
 	}
