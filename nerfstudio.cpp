@@ -151,7 +151,7 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndN
 	if ( CenterAndNormalisePoints )
 	{
 		auto r = autoScaleAndCenterPoses(unorientedPoses);
-		torch::Tensor poses = std::get<0>(r);
+		poses = std::get<0>(r);
 		center = std::get<1>(r);
 		normalisingScale = std::get<2>(r);
 	}
