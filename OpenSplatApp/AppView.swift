@@ -9,6 +9,7 @@ import SwiftUI
 import PopMetalView
 import OpenSplat
 import MetalKit
+import PopCommon
 
 
 struct CameraImageCache
@@ -150,6 +151,7 @@ struct TrainerView : View
 	
 	@State var someError : Error?
 	@State var renderCamera = PopCamera()
+	@State var renderThroughCameraIndex : Int?
 	@StateObject var trainer : OpenSplatTrainer
 	@State var trainerState = OpenSplat_TrainerState()
 	@State var cameraRender = [Int:CameraImageCache]()
@@ -158,7 +160,7 @@ struct TrainerView : View
 	var cameraUserViewDefault : CameraUserView = .Render
 	
 	@State var renderImageSize = CGSize(width: 400, height: 400)
-	@State var showInputCameras : Bool = true
+	@State var showInputCameras : Bool = false
 	@State var showTrainerCameras : Bool = true
 	
 	//	temp to verify input vs API
@@ -265,6 +267,16 @@ struct TrainerView : View
 				HStack(alignment: .bottom)
 				{
 					Spacer()
+					
+					Button(action:{ ToggleRenderThroughCamrea(cameraIndex:cameraIndex) })
+					{
+						Image(systemName: "eye")
+							.resizable()
+							.scaledToFit()
+							.foregroundStyle( renderThroughCameraIndex == cameraIndex ? .white : .black )
+					}
+					.buttonStyle(PlainButtonStyle())
+					
 					Button(action:{ cameraUserView[cameraIndex] = .GroundTruth })
 					{
 						CameraUserView.GroundTruth.icon()
@@ -273,6 +285,7 @@ struct TrainerView : View
 							.foregroundStyle( viewOption == .GroundTruth ? .white : .black )
 					}
 					.buttonStyle(PlainButtonStyle())
+					
 					Button(action:{ cameraUserView[cameraIndex] = .Render })
 					{
 						CameraUserView.Render.icon()
@@ -299,9 +312,22 @@ struct TrainerView : View
 		}
 	}
 	
+	func GetRenderCamera() -> Binding<PopCamera>
+	{
+		return Binding(
+			get:
+				{
+					var cameraEntry = renderThroughCameraIndex.map{ cameraRender[$0] }
+					var useCamera : PopCamera? = cameraEntry??.cameraActor
+					return useCamera ?? renderCamera
+				},
+				set:{_ in}
+		   )
+	}
+	
 	@ViewBuilder func TrainingView() -> some View
 	{
-		MetalSceneView(scene: GetScene(), camera:Binding(get:{renderCamera},set:{_ in}), showGizmosOnActors: [])
+		MetalSceneView(scene: GetScene(), camera:GetRenderCamera(), showGizmosOnActors: [])
 			.background
 			{
 				Rectangle()
@@ -322,6 +348,27 @@ struct TrainerView : View
 				.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
 			}
 
+	}
+	
+	func ToggleRenderThroughCamrea(cameraIndex:Int)
+	{
+		if renderThroughCameraIndex == cameraIndex
+		{
+			renderThroughCameraIndex = nil
+			return
+		}
+		
+		renderThroughCameraIndex = cameraIndex
+		
+		
+		/*	use this once we can extract rotation from transform in PopActor
+		guard let cameraTransform = cameraRender[cameraIndex]?.cameraMeta?.localToWorld else
+		{
+			PlaySystemBeep()
+			return
+		}
+		self.renderCamera.localToWorldTransform = cameraTransform
+		 */
 	}
 	
 	func OnClickedUpdateSplats()
