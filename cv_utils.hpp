@@ -13,4 +13,9 @@ torch::Tensor floatNxNMatToTensor(const cv::Mat &m);
 cv::Mat tensorToImage(const torch::Tensor &t);		//	warning: does no colour conversion, so expecting input as Bgr (opencv format is BGR)
 torch::Tensor imageToTensor(const cv::Mat &image);
 
+//	warning: does no colour conversion, so expecting input as Bgr (opencv format is BGR)
+//	get tensor as an image with ~no copy~ reduced memcopy
+void tensorToImage(const torch::Tensor &t,std::function<void(const cv::Mat&)> OnImage);
+
+
 #endif

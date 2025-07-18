@@ -280,6 +280,7 @@ torch::Tensor Camera::getImage(int downscaleFactor)
 	int NewWidth = image.size(1);
 	NewWidth /= downscaleFactor;
 	NewHeight /= downscaleFactor;
+	std::cerr << "Adding image pyramid x" << downscaleFactor << "(" << NewWidth << "x" << NewHeight << ") for " << getName() << std::endl;
 	cv::Mat cImg = getOpencvRgbImageStretched(NewWidth,NewHeight);
 	torch::Tensor t = imageToTensor(cImg);
 	imagePyramids[downscaleFactor] = t;
@@ -288,9 +289,14 @@ torch::Tensor Camera::getImage(int downscaleFactor)
 
 cv::Mat Camera::getOpencvRgbImageStretched(int Width,int Height)
 {
-	cv::Mat cImg = tensorToImage(image);
-	cv::resize(cImg, cImg, cv::Size(Width,Height), 0.0, 0.0, cv::INTER_AREA);
-	return cImg;
+	cv::Mat SmallImage;
+	auto CopyToSmall = [&](const cv::Mat& Big)
+	{
+		cv::resize(Big,SmallImage, cv::Size(Width,Height), 0.0, 0.0, cv::INTER_AREA);
+	};
+	tensorToImage(image,CopyToSmall);
+	return SmallImage;
+}
 
 CameraIntrinsics::CameraIntrinsics(const OpenSplat_CameraIntrinsics& Intrinsics)
 {
