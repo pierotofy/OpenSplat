@@ -381,66 +381,73 @@ void Model::removeFromOptimizer(torch::optim::Adam& optimizer, const torch::Tens
     optimizer.state()[newPId] = std::move(paramState);
 }
 
-void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
-    torch::NoGradGuard noGrad;
-
-    // When radii.sum() == 0
+void Model::afterTrain(int step,ModelForwardResults& ForwardMeta)
+{
+	//	gr: what is this guarding?
+	torch::NoGradGuard noGradGaurd;
+	
+	// When radii.sum() == 0
 	//	no points
-    if (!ForwardMeta.xys.grad().defined()) 
+	if (!ForwardMeta.xys.grad().defined()) 
 		return;
 
-	Model2DVisibility visibility;
 	int numPointsBefore = means.size(0);
-	
-    if (step < stopSplitAt)
-	{
-		visibility = calculateVisibility(ForwardMeta);
-    }
+		
+	bool AllowSplits = step < stopSplitAt;
 
 	auto refineEvery = params.refineEvery;
 	auto warmupLength = params.warmupLength;
 	auto resetAlphaEvery = params.resetAlphaEvery;
 	
-    if (step % refineEvery == 0 && step > warmupLength)
+	auto IsRefineStep = (step % params.refineEvery) == 0;
+	auto IsWarmingUp = step < warmupLength;
+	
+	if ( IsWarmingUp )
+		return;
+	
+	if ( !IsRefineStep )
+		return;
+	
+	//	this is what the code did before, but may be heavy handed as it stops alpha reset & culls too
+	if ( !AllowSplits )
+		return;
+	
+	int resetInterval = resetAlphaEvery * refineEvery;
+	bool doDensification = (step % resetInterval) > numCameras + refineEvery;
+	auto DoLargeSplits = doDensification;
+	auto DoCulling = doDensification;
+	auto DoAlphaReset = (step % resetInterval) == refineEvery;
+
+	//	calculate screen based values
+	torch::Tensor splitsMask;
+	std::cout << "Calculating visibility..." << std::endl;
+	auto visibility = calculateVisibility(ForwardMeta);
+
+	if ( DoLargeSplits )
 	{
-        int resetInterval = resetAlphaEvery * refineEvery;
-        bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
-        torch::Tensor splitsMask;
+		std::cout << "Doing large-gaussian splits..." << std::endl;
+		splitsMask = doSplits(step,visibility,ForwardMeta);
+		std::cout << "Added " << (means.size(0) - numPointsBefore) << " gaussians, new count " << means.size(0) << std::endl;
+	}
 
-        if (doDensification)
-		{
-			std::cout << "Doing large-gaussian splits..." << std::endl;
-			splitsMask = doSplits(step,visibility,ForwardMeta);
+	if ( DoCulling )
+	{
+		std::cout << "Doing gaussian culling..." << std::endl;
+		doCulls(step,splitsMask,visibility);
+		
+		auto PointCount = means.size(0);
+		auto CullCount = numPointsBefore - PointCount;
+		std::cout << "Culled " << CullCount << " gaussians, remaining " << PointCount << std::endl;
+	}
 
-            std::cout << "Added " << (means.size(0) - numPointsBefore) << " gaussians, new count " << means.size(0) << std::endl;
-        }
+	if ( DoAlphaReset )
+	{
+		std::cout << "Doing gaussian alpha-reset..." << std::endl;
+		doAlphaReset();
+	}
 
-        if (doDensification){
-			std::cout << "Doing gaussian culling..." << std::endl;
-			doCulls(step,splitsMask,visibility);
-			
-			auto PointCount = means.size(0);
-			auto CullCount = numPointsBefore - PointCount;
-			std::cout << "Culled " << CullCount << " gaussians, remaining " << PointCount << std::endl;
-        }
-
-        if (step < stopSplitAt && step % resetInterval == refineEvery)
-		{
-			float resetValue = params.resetNewAlphaMin;
-			std::cout << "Doing gaussian alpha-reset..." << std::endl;
-			doAlphaReset();
-        }
-
-		//	gr: why only clear cache during possible refines?
-        if (device != torch::kCPU)
-		{
-            #ifdef USE_HIP
-                    c10::hip::HIPCachingAllocator::emptyCache();
-            #elif defined(USE_CUDA)
-                    c10::cuda::CUDACachingAllocator::emptyCache();
-            #endif
-        }
-    }
+	//	gr: why only clear cache during possible refines?
+	flushAllocatorCaches();
 }
 
 Model2DVisibility Model::calculateVisibility(ModelForwardResults& ForwardMeta)
@@ -472,6 +479,19 @@ Model2DVisibility Model::calculateVisibility(ModelForwardResults& ForwardMeta)
 
 	return visibility;	
 }
+
+void Model::flushAllocatorCaches()
+{
+	if (device != torch::kCPU)
+	{
+#ifdef USE_HIP
+		c10::hip::HIPCachingAllocator::emptyCache();
+#elif defined(USE_CUDA)
+		c10::cuda::CUDACachingAllocator::emptyCache();
+#endif
+	}
+}
+
 
 void Model::doAlphaReset()
 {

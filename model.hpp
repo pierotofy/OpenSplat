@@ -72,6 +72,7 @@ public:
 	torch::Tensor doSplits(int step,Model2DVisibility& Visibility,ModelForwardResults& ForwardMeta);
 	void doCulls(int step,torch::Tensor& SplitsMask,Model2DVisibility& Visibility);
 	void doAlphaReset();
+	void flushAllocatorCaches();
 	
 	int getDownscaleFactor(int step);
 	void save(const std::string &filename, int step,bool keepCrs);
