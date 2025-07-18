@@ -385,7 +385,9 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
     torch::NoGradGuard noGrad;
 
     // When radii.sum() == 0
-    if (!ForwardMeta.xys.grad().defined()) return;
+	//	no points
+    if (!ForwardMeta.xys.grad().defined()) 
+		return;
 
     if (step < stopSplitAt){
         torch::Tensor visibleMask = (ForwardMeta.radii > 0).flatten();
@@ -412,26 +414,22 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 	auto refineEvery = params.refineEvery;
 	auto warmupLength = params.warmupLength;
 	auto resetAlphaEvery = params.resetAlphaEvery;
-	auto densifyGradThresh = params.densifyGradThresh;
-	auto densifySizeThresh = params.densifySizeThresh;
-	auto stopScreenSizeAt = params.stopScreenSizeAt;
-	auto splitScreenSize = params.splitScreenSize;
 	
     if (step % refineEvery == 0 && step > warmupLength){
         int resetInterval = resetAlphaEvery * refineEvery;
         bool doDensification = step < stopSplitAt && step % resetInterval > numCameras + refineEvery;
         torch::Tensor splitsMask;
-        const float cullAlphaThresh = 0.1f;
 
         if (doDensification){
             int numPointsBefore = means.size(0);
             torch::Tensor avgGradNorm = (xysGradNorm / visCounts) * 0.5f * static_cast<float>( std::max(ForwardMeta.lastWidth, ForwardMeta.lastHeight) );
-            torch::Tensor highGrads = (avgGradNorm > densifyGradThresh).squeeze();
+            torch::Tensor highGrads = (avgGradNorm > params.minSplitGradient).squeeze();
 
             // Split gaussians that are too large
-            torch::Tensor splits = (std::get<0>(scales.exp().max(-1)) > densifySizeThresh).squeeze();
-            if (step < stopScreenSizeAt){
-                splits |= (max2DSize > splitScreenSize).squeeze();
+            torch::Tensor splits = (std::get<0>(scales.exp().max(-1)) > params.minSplitScale).squeeze();
+            if (step < params.stopScreenSizeCullingAfterStepNumber)
+			{
+                splits |= (max2DSize > params.minSplitScreenSize).squeeze();
             }
 
             splits &= highGrads;
@@ -450,13 +448,15 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             
             torch::Tensor splitOpacities = opacities.index({splits}).repeat({nSplitSamples, 1});
         
-            const float sizeFac = 1.6f;
-            torch::Tensor splitScales = torch::log(torch::exp(scales.index({splits})) / sizeFac).repeat({nSplitSamples, 1});
-            scales.index({splits}) = torch::log(torch::exp(scales.index({splits})) / sizeFac);
+			//	gr: is this the new size after splitting?
+            torch::Tensor splitScales = torch::log(torch::exp(scales.index({splits})) * params.scaleAfterSplit).repeat({nSplitSamples, 1});
+            scales.index({splits}) = torch::log(torch::exp(scales.index({splits})) * params.scaleAfterSplit);
             torch::Tensor splitQuats = quats.index({splits}).repeat({nSplitSamples, 1});
 
             // Duplicate gaussians that are too small
-            torch::Tensor dups = (std::get<0>(scales.exp().max(-1)) <= densifySizeThresh).squeeze();
+			//	^^ should this be merging?
+			//	tolerance is so close to splitting so spun off
+            torch::Tensor dups = (std::get<0>(scales.exp().max(-1)) <= params.maxDuplicateScale ).squeeze();
             dups &= highGrads;
             torch::Tensor dupMeans = means.index({dups});
             torch::Tensor dupFeaturesDc = featuresDc.index({dups});
@@ -472,6 +472,7 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             scales = torch::cat({scales.detach(), splitScales, dupScales}, 0).requires_grad_();
             quats = torch::cat({quats.detach(), splitQuats, dupQuats}, 0).requires_grad_();
             
+			//	pad temp vars 
             max2DSize = torch::cat({
                 max2DSize,
                 torch::zeros_like(splitScales.index({Slice(), 0})),
@@ -480,6 +481,7 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
 
             torch::Tensor splitIdcs = torch::where(splits)[0];
 
+			//	add splits
 			addToOptimizer(*meansOpt, means, splitIdcs, nSplitSamples);
             addToOptimizer(*scalesOpt, scales, splitIdcs, nSplitSamples);
             addToOptimizer(*quatsOpt, quats, splitIdcs, nSplitSamples);
@@ -487,6 +489,7 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             addToOptimizer(*featuresRestOpt, featuresRest, splitIdcs, nSplitSamples);
             addToOptimizer(*opacitiesOpt, opacities, splitIdcs, nSplitSamples);
             
+			//	add duplicates
             torch::Tensor dupIdcs = torch::where(dups)[0];
             addToOptimizer(*meansOpt, means, dupIdcs, 1);
             addToOptimizer(*scalesOpt, scales, dupIdcs, 1);
@@ -507,17 +510,17 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
             // Cull
             int numPointsBefore = means.size(0);
 
-            torch::Tensor culls = (torch::sigmoid(opacities) < cullAlphaThresh).squeeze();
+            torch::Tensor culls = (torch::sigmoid(opacities) < params.minCullAlpha).squeeze();
             if (splitsMask.numel()){
                 culls |= splitsMask;
             }
 
-            if (step > refineEvery * resetAlphaEvery){
-                const float cullScaleThresh = 0.5f; // cull huge gaussians
-                const float cullScreenSize = 0.15f; // % of screen space
-                torch::Tensor huge = std::get<0>(torch::exp(scales).max(-1)) > cullScaleThresh;
-                if (step < stopScreenSizeAt){
-                    huge |= max2DSize > cullScreenSize;
+            if (step > refineEvery * resetAlphaEvery)
+			{
+                torch::Tensor huge = std::get<0>(torch::exp(scales).max(-1)) > params.minCullScale;
+                if (step < params.stopScreenSizeCullingAfterStepNumber)
+				{
+                    huge |= max2DSize > params.minCullScreenSize;
                 }
                 culls |= huge;
             }
@@ -543,7 +546,7 @@ void Model::afterTrain(int step,ModelForwardResults& ForwardMeta){
         }
 
         if (step < stopSplitAt && step % resetInterval == refineEvery){
-            float resetValue = cullAlphaThresh * 2.0f;
+            float resetValue = params.minCullAlpha * 2.0f;
             opacities = torch::clamp_max(opacities, torch::logit(torch::tensor(resetValue)).item<float>());
 
             // Reset optimizer

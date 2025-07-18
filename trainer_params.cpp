@@ -32,13 +32,18 @@ TrainerParams::TrainerParams(cxxopts::ParseResult& Arguments,bool KeepCrs)
 	refineEvery = Arguments["refine-every"].as<int>();
 	warmupLength = Arguments["warmup-length"].as<int>();
 	resetAlphaEvery = Arguments["reset-alpha-every"].as<int>();
-	densifyGradThresh = Arguments["densify-grad-thresh"].as<float>();
-	densifySizeThresh = Arguments["densify-size-thresh"].as<float>();
-	stopScreenSizeAt = Arguments["stop-screen-size-at"].as<int>();
-	splitScreenSize = Arguments["split-screen-size"].as<float>();
+	minSplitGradient = Arguments["densify-grad-thresh"].as<float>();
+	minSplitScale = Arguments["densify-size-thresh"].as<float>();
+	stopScreenSizeCullingAfterStepNumber = Arguments["stop-screen-size-at"].as<int>();
+	minSplitScreenSize = Arguments["split-screen-size"].as<float>();
 	
 	//	user didn't supply any force-cpu argument[s]
 	ForceCpuDevice = Arguments.count("cpu") > 0;
+
+	//	this used to be 30 (default) but multiplied with other factors
+	//	breaking backwards compatibility
+	//	now is a straight up frequency 
+	//resetAlphaFrequency = Arguments["reset-alpha-every"].as<int>();
 }
 
 std::filesystem::path AppParams::GetOutputFilePath(const std::string& Filename)

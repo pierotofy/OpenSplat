@@ -15,10 +15,21 @@ public:
 	int refineEvery = 100;
 	int warmupLength = 500;
 	int resetAlphaEvery = 30;
-	float densifyGradThresh = 0.0002;
-	float densifySizeThresh = 0.01;
-	int stopScreenSizeAt = 4000;
-	float splitScreenSize = 0.05;
+	int stopScreenSizeCullingAfterStepNumber = 4000;
+
+	float	minSplitScreenSize = 0.05;
+	float	minSplitGradient = 0.0002;	//	gradient above this gets split
+	float	minSplitScale = 0.01f; 		//	above this gets split
+	float	maxDuplicateScale = 0.01f;	//	anything below <= this gets duplicated
+	float	minCullAlpha = 0.1f;		//	above this gets culled
+	float	minCullScale = 0.5f; 		//	above this gets culled
+	float	minCullScreenSize = 0.15f;	//	size in screenspace (for a camera) gets culled
+
+	float	scaleAfterSplit = 1.0 / 1.6f;		//	scale gaussians by this much after splitting
+	
+	//	some clearer activity-scheduling
+	int		splitFrequency = 300;	//	do de-densification every N steps
+	//int		resetAlphaFrequency = 100;
 };
 
 
