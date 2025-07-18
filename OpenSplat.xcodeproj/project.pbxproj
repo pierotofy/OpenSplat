@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		BF7FAAC82E2915F900C4EBDE /* PopCommon in Frameworks */ = {isa = PBXBuildFile; productRef = BF7FAAC72E2915F900C4EBDE /* PopCommon */; };
+		BF7FAB082E2A996400C4EBDE /* PopPly in Frameworks */ = {isa = PBXBuildFile; productRef = BF7FAB072E2A996400C4EBDE /* PopPly */; };
 		BFAA59B92E1D27510006AEAA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B72E1D27510006AEAA /* Metal.framework */; };
 		BFAA59BA2E1D27510006AEAA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFAA59B82E1D27510006AEAA /* MetalKit.framework */; };
 		BFAF46062E243FF50046A070 /* PopMetalView in Frameworks */ = {isa = PBXBuildFile; productRef = BFAF46052E243FF50046A070 /* PopMetalView */; };
@@ -264,6 +265,7 @@
 			files = (
 				BF7FAAC82E2915F900C4EBDE /* PopCommon in Frameworks */,
 				BFAFEA222E23FF260046A070 /* OpenSplat.framework in Frameworks */,
+				BF7FAB082E2A996400C4EBDE /* PopPly in Frameworks */,
 				BFAF46062E243FF50046A070 /* PopMetalView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -420,6 +422,7 @@
 			packageProductDependencies = (
 				BFAF46052E243FF50046A070 /* PopMetalView */,
 				BF7FAAC72E2915F900C4EBDE /* PopCommon */,
+				BF7FAB072E2A996400C4EBDE /* PopPly */,
 			);
 			productName = OpenSplatApp;
 			productReference = BFAFEA012E23FED00046A070 /* OpenSplatApp.app */;
@@ -483,6 +486,7 @@
 			packageReferences = (
 				BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */,
 				BF7FAAC62E2915F900C4EBDE /* XCRemoteSwiftPackageReference "PopCommon.SwiftPackage" */,
+				BF7FAB062E2A996400C4EBDE /* XCRemoteSwiftPackageReference "PopPly" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BFAA559F2E1D241F0006AEAA /* Products */;
@@ -1014,6 +1018,14 @@
 				minimumVersion = 0.0.12;
 			};
 		};
+		BF7FAB062E2A996400C4EBDE /* XCRemoteSwiftPackageReference "PopPly" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/NewChromantics/PopPly.SwiftPackage";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		BFAF46042E243FF50046A070 /* XCRemoteSwiftPackageReference "PopMetalView.SwiftPackage" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/NewChromantics/PopMetalView.SwiftPackage.git";
@@ -1029,6 +1041,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BF7FAAC62E2915F900C4EBDE /* XCRemoteSwiftPackageReference "PopCommon.SwiftPackage" */;
 			productName = PopCommon;
+		};
+		BF7FAB072E2A996400C4EBDE /* PopPly */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BF7FAB062E2A996400C4EBDE /* XCRemoteSwiftPackageReference "PopPly" */;
+			productName = PopPly;
 		};
 		BFAF46052E243FF50046A070 /* PopMetalView */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -8,6 +8,15 @@
         "branch" : "main",
         "revision" : "9ae11a5d97558e9bf5fb92c00058dcd9e1850181"
       }
+    },
+    {
+      "identity" : "popply.swiftpackage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NewChromantics/PopPly.SwiftPackage",
+      "state" : {
+        "branch" : "main",
+        "revision" : "4695a114ba922bb82fa3d944a9819060cf4ca30c"
+      }
     }
   ],
   "version" : 2

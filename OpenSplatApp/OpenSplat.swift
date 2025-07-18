@@ -231,7 +231,9 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		let loadCameraImagesInApi = false
 		let centerAndNormalisePoints = false
 		let addCameras = false
-		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints,addCameras)
+		//instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints,addCameras)
+		var params = OpenSplat_TrainerParams()
+		instance = OpenSplat_AllocateInstanceWithParams(&params)
 		
 		trainingTask = Task
 		{
@@ -282,6 +284,9 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	{
 		let nerfStudioData = try NerfStudioData(projectRoot: projectPath)
 
+		try self.LoadPoints(xyzs: nerfStudioData.pointsXyz, rgbs: nerfStudioData.pointsRgb)
+
+		
 		try await withThrowingTaskGroup(of: Void.self) 
 		{
 			taskGroup in
@@ -300,7 +305,25 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			}
 			try await taskGroup.waitForAll()
 		}
-		
+	}
+	
+	func LoadPoints(xyzs:[Float],rgbs:[Float]) throws
+	{
+		let pointCount = Int32(xyzs.count / 3)
+		try xyzs.withUnsafeBufferPointer
+		{
+			xyzPointer in
+			try rgbs.withUnsafeBufferPointer
+			{
+				rgbsPointer in
+				
+				let error = OpenSplat_AddSeedPoints( instance, xyzPointer.baseAddress, rgbsPointer.baseAddress, pointCount )
+				if error != OpenSplat_Error_Success
+				{
+					throw OpenSplatError(apiError: error)
+				}
+			}
+		}
 	}
 	
 	func LoadCamera(projectPath:String,camera:NerfStudioFrame,cameraIntrinsics:CameraIntrinsics) throws

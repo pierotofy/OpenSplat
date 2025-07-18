@@ -1,5 +1,6 @@
 import Foundation
 import simd
+import PopPly
 
 
 public struct NerfDataError : LocalizedError
@@ -118,15 +119,77 @@ public extension NerfStudioTransforms
 	}
 }
 
+class PlySink : PLYReaderDelegate
+{
+	var xyzs = [Float]()
+	var rgbs = [Float]()
+	
+	func didStartReading(withHeader header: PopPly.PLYHeader) throws
+	{
+		//	cache headers
+	}
+	
+	func didRead(element: PopPly.PLYElement, typeIndex: Int, withHeader elementHeader: PopPly.PLYHeader.Element) throws
+	{
+		//	read each element
+		if elementHeader.name != "vertex"
+		{
+			return
+		}
+		
+		let x = try elementHeader.index(forPropertyNamed: "x").map{ try element.float32Value(forPropertyIndex: $0) }
+		let y = try elementHeader.index(forPropertyNamed: "y").map{ try element.float32Value(forPropertyIndex: $0) }
+		let z = try elementHeader.index(forPropertyNamed: "z").map{ try element.float32Value(forPropertyIndex: $0) }
+		let r = try elementHeader.index(forPropertyNamed: "red").map{ try element.uint8Value(forPropertyIndex: $0) }
+		let g = try elementHeader.index(forPropertyNamed: "green").map{ try element.uint8Value(forPropertyIndex: $0) }
+		let b = try elementHeader.index(forPropertyNamed: "blue").map{ try element.uint8Value(forPropertyIndex: $0) }
+		
+		guard let x,let y,let z,let r,let g,let b else
+		{
+			throw PLYTypeError("Missing x/y/z/red/green/blue from seed points")
+		}
+		
+		xyzs.append(x)
+		xyzs.append(y)
+		xyzs.append(z)
+		rgbs.append( Float(r) / 255.0 )
+		rgbs.append( Float(g) / 255.0 )
+		rgbs.append( Float(b) / 255.0 )
+	}
+	
+}
+
 public struct NerfStudioData
 {
 	public var transforms : NerfStudioTransforms
+	var pointsXyz : [Float]
+	var pointsRgb : [Float]
 	
 	public init(projectRoot:String) throws
 	{
 		//	load json
 		let jsonPath = URL(fileURLWithPath: projectRoot + "/transforms.json" )
 		transforms = try NerfStudioTransforms.Load(path: jsonPath)
+		
+		(pointsXyz,pointsRgb) = try NerfStudioData.LoadPoints(projectRoot:projectRoot,plyFilePath: transforms.ply_file_path)
+	}
+	
+	static func LoadPoints(projectRoot:String,plyFilePath:String?) throws -> ([Float],[Float])
+	{
+		guard let pointFilename = plyFilePath else
+		{
+			throw NerfDataError("No point/ply/bin filename in meta")
+		}
+		let pointFilenameFileUrl = URL(fileURLWithPath: projectRoot + "/" + pointFilename )
+
+		if pointFilename.hasSuffix(".ply")
+		{
+			var sink = PlySink()
+			try PopPly.PLYReader.read(url: pointFilenameFileUrl, to: sink)
+			return (sink.xyzs,sink.rgbs)
+		}
+		
+		throw NerfDataError("Dont know how to load \(pointFilename)")
 	}
 	
 	
