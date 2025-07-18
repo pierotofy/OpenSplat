@@ -427,20 +427,17 @@ void Trainer::LoadCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_
 {
 	auto& InputData = GetInputData();
 	
-	//	find matching camera
 	std::string CameraName(CameraMeta.Name);
-	auto& Camera = InputData.GetCamera(CameraName);
-	
-	
-	//	save meta
-	//	todo: verify is good pose!
-	Camera.camToWorld = CameraTransform(CameraMeta.LocalToWorld);
-	
+
+	Camera camera;
+	camera.setName( CameraName );
+	camera.camToWorld = CameraTransform(CameraMeta.LocalToWorld);
+	camera.intrinsics = CameraMeta.Intrinsics;
 	
 	//	load pixels
 	auto Load = [&](cv::Mat& Pixels)
 	{
-		Camera.loadImage(Pixels,1);
+		camera.loadImage(Pixels,1);
 	};
 
 	if ( PixelFormat == OpenSplat_PixelFormat_Bgr )
@@ -453,4 +450,6 @@ void Trainer::LoadCamera(const OpenSplat_CameraMeta& CameraMeta,std::span<uint8_
 		ImagePixels Pixels( PixelBuffer, CameraMeta.Intrinsics.Width, CameraMeta.Intrinsics.Height, PixelFormat );
 		Pixels.GetOpenCvImage(Load);
 	}
+
+	InputData.AddCamera(camera);
 }

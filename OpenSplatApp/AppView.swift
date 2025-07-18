@@ -19,6 +19,7 @@ struct CameraImageCache
 	var error : Error?
 	var groundTruth : Image?
 	var cameraMeta : OpenSplat_CameraMeta?
+	var cameraActor : PopCamera?	//	cached from cameraMeta
 }
 
 struct SplatScene : PopScene
@@ -139,7 +140,7 @@ struct TrainerView : View
 		Binding<SplatScene>( 
 			get:
 				{
-					let trainerCameras = showTrainerCameras ? self.trainerCameras : []
+					let trainerCameras = showTrainerCameras ? self.cameraRender.values.compactMap{$0.cameraActor} : []
 					let inputCameras = showInputCameras ? self.inputDataCameras : []
 					return SplatScene(splatAsset: splatAsset, otherActors: [renderCamera,floorAsset]+trainerCameras+inputCameras )
 				},
@@ -159,18 +160,6 @@ struct TrainerView : View
 	@State var renderImageSize = CGSize(width: 400, height: 400)
 	@State var showInputCameras : Bool = true
 	@State var showTrainerCameras : Bool = true
-	
-	var trainerCameras : [PopCamera]
-	{
-		return cameraRender.values.compactMap
-		{
-			if let localToWorld = $0.cameraMeta?.LocalToWorld
-			{
-				return PopCamera(localToWorldTransform: localToWorld.float4x4)
-			}
-			return nil
-		}
-	}
 	
 	//	temp to verify input vs API
 	var inputDataCameras : [PopCamera]
@@ -528,6 +517,7 @@ struct TrainerView : View
 			let meta = try await trainer.GetCameraMeta(cameraIndex: cameraIndex)
 			var cameraCache = cameraRender[cameraIndex] ?? CameraImageCache()
 			cameraCache.cameraMeta = meta
+			cameraCache.cameraActor = cameraCache.cameraActor ?? PopCamera(localToWorldTransform: meta.localToWorld )
 			cameraRender[cameraIndex] = cameraCache
 		}
 		catch

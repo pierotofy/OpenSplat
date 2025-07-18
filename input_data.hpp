@@ -10,8 +10,21 @@
 #include "trainer_params.hpp"
 #include "trainer_api.h"
 
-struct CameraIntrinsics
+class CameraIntrinsics
 {
+public:
+	CameraIntrinsics(){};
+	CameraIntrinsics(const OpenSplat_CameraIntrinsics& Intrinsics);
+	
+	bool				HasDistortionParameters();
+	//	todo: return std::array<8>
+	std::vector<float>	GetOpencvUndistortionParameters();	//	opencv distortion coefficients
+	void				RemoveDistortionParameters();		//	remove the _values_, but without undistorting the image
+	void				ScaleTo(int Width,int Height);
+	torch::Tensor		GetProjectionMatrix() const;
+	
+
+public:
 	//	focal length & center; in pixels, relative to image size
 	float imageWidth = 0;
 	float imageHeight = 0;
@@ -26,14 +39,6 @@ struct CameraIntrinsics
 	float k3 = 0;
 	float p1 = 0;
 	float p2 = 0;
-	
-	bool				HasDistortionParameters();
-	//	todo: return std::array<8>
-	std::vector<float>	GetOpencvUndistortionParameters();	//	opencv distortion coefficients
-	void				RemoveDistortionParameters();		//	remove the _values_, but without undistorting the image
-	void				ScaleTo(int Width,int Height);
-	torch::Tensor		GetProjectionMatrix() const;
-	
 };
 
 class CameraTransform
@@ -72,6 +77,7 @@ struct Camera
 
     torch::Tensor projectionMatrix;	//	formerly "K". Only here as a cache
 
+	void				setName(std::string_view Name)	{	cameraImagePath = Name;	};
 	std::string			getName() const;	//	name is filename part of path
 	torch::Tensor		getImage(int downscaleFactor);
 	cv::Mat				getOpencvRgbImageStretched(int Width,int Height);
@@ -103,13 +109,14 @@ struct InputData
     Points points;
 
 	//	transform that's been applied to the data
-	float scale;				//	multiply that's been applied
+	float scale = 1;	//	multiply that's been applied
 	float3 translation;	//	negate thats been applied. todo: store this as a positive
 
 	//	remove camera from the training data (typically for application to use for validation)
 	std::shared_ptr<Camera>	PopCamera(std::string_view CameraImageName=OpenSplat::randomValidationImageName);
 	Camera&					GetCamera(int CameraIndex);
 	Camera&					GetCamera(std::string_view CameraName);
+	void					AddCamera(const Camera& newCamera);
 	
     void saveCamerasJson(const std::string &filename, bool keepCrs);
 	
@@ -123,7 +130,7 @@ struct InputData
 };
 
 // The colmapImageSourcePath is only used in Colmap. In other methods, this path is ignored.
-InputData inputDataFromX(const std::string& projectRoot, const std::string& colmapImageSourcePath,bool CenterAndNormalisePoints);
+InputData inputDataFromX(const std::string& projectRoot, const std::string& colmapImageSourcePath,bool CenterAndNormalisePoints,bool AddCameras);
 
 std::tuple<torch::Tensor, float3, float> autoScaleAndCenterPoses(const torch::Tensor &poses);
 

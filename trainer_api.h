@@ -105,7 +105,7 @@ struct OpenSplat_TrainerParams
 
 
 //	deprecate this in future for pushing data - app should be repsonsible for i/o
-__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath,bool loadCameraImages,bool CenterAndNormalisePoints);
+__export int	OpenSplat_AllocateInstanceFromPath(const char* InputDataPath,bool loadCameraImages,bool CenterAndNormalisePoints,bool AddCameras);
 __export int	OpenSplat_AllocateInstanceWithParams(struct OpenSplat_TrainerParams* Params);
 __export void	OpenSplat_FreeInstance(int Instance);
 

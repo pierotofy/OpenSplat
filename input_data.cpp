@@ -13,12 +13,12 @@ namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot, cons
 namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot); }
 namespace omvg { InputData inputDataFromOpenMVG(const std::string &projectRoot); }
 
-InputData inputDataFromX(const std::string &projectRoot, const std::string& colmapImageSourcePath,bool CenterAndNormalisePoints)
+InputData inputDataFromX(const std::string &projectRoot, const std::string& colmapImageSourcePath,bool CenterAndNormalisePoints,bool AddCameras)
 {
     fs::path root(projectRoot);
 
     if (fs::exists(root / "transforms.json")){
-        return ns::inputDataFromNerfStudio(projectRoot,CenterAndNormalisePoints);
+        return ns::inputDataFromNerfStudio(projectRoot,CenterAndNormalisePoints,AddCameras);
     }else if (fs::exists(root / "sparse") || fs::exists(root / "cameras.bin")){
         return cm::inputDataFromColmap(projectRoot, colmapImageSourcePath);
     }else if (fs::exists(root / "reconstruction.json")){
@@ -291,7 +291,22 @@ cv::Mat Camera::getOpencvRgbImageStretched(int Width,int Height)
 	cv::Mat cImg = tensorToImage(image);
 	cv::resize(cImg, cImg, cv::Size(Width,Height), 0.0, 0.0, cv::INTER_AREA);
 	return cImg;
+
+CameraIntrinsics::CameraIntrinsics(const OpenSplat_CameraIntrinsics& Intrinsics)
+{
+	imageWidth = Intrinsics.Width;
+	imageHeight = Intrinsics.Height;
+	fx = Intrinsics.FocalWidth;
+	fy = Intrinsics.FocalHeight;
+	cx = Intrinsics.CenterX;
+	cy = Intrinsics.CenterY;
+	k1 = Intrinsics.k1;
+	k2 = Intrinsics.k2;
+	k3 = Intrinsics.k3;
+	p1 = Intrinsics.p1;
+	p2 = Intrinsics.p2;
 }
+
 
 bool CameraIntrinsics::HasDistortionParameters(){
     return k1 != 0.0f || k2 != 0.0f || k3 != 0.0f || p1 != 0.0f || p2 != 0.0f;
@@ -443,4 +458,19 @@ Camera& InputData::GetCamera(std::string_view CameraName)
 		return Camera;
 	}
 	throw std::runtime_error( std::string("No camera named ") + std::string(CameraName) );
+}
+
+void InputData::AddCamera(const Camera& newCamera)
+{
+	if ( newCamera.getName().empty() )
+		throw std::runtime_error("Tring to add camera with no name");
+	
+	//	force names to be unique
+	for ( auto& Camera : cameras )
+	{
+		if ( Camera.getName() == newCamera.getName() )
+			throw std::runtime_error( std::string("Trying to add camera with duplicate name ") + std::string(newCamera.getName()) );
+	}
+
+	cameras.push_back(newCamera);	
 }

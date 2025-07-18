@@ -131,6 +131,28 @@ extension OpenSplat_CameraMeta
 	}
 }
 
+
+extension CameraIntrinsics
+{
+	var openSplatIntrinsics : OpenSplat_CameraIntrinsics
+	{
+		var o = OpenSplat_CameraIntrinsics()
+		o.Width = Int32(self.w)
+		o.Height = Int32(self.h)
+		o.FocalWidth = self.fx
+		o.FocalHeight = self.fy
+		o.CenterX = self.cx
+		o.CenterY = self.cy
+		o.k1 = self.k1
+		o.k2 = self.k2
+		o.k3 = self.k3
+		o.p1 = self.p1
+		o.p2 = self.p2
+		return o
+	}
+}
+
+
 public protocol SplatTrainer
 {
 	var trainingError : Error?	{	get	}
@@ -208,10 +230,12 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	{
 		let loadCameraImagesInApi = false
 		let centerAndNormalisePoints = false
-		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints)
+		let addCameras = false
+		instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints,addCameras)
 		
 		trainingTask = Task
 		{
+			@MainActor in
 			do
 			{
 				try await self.Thread(projectPath: projectPath,loadCameraImages: !loadCameraImagesInApi)
@@ -271,7 +295,7 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 						self.inputCameras.append( camera )
 					}
 					let intrinsics = try nerfStudioData.transforms.GetCameraIntrinsics(frame: camera)
-					try self.LoadCamera(projectPath: projectPath, camera: camera)
+					try self.LoadCamera(projectPath: projectPath, camera: camera, cameraIntrinsics: intrinsics)
 				}
 			}
 			try await taskGroup.waitForAll()
@@ -279,7 +303,7 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		
 	}
 	
-	func LoadCamera(projectPath:String,camera:NerfStudioFrame) throws
+	func LoadCamera(projectPath:String,camera:NerfStudioFrame,cameraIntrinsics:CameraIntrinsics) throws
 	{
 		DispatchQueue.main.async
 		{
@@ -298,13 +322,17 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		//	use pixels in-place
 		try image.withUnsafePixels
 		{
-			u8pointer,width,height,rowStride,isArgb in
+			u8pointer,imageWidth,imageHeight,rowStride,isArgb in
 			
 			var meta = OpenSplat_CameraMeta(nameFromFilename:camera.file_path)
 			meta.LocalToWorld.float4x4 = camera.localToWorld
-			meta.Intrinsics.Width = Int32(width)
-			meta.Intrinsics.Height = Int32(height)
-			let rgbBufferSize = rowStride * height
+			meta.Intrinsics = cameraIntrinsics.openSplatIntrinsics
+
+			//	check here if image size and meta size are different...
+			meta.Intrinsics.Width = Int32(imageWidth)
+			meta.Intrinsics.Height = Int32(imageHeight)
+			
+			let rgbBufferSize = rowStride * imageHeight
 			
 			let format = OpenSplat_PixelFormat_Bgr
 			//	expense here is cv::undistort.... implement in a shader and pass in pre-undistorted image & intrinsics

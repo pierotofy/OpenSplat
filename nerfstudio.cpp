@@ -130,7 +130,7 @@ torch::Tensor posesFromTransforms(const Transforms &t)
 	
 
 
-InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndNormalisePoints)
+InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndNormalisePoints,bool AddCameras)
 {
     InputData ret;
     fs::path nsRoot(projectRoot);
@@ -164,18 +164,18 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndN
 		poses = transformedPoses;
 	}
 
-    // aabbScale = [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]]
-
-    for (size_t i = 0; i < t.frames.size(); i++){
-        Frame f = t.frames[i];
-
-		auto Intrinsics = f.GetIntrinsics();
-		
-        ret.cameras.emplace_back(Camera(Intrinsics,  
-                            
-                            poses[i], (nsRoot / f.filePath).string()));
-    }
-
+	if ( AddCameras )
+	{
+		for (size_t i = 0; i < t.frames.size(); i++){
+			Frame f = t.frames[i];
+			
+			auto Intrinsics = f.GetIntrinsics();
+			
+			ret.cameras.emplace_back(Camera(Intrinsics,  
+											poses[i], (nsRoot / f.filePath).string()));
+		}
+	}
+	
     torch::Tensor points = pSet->pointsTensor().clone();
     
     ret.points.xyz = points;
