@@ -232,9 +232,9 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	
 	required public init(projectPath:String)
 	{
-		let loadCameraImagesInApi = true
-		let centerAndNormalisePoints = true
-		let addCameras = true
+		let loadCameraImagesInApi = false
+		let centerAndNormalisePoints = false
+		let addCameras = false
 		var params = OpenSplat_TrainerParams()
 		//instance = OpenSplat_AllocateInstanceFromPath(projectPath,loadCameraImagesInApi,centerAndNormalisePoints,addCameras)
 		instance = OpenSplat_AllocateInstanceWithParams(&params)
@@ -314,7 +314,12 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 	
 	func LoadCameras(projectPath:String) async throws
 	{
-		let inputNerfData = try NerfStudioData(projectRoot: projectPath)
+		//	todo: auto center
+		let rotateInput = simd_float4x4([	1,0,0,0,	0,0,1,0,	0,1,0,0,	0,0,0,1])
+		let translateInput = simd_float4x4(translation: SIMD3(3,2,0) )
+		let transform = translateInput*rotateInput
+		let inputNerfData = try NerfStudioData(projectRoot: projectPath, applyTransform: transform)
+		
 		DispatchQueue.main.async
 		{
 			self.inputNerfData = inputNerfData
@@ -328,6 +333,7 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		
 		//	load points
 		try self.LoadPoints(xyzs: inputNerfData.pointsXyz, rgbs: inputNerfData.pointsRgb)
+		
 		
 		try await withThrowingTaskGroup(of: Void.self) 
 		{

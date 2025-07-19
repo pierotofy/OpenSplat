@@ -365,14 +365,15 @@ struct TrainerView : View
 		renderThroughCameraIndex = cameraIndex
 		
 		
-		/*	use this once we can extract rotation from transform in PopActor
+		//	use this once we can extract rotation from transform in PopActor
 		guard let cameraTransform = cameraRender[cameraIndex]?.cameraMeta?.localToWorld else
 		{
 			PlaySystemBeep()
 			return
 		}
 		self.renderCamera.localToWorldTransform = cameraTransform
-		 */
+		self.renderCamera.override_localToWorldTransform = nil
+		
 	}
 	
 	func OnClickedUpdateSplats()

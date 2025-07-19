@@ -1,7 +1,7 @@
 import Foundation
 import simd
 import PopPly
-
+import PopCommon
 
 public struct NerfDataError : LocalizedError
 {
@@ -31,18 +31,38 @@ struct CameraIntrinsics : Decodable
 	var p2 : Float
 }
 
+extension simd_float4
+{
+	var array : [Float]
+	{
+		return [x,y,z,w]
+	}
+}
+
 public struct NerfStudioFrame : Decodable
 {
 	var file_path : String
 	var transform_matrix : [[Float]]
 	var localToWorld : simd_float4x4
 	{
-		//	todo: check if column or row major
-		let row0 = simd_float4( transform_matrix[0] )
-		let row1 = simd_float4( transform_matrix[1] )
-		let row2 = simd_float4( transform_matrix[2] )
-		let row3 = simd_float4( transform_matrix[3] )
-		return simd_float4x4(rows: [row0,row1,row2,row3] )
+		get
+		{
+			//	todo: check if column or row major
+			let row0 = simd_float4( transform_matrix[0] )
+			let row1 = simd_float4( transform_matrix[1] )
+			let row2 = simd_float4( transform_matrix[2] )
+			let row3 = simd_float4( transform_matrix[3] )
+			return simd_float4x4(rows: [row0,row1,row2,row3] )
+		}
+		set
+		{
+			let rowMajor = newValue.transpose
+			let row0 = rowMajor.columns.0.array 
+			let row1 = rowMajor.columns.1.array 
+			let row2 = rowMajor.columns.2.array 
+			let row3 = rowMajor.columns.3.array 
+			transform_matrix = [row0,row1,row2,row3]
+		}
 	}
 	
 	//	optional intrinsics
@@ -119,17 +139,24 @@ public extension NerfStudioTransforms
 	}
 }
 
-class PlySink : PLYReaderDelegate
+public class PlySink : PLYReaderDelegate
 {
 	var xyzs = [Float]()
 	var rgbs = [Float]()
 	
-	func didStartReading(withHeader header: PopPly.PLYHeader) throws
+	var applyTransform : simd_float4x4?=nil
+	
+	public init(applyTransform:simd_float4x4?=nil)
+	{
+		self.applyTransform = applyTransform
+	}
+	
+	public func didStartReading(withHeader header: PopPly.PLYHeader) throws
 	{
 		//	cache headers
 	}
 	
-	func didRead(element: PopPly.PLYElement, typeIndex: Int, withHeader elementHeader: PopPly.PLYHeader.Element) throws
+	public func didRead(element: PopPly.PLYElement, typeIndex: Int, withHeader elementHeader: PopPly.PLYHeader.Element) throws
 	{
 		//	read each element
 		if elementHeader.name != "vertex"
@@ -144,9 +171,17 @@ class PlySink : PLYReaderDelegate
 		let g = try elementHeader.index(forPropertyNamed: "green").map{ try element.uint8Value(forPropertyIndex: $0) }
 		let b = try elementHeader.index(forPropertyNamed: "blue").map{ try element.uint8Value(forPropertyIndex: $0) }
 		
-		guard let x,let y,let z,let r,let g,let b else
+		guard var x,var y,var z,let r,let g,let b else
 		{
 			throw PLYTypeError("Missing x/y/z/red/green/blue from seed points")
+		}
+		
+		if let applyTransform
+		{
+			let xyzw = applyTransform * simd_float4(x,y,z,1)
+			x = xyzw.x * xyzw.w
+			y = xyzw.y * xyzw.w
+			z = xyzw.z * xyzw.w
 		}
 		
 		xyzs.append(x)
@@ -166,16 +201,23 @@ public struct NerfStudioData
 	var pointsRgb : [Float]
 	var pointCount : Int		{	pointsXyz.count / 3	}
 	
-	public init(projectRoot:String) throws
+	public init(projectRoot:String,applyTransform:simd_float4x4=simd_float4x4.identity) throws
 	{
 		//	load json
 		let jsonPath = URL(fileURLWithPath: projectRoot + "/transforms.json" )
 		transforms = try NerfStudioTransforms.Load(path: jsonPath)
 		
-		(pointsXyz,pointsRgb) = try NerfStudioData.LoadPoints(projectRoot:projectRoot,plyFilePath: transforms.ply_file_path)
+		//	modify camera transforms
+		transforms.frames.mutateEach
+		{
+			frame in
+			frame.localToWorld = applyTransform * frame.localToWorld
+		}
+		
+		(pointsXyz,pointsRgb) = try NerfStudioData.LoadPoints(projectRoot:projectRoot,plyFilePath: transforms.ply_file_path, applyTransform:applyTransform)
 	}
 	
-	static func LoadPoints(projectRoot:String,plyFilePath:String?) throws -> ([Float],[Float])
+	static func LoadPoints(projectRoot:String,plyFilePath:String?,applyTransform:simd_float4x4) throws -> ([Float],[Float])
 	{
 		guard let pointFilename = plyFilePath else
 		{
@@ -185,7 +227,7 @@ public struct NerfStudioData
 
 		if pointFilename.hasSuffix(".ply")
 		{
-			var sink = PlySink()
+			var sink = PlySink(applyTransform:applyTransform)
 			try PopPly.PLYReader.read(url: pointFilenameFileUrl, to: sink)
 			return (sink.xyzs,sink.rgbs)
 		}
