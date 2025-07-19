@@ -108,14 +108,12 @@ public:
   torch::Device device;
   SSIM ssim;
 
-  int numCameras;		//	used only for determining refine parameters (no other camera meta required)
 	ModelParams	params;
-  int stopSplitAt;	//	maxsteps/2
-  int maxSteps;
-
-	//	transform of input data - only used for restoring into original space
-  //float scale;
-  //torch::Tensor translation;
+	
+	//	move these to params
+	int numCameras = 0;		//	used only for determining refine parameters (no other camera meta required)
+	int stopSplitAt = 0;	//	maxsteps/2
+	int maxSteps = 0;
 };
 
 
