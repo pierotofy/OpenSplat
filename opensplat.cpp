@@ -125,10 +125,8 @@ int main(int argc, char *argv[])
 
 
 	AppParams AppParams(result);
-	TrainerParams TrainerParams(result,AppParams.keepCrs);
+	TrainerParams TrainerParams(result);
 	
-	//	temp during refactor
-	auto& keepCrs = AppParams.keepCrs;
 	auto& numIters = TrainerParams.numIters;
 	auto& ssimWeight = TrainerParams.ssimWeight;
 
@@ -186,15 +184,7 @@ int main(int argc, char *argv[])
 				auto OutputFilename = AppParams.GetOutputModelFilenameWithSuffix(Suffix);
 
 				//	use api and explicitly write ply
-				auto ext = lowercase( OutputFilename.extension().string() );
-				if ( ext == ".ply" )
-				{
-					WriteTrainerPly( OutputFilename, TrainerInstance, step );
-				}
-				else
-				{
-					model.save( OutputFilename, step, AppParams.keepCrs );
-				}
+				WriteTrainerPly( OutputFilename, TrainerInstance, step );
 			}
 			
 			
@@ -248,15 +238,20 @@ int main(int argc, char *argv[])
 #endif
 		};
 		
-		auto OnRunFinished = [&](int numIters)
+		auto OnRunFinished = [&](int step)
 		{
 			auto& model = trainer.GetModel();
 			auto& inputData = trainer.GetInputData();
 			
 			auto CamerasJsonFilename = AppParams.GetOutputFilePath("cameras.json");
 			auto ModelFilename = AppParams.GetOutputModelFilename();
-			inputData.saveCamerasJson( CamerasJsonFilename.string(), keepCrs);
-			model.save(ModelFilename, numIters, AppParams.keepCrs);
+			inputData.saveCamerasJson( CamerasJsonFilename.string());
+			
+			auto Suffix = std::string("_") + std::to_string(step);
+			auto OutputFilename = AppParams.GetOutputModelFilenameWithSuffix(Suffix);
+			
+			//	use api and explicitly write ply
+			WriteTrainerPly( ModelFilename, TrainerInstance, step );
 			// model.saveDebugPly("debug.ply", numIters);
 			
 			// Validate
@@ -265,7 +260,7 @@ int main(int argc, char *argv[])
 				auto device = trainer.GetDevice();
 				auto& valCam = *ValidationCamera;
 				auto ForwardResults = model.forward(valCam, numIters);
-				torch::Tensor gt = valCam.getImage(model.getDownscaleFactor(numIters)).to(device);
+				torch::Tensor gt = valCam.getImage(model.getDownscaleFactor(step)).to(device);
 				auto FinalLoss = model.mainLoss(ForwardResults.rgb, gt, ssimWeight).item<float>();
 				std::cout << "Camera " << valCam.getName() << " validation loss: " << FinalLoss << std::endl; 
 			}

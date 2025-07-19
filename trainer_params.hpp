@@ -64,7 +64,6 @@ public:
 	std::string outputScene = "splat.ply";
 	int saveModelEvery = -1;
 	int printDebugEvery = 10;
-	bool keepCrs = false;	//	output in original position & scale
 
 	//	input
 	std::string projectRoot;
@@ -75,11 +74,9 @@ public:
 
 class TrainerParams : public ModelParams
 {
-
 public:
 	TrainerParams(){};
-	//	keepCrs is temporarily here
-	TrainerParams(cxxopts::ParseResult& Arguments,bool KeepCrs);
+	TrainerParams(cxxopts::ParseResult& Arguments);
 	
 	int numIters = 30000;
 	float ssimWeight = 0.2;
@@ -87,7 +84,6 @@ public:
 
 	//	todo: move into app and load resuming points into InputData
 	std::string resumeFromPlyFilename;
-	bool resumeFromPlyNeedsNormalising = false;	//	keepCrs
 
 	std::array<float,3> BackgroundRgb = {0.6130f, 0.0101f, 0.3984f};	// Nerf Studio default
 	

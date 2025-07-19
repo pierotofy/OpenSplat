@@ -215,7 +215,7 @@ void Trainer::Run(std::function<void(TrainerIterationMeta)> OnIterationFinished,
 		if ( !mRunning )
 			throw OpenSplat::InstanceFreedException();
 		auto& model = *mModel;
-		step = model.loadPly(resume,Params.resumeFromPlyNeedsNormalising) + 1;
+		step = model.loadPly(resume) + 1;
 	}
 	
 	for (; step <= numIters; step++)

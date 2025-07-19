@@ -329,12 +329,6 @@ void InputData::TransformPoints(float3 translate,float scale)
 	//	apply to data
 	torch::Tensor translation = torch::tensor({translate.x,translate.y,translate.z});
 	points.xyz = (points.xyz - translation) * scale;
-	
-	//	save change
-	this->translation.x -= translate.x;
-	this->translation.y -= translate.y;
-	this->translation.z -= translate.z;
-	this->scale *= scale;
 }
 
 
@@ -395,7 +389,8 @@ std::shared_ptr<Camera>	InputData::PopCamera(std::string_view CameraImageName)
 }
 
 
-void InputData::saveCamerasJson(const std::string &filename, bool keepCrs){
+void InputData::saveCamerasJson(const std::string &filename)
+{
     json j = json::array();
     
     for (size_t i = 0; i < cameras.size(); i++){
@@ -412,13 +407,7 @@ void InputData::saveCamerasJson(const std::string &filename, bool keepCrs){
 		torch::Tensor R = cam.camToWorld.GetCamToWorldRotation();
 		//	gr: what is squeeze()? 
         torch::Tensor T = cam.camToWorld.GetCamToWorldTranslation().squeeze();
-        
-        //	undo centering transform applied when loading data
-        if (keepCrs)
-		{
-			auto translate = torch::tensor({translation.x,translation.y,translation.z});
-			T = (T / scale) + translate;
-		}
+
 
         std::vector<float> position(3);
         std::vector<std::vector<float>> rotation(3, std::vector<float>(3));

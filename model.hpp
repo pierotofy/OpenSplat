@@ -75,20 +75,15 @@ public:
 	void flushAllocatorCaches();
 	
 	int getDownscaleFactor(int step);
-	void save(const std::string &filename, int step,bool keepCrs);
-	void savePly(const std::string &filename, int step,bool keepCrs);
-	void saveSplat(const std::string &filename,bool keepCrs);
-	void saveDebugPly(const std::string &filename, int step,bool keepCrs);
 	void iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcFeatures,std::span<float> restFeatures)> OnFoundPoint);
 	int getPointCount();
 	void findInvalidPoints();
 	
+
+	//	move this to input daa	
+	int loadPly(const std::string &filename);
 	
-  //	modelPointsNeedToBeNormalised == keepCrs
-  //	it means that the PLY we're loading, was saved in it's original space instead of centered and scaled to -1...1
-  int loadPly(const std::string &filename,bool modelPointsNeedToBeNormalised);
-	
-  torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
+	torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
   void removeFromOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
@@ -119,8 +114,8 @@ public:
   int maxSteps;
 
 	//	transform of input data - only used for restoring into original space
-  float scale;
-  torch::Tensor translation;
+  //float scale;
+  //torch::Tensor translation;
 };
 
 

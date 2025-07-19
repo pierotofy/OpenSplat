@@ -8,7 +8,6 @@ AppParams::AppParams(cxxopts::ParseResult& Arguments)
 	projectRoot = Arguments["input"].as<std::string>();
 	outputScene = Arguments["output"].as<std::string>();
 	saveModelEvery = Arguments["save-every"].as<int>(); 
-	keepCrs = Arguments.count("keep-crs") > 0;
 	downScaleFactor = (std::max)(Arguments["downscale-factor"].as<float>(), 1.0f);
 	colmapImageSourcePath = Arguments["colmap-image-path"].as<std::string>();
 	valRender = Arguments["val-render"].as<std::string>();
@@ -18,9 +17,8 @@ AppParams::AppParams(cxxopts::ParseResult& Arguments)
 }
 
 
-TrainerParams::TrainerParams(cxxopts::ParseResult& Arguments,bool KeepCrs)
+TrainerParams::TrainerParams(cxxopts::ParseResult& Arguments)
 {
-	resumeFromPlyNeedsNormalising = KeepCrs;
 	resumeFromPlyFilename = Arguments["resume"].as<std::string>();
 	
 	numIters = Arguments["num-iters"].as<int>();
