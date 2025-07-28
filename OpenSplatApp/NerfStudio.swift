@@ -167,9 +167,9 @@ public class PlySink : PLYReaderDelegate
 		let x = try elementHeader.index(forPropertyNamed: "x").map{ try element.float32Value(forPropertyIndex: $0) }
 		let y = try elementHeader.index(forPropertyNamed: "y").map{ try element.float32Value(forPropertyIndex: $0) }
 		let z = try elementHeader.index(forPropertyNamed: "z").map{ try element.float32Value(forPropertyIndex: $0) }
-		let r = try elementHeader.index(forPropertyNamed: "red").map{ try element.uint8Value(forPropertyIndex: $0) }
-		let g = try elementHeader.index(forPropertyNamed: "green").map{ try element.uint8Value(forPropertyIndex: $0) }
-		let b = try elementHeader.index(forPropertyNamed: "blue").map{ try element.uint8Value(forPropertyIndex: $0) }
+		let r = try elementHeader.index(forPropertyNamed: "red").map{ try element.float32Value(forPropertyIndex: $0, normalise8: 255) }
+		let g = try elementHeader.index(forPropertyNamed: "green").map{ try element.float32Value(forPropertyIndex: $0, normalise8: 255) }
+		let b = try elementHeader.index(forPropertyNamed: "blue").map{ try element.float32Value(forPropertyIndex: $0, normalise8: 255) }
 		
 		guard var x,var y,var z,let r,let g,let b else
 		{
@@ -187,9 +187,9 @@ public class PlySink : PLYReaderDelegate
 		xyzs.append(x)
 		xyzs.append(y)
 		xyzs.append(z)
-		rgbs.append( Float(r) / 255.0 )
-		rgbs.append( Float(g) / 255.0 )
-		rgbs.append( Float(b) / 255.0 )
+		rgbs.append(r)
+		rgbs.append(g)
+		rgbs.append(b)
 	}
 	
 }
