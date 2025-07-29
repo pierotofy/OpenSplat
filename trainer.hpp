@@ -72,6 +72,9 @@ namespace OpenSplat
 class ImagePixels
 {
 public:
+	static int	GetComponentCount(OpenSplat_PixelFormat format);
+	
+public:
 	ImagePixels(std::span<uint8_t> Pixels,int Width,int Height,OpenSplat_PixelFormat Format);
 	ImagePixels(const torch::Tensor& Tensor,OpenSplat_PixelFormat TensorPixelFormat=OpenSplat_PixelFormat_Rgb);
 	ImagePixels(const cv::Mat& OpencvImage,OpenSplat_PixelFormat OpencvImagePixelFormat=OpenSplat_PixelFormat_Bgr);

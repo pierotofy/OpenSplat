@@ -162,8 +162,9 @@ struct TrainerView : View
 	
 	@State var renderImageSize = CGSize(width: 400, height: 400)
 	@State var showInputCameras : Bool = false
+	@State var showInputImages : Bool = false
 	@State var showTrainerCameras : Bool = true
-	@State var showInputPoints : Bool = true
+	@State var showInputPoints : Bool = false
 	
 	
 	//	temp to verify input vs API
@@ -180,7 +181,28 @@ struct TrainerView : View
 		HSplitView
 		{
 			TrainingView()
-			CameraGridView()
+			VStack
+			{
+				VSplitView
+				{
+					ScrollView(.horizontal)
+					{
+						HStack
+						{
+							ForEach(Array(trainer.inputCameraImages), id:\.key)
+							{
+								let image = $0.value
+								Image(nsImage:image)
+									.resizable()
+									.scaledToFit()
+							}
+						}
+					}
+					.frame(minHeight: 100)
+				
+					CameraGridView()
+				}
+			}
 		}
 		.task(AutoUpdateThread)
 	}
@@ -417,6 +439,7 @@ struct TrainerView : View
 		}
 		
 		Toggle(isOn:$showInputCameras){	Text("Show Input Cameras")	}
+		Toggle(isOn:$showInputImages){	Text("Show Input Images")	}
 		Toggle(isOn:$showTrainerCameras){	Text("Show trainer Cameras")	}
 		Toggle(isOn:$showInputPoints){	Text("Show input points")	}
 		
@@ -603,7 +626,9 @@ struct TrainerView : View
 
 struct AppView: View 
 {
-	@State var trainer = OpenSplatTrainer(projectPath: "/Users/graham/Downloads/banana")
+	//@State var trainer = OpenSplatTrainer(projectPath: "/Users/graham/Downloads/banana")
+	@State var trainer = OpenSplatTrainer(projectPath: "/Users/graham/Downloads/iphonecap")
+	
 
 	var body: some View 
 	{

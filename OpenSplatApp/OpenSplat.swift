@@ -227,6 +227,7 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 
 	//	data used to populate trainer, exposed for debug
 	@Published public var	inputNerfData : NerfStudioData?
+	@Published public var	inputCameraImages = [String:NSImage]()	//	cache for debugging	
 	public var				inputCameras : [NerfStudioFrame]	{	inputNerfData.map{ $0.transforms.frames } ?? []	}
 	@Published var			inputPointsActor : OpenSplatSplatAsset?
 	
@@ -385,11 +386,15 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 		{
 			throw OpenSplatError("Failed to load image at \(cameraImagePath)")
 		}
+		DispatchQueue.main.async
+		{
+			self.inputCameraImages[camera.file_path] = image
+		}
 		
 		//	use pixels in-place
 		try image.withUnsafePixels
 		{
-			u8pointer,imageWidth,imageHeight,rowStride,isArgb in
+			u8pointer,dataSize,imageWidth,imageHeight,rowStride,pixelFormat in
 			
 			var meta = OpenSplat_CameraMeta(nameFromFilename:camera.file_path)
 			meta.LocalToWorld.float4x4 = camera.localToWorld
@@ -399,11 +404,20 @@ public class OpenSplatTrainer : ObservableObject, SplatTrainer
 			meta.Intrinsics.Width = Int32(imageWidth)
 			meta.Intrinsics.Height = Int32(imageHeight)
 			
-			let rgbBufferSize = rowStride * imageHeight
 			
-			let format = OpenSplat_PixelFormat_Bgr
+			let format = try
+			{
+				switch pixelFormat
+				{
+					case kCVPixelFormatType_24BGR:	return OpenSplat_PixelFormat_Bgr
+					case kCVPixelFormatType_24RGB:	return OpenSplat_PixelFormat_Rgb
+					case kCVPixelFormatType_32RGBA:	return OpenSplat_PixelFormat_Rgba
+					default:	throw RuntimeError("Dont know how to convert \(CVPixelBufferGetPixelFormatName(pixelFormat))")
+				}
+			}()
+
 			//	expense here is cv::undistort.... implement in a shader and pass in pre-undistorted image & intrinsics
-			let error = OpenSplat_AddCamera(instance, &meta, u8pointer, Int32(rgbBufferSize), format )
+			let error = OpenSplat_AddCamera(instance, &meta, u8pointer, Int32(dataSize), format )
 			if error != OpenSplat_Error_Success
 			{
 				throw OpenSplatError(apiError: error)

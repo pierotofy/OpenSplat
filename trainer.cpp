@@ -12,6 +12,21 @@
 #include <torch/torch.h>
 
 
+int ImagePixels::GetComponentCount(OpenSplat_PixelFormat format)
+{
+	switch ( format )
+	{
+		case OpenSplat_PixelFormat_Rgb:		return 3;
+		case OpenSplat_PixelFormat_Rgba:	return 4;
+		case OpenSplat_PixelFormat_Bgr:		return 3;
+		default:break;
+	}
+	
+	std::stringstream Error;
+	Error << "Don't know how many channels in pixelformat " << format;
+	throw std::runtime_error(Error.str());
+}
+	
 
 OpenSplat::NoCameraException::NoCameraException(int CameraIndex,int CameraCount)
 {
@@ -29,8 +44,10 @@ ImagePixels::ImagePixels(std::span<uint8_t> Pixels,int Width,int Height,OpenSpla
 	mHeight = Height;
 	mFormat = Format;
 	
+	auto Components = GetComponentCount(Format);
+	
 	//	verify size
-	auto ExpectedSize = 3 * mWidth * mHeight;
+	auto ExpectedSize = Components * mWidth * mHeight;
 	if ( Pixels.size() != ExpectedSize )
 	{
 		throw std::runtime_error("Wrong pixel count");
@@ -51,12 +68,18 @@ ImagePixels::ImagePixels(const torch::Tensor& tensor,OpenSplat_PixelFormat Tenso
 	mHeight = Tensor8.size(0);
 	mWidth = Tensor8.size(1);
 	mFormat = TensorPixelFormat;
-	int components = Tensor8.size(2);
-	if ( components != 3 )
-		throw std::runtime_error("Only images with 3 channels are supported");
+	
+	auto ExpectedComponents = GetComponentCount(TensorPixelFormat);
+	int Components = Tensor8.size(2);
+	if ( Components != ExpectedComponents )
+	{
+		std::stringstream Error;
+		Error << "Tensor image has " << Components << ", expecting " << ExpectedComponents << " to match supplied format";
+		throw std::runtime_error(Error.str());
+	}
 
 	//	gr: is the data garunteed to be contiguious?	
-	auto TensorSize = mWidth * mHeight * components;
+	auto TensorSize = mWidth * mHeight * Components;
 	uint8_t* TensorData = static_cast<uint8_t*>(Tensor8.data_ptr());
 	std::span TensorView( TensorData, TensorSize );
 	std::copy( TensorView.begin(), TensorView.end(), std::back_inserter(mPixels) );
@@ -66,12 +89,13 @@ ImagePixels::ImagePixels(const torch::Tensor& tensor,OpenSplat_PixelFormat Tenso
 ImagePixels::ImagePixels(const cv::Mat& OpencvImage,OpenSplat_PixelFormat OpencvImagePixelFormat)
 {
 	auto OpencvPixels = std::span( OpencvImage.data, OpencvImage.total() * OpencvImage.elemSize() );
+	auto ComponentCount = GetComponentCount(OpencvImagePixelFormat);
 	
 	auto PixelSize = OpencvImage.elemSize();
-	if ( PixelSize != 3*sizeof(uint8_t) )
+	if ( PixelSize != ComponentCount*sizeof(uint8_t) )
 	{
 		std::stringstream Error;
-		Error << "Opencv image has pixel size " << PixelSize << "bytes, expected 3(bgr)"; 
+		Error << "Opencv image has pixel size " << PixelSize << "bytes, expected " << ComponentCount << "(bgr)"; 
 		throw std::runtime_error(Error.str());
 	}
 	
@@ -129,7 +153,21 @@ void ImagePixels::GetOpenCvImage(std::function<void(cv::Mat&)> OnImage,bool Allo
 		throw std::runtime_error("ImagePixels::GetOpencvImage cannot convert to bgr");
 
 	cv::Mat BgrCopy;
-	cv::cvtColor( ImageInPlace, BgrCopy, cv::COLOR_RGB2BGR);
+	
+	auto GetOpencvConversion = [](OpenSplat_PixelFormat OldFormat,OpenSplat_PixelFormat NewFormat)
+	{
+		if ( OldFormat == OpenSplat_PixelFormat_Bgr && NewFormat == OpenSplat_PixelFormat_Rgb )
+			return cv::COLOR_RGB2BGR;
+		if ( OldFormat == OpenSplat_PixelFormat_Rgb && NewFormat == OpenSplat_PixelFormat_Bgr )
+			return cv::COLOR_BGR2RGB;
+		if ( OldFormat == OpenSplat_PixelFormat_Rgba && NewFormat == OpenSplat_PixelFormat_Bgr )
+			return cv::COLOR_RGBA2BGR;
+		throw std::runtime_error("Dont know what opencv conversion method to use");
+	};
+	
+	auto Conversion = GetOpencvConversion( mFormat, OpenSplat_PixelFormat_Bgr );
+	
+	cv::cvtColor( ImageInPlace, BgrCopy, Conversion, 3);
 	OnImage(BgrCopy);
 }
 

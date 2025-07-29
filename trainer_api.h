@@ -94,7 +94,7 @@ struct OpenSplat_TrainerState
 enum OpenSplat_PixelFormat
 {
 	OpenSplat_PixelFormat_Rgb		= 3,
-	//OpenSplat_PixelFormat_Rgba		= 4,
+	OpenSplat_PixelFormat_Rgba		= 4,
 	OpenSplat_PixelFormat_Bgr		= 5,
 };
 
