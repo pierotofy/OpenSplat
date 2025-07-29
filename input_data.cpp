@@ -187,6 +187,9 @@ void Camera::loadImageFromFilename(float downscaleFactor)
 void Camera::loadImage(cv::Mat& RgbPixels,float downscaleFactor)
 {
 	auto& cImg = RgbPixels;
+	auto Components = cImg.channels();
+	if ( Components != 3 )
+		throw std::runtime_error("Expecting BGR image");
 	
     // Populates image and K, then updates the camera parameters
     // Caution: this function has destructive behaviors
