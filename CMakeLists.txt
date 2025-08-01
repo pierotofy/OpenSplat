@@ -87,7 +87,7 @@ if(GPU_RUNTIME STREQUAL "CUDA")
         endif()
         if(NOT OPENSPLAT_MAX_CUDA_COMPATIBILITY)
             if(NOT CMAKE_CUDA_ARCHITECTURES)
-                SET(CMAKE_CUDA_ARCHITECTURES 70;75;80;120)
+                SET(CMAKE_CUDA_ARCHITECTURES 70;75;80)
             endif()
         else()
             # Build for maximum compatibility
