@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <torch/torch.h>
+#include <memory>
 
 #ifdef WITH_PDAL
 #include <pdal/Options.hpp>
@@ -22,9 +23,12 @@ struct XYZ {
 
 #define KDTREE_MAX_LEAF 10
 
-#define RELEASE_POINTSET(__POINTER) { if (__POINTER != nullptr) { __POINTER->freeIndex<KdTree>(); delete __POINTER; __POINTER = nullptr; } }
 
-struct PointSet {
+class PointSet 
+{
+public:
+	~PointSet();
+	
     std::vector<std::array<float, 3> > points;
     std::vector<std::array<uint8_t, 3> > colors;
 
@@ -85,10 +89,7 @@ struct PointSet {
     inline torch::Tensor pointsTensor(){
         return torch::from_blob(points.data(), { static_cast<long int>(points.size()), 3 }, torch::kFloat32);
     }
-    
 
-    ~PointSet() {
-    }
 private:
     double m_spacing = -1.0;
 };
@@ -110,10 +111,10 @@ inline T readBinary(std::ifstream &s){
     return data;
 }
 
-PointSet *fastPlyReadPointSet(const std::string &filename);
-PointSet *pdalReadPointSet(const std::string &filename);
-PointSet *colmapReadPointSet(const std::string &filename);
-PointSet *readPointSet(const std::string &filename);
+std::shared_ptr<PointSet> fastPlyReadPointSet(const std::string &filename);
+std::shared_ptr<PointSet> pdalReadPointSet(const std::string &filename);
+std::shared_ptr<PointSet> colmapReadPointSet(const std::string &filename);
+std::shared_ptr<PointSet> readPointSet(const std::string &filename);
 
 void fastPlySavePointSet(PointSet &pSet, const std::string &filename);
 void pdalSavePointSet(PointSet &pSet, const std::string &filename);

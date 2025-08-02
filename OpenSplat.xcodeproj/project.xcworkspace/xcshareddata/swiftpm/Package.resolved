@@ -1,0 +1,23 @@
+{
+  "pins" : [
+    {
+      "identity" : "mousetrackingmodifier.swiftpackage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NewChromantics/MouseTrackingModifier.SwiftPackage",
+      "state" : {
+        "branch" : "main",
+        "revision" : "862a4e19d534902143ee031fbebbef3b70b4d6f0"
+      }
+    },
+    {
+      "identity" : "popply.swiftpackage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NewChromantics/PopPly.SwiftPackage",
+      "state" : {
+        "branch" : "main",
+        "revision" : "2a85ff45eb6a8b76ff478a11e74fabcb9c386b66"
+      }
+    }
+  ],
+  "version" : 2
+}

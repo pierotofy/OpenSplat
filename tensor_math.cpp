@@ -1,4 +1,5 @@
 #include "tensor_math.hpp"
+#include "input_data.hpp"
 
 using namespace torch::indexing;
 
@@ -27,9 +28,11 @@ torch::Tensor quatToRotMat(const torch::Tensor &quat){
     }, -2);
 }
 
-std::tuple<torch::Tensor, torch::Tensor, float> autoScaleAndCenterPoses(const torch::Tensor &poses){
+std::tuple<torch::Tensor, float3, float> autoScaleAndCenterPoses(const torch::Tensor &poses){
     // Center at mean
     torch::Tensor origins = poses.index({"...", Slice(None, 3), 3});
+	
+	//	gr: this is not the center, its the average.
     torch::Tensor center = torch::mean(origins, 0);
     origins -= center;
 
@@ -40,7 +43,9 @@ std::tuple<torch::Tensor, torch::Tensor, float> autoScaleAndCenterPoses(const to
     torch::Tensor transformedPoses = poses.clone();
     transformedPoses.index_put_({"...", Slice(None, 3), 3}, origins);
 
-    return std::make_tuple(transformedPoses, center, f);
+	float3 center3{ center[0].item<float>(), center[1].item<float>(), center[2].item<float>() };
+	
+    return std::make_tuple(transformedPoses, center3, f);
 }
 
 

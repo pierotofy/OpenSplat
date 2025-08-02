@@ -8,7 +8,7 @@
 #include <thread>
 #include <functional>
 
-#define RELEASE_SAFELY(__POINTER) { if (__POINTER != nullptr) { delete __POINTER; __POINTER = nullptr; } }
+void CopyStringToBuffer(std::string_view input, char *dst, size_t dst_size);
 
 
 template <typename T>

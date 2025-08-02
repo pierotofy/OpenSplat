@@ -102,8 +102,8 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
 
     auto r = autoScaleAndCenterPoses(unorientedPoses);
     torch::Tensor poses = std::get<0>(r);
-    ret.translation = std::get<1>(r);
-    ret.scale = std::get<2>(r);
+    auto center = std::get<1>(r);
+    auto normaliseScale = std::get<2>(r);
 
     i = 0;
     for (const auto &s : shots){
@@ -114,15 +114,26 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
         if (c.projectionType != "perspective" && c.projectionType != "brown"){
             throw std::runtime_error("Camera projection type " + c.projectionType + " is not supported");
         }
+		
+		//	convert normalised values to pixel space (unnormalising!) to match what Camera expects
+		float normalizer = static_cast<float>((std::max)(c.width, c.height));
 
-        float normalizer = static_cast<float>((std::max)(c.width, c.height));
-        ret.cameras.emplace_back(Camera(c.width, c.height, 
-                            static_cast<float>(c.fx * normalizer), static_cast<float>(c.fy * normalizer), 
-                            static_cast<float>(static_cast<float>(c.width) / 2.0f + normalizer * c.cx), static_cast<float>(static_cast<float>(c.height) / 2.0f + normalizer * c.cy), 
-                            static_cast<float>(c.k1), static_cast<float>(c.k2), static_cast<float>(c.k3), 
-                            static_cast<float>(c.p1), static_cast<float>(c.p2),  
-                            
-                            poses[i++], images[filename]));
+		CameraIntrinsics intrinsics;
+		intrinsics.imageWidth = c.width;
+		intrinsics.imageHeight = c.height;
+		intrinsics.fx = static_cast<float>(c.fx) * normalizer;
+		intrinsics.fy = static_cast<float>(c.fy) * normalizer; 
+		intrinsics.cx = static_cast<float>(static_cast<float>(c.width) / 2.0f + normalizer * c.cx);
+		intrinsics.cy = static_cast<float>(static_cast<float>(c.height) / 2.0f + normalizer * c.cy); 
+		intrinsics.k1 = static_cast<float>(c.k1);
+		intrinsics.k2 = static_cast<float>(c.k2);
+		intrinsics.k3 = static_cast<float>(c.k3);
+		intrinsics.p1 = static_cast<float>(c.p1);
+		intrinsics.p2 = static_cast<float>(c.p2);
+
+        ret.cameras.emplace_back(Camera(intrinsics,poses[i], images[filename]));
+		
+		i++;
     }
 
     size_t numPoints = points.size();
@@ -144,8 +155,10 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
         i++;
     }
 
-    ret.points.xyz = (xyz - ret.translation) * ret.scale;
+    ret.points.xyz = xyz;
     ret.points.rgb = rgb;
+	
+	ret.TransformPoints( center, normaliseScale );
 
     return ret;
 }

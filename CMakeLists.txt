@@ -167,11 +167,11 @@ else()
     set(GPU_RUNTIME "CPU")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
     enable_language(${GPU_RUNTIME})
-    set(CMAKE_${GPU_RUNTIME}_STANDARD 17)
-    set(${GPU_RUNTIME}_STANDARD 17)
+    set(CMAKE_${GPU_RUNTIME}_STANDARD 20)
+    set(${GPU_RUNTIME}_STANDARD 20)
 endif()
 
 if (NOT WIN32 AND NOT APPLE)
@@ -239,7 +239,7 @@ target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 set(OPENSPLAT_SRC_FILES opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp
 kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp utils.cpp project_gaussians.cpp
 rasterize_gaussians.cpp ssim.cpp optim_scheduler.cpp colmap.cpp opensfm.cpp openmvg.cpp input_data.cpp
-tensor_math.cpp)
+tensor_math.cpp trainer_params.cpp trainer.cpp trainer_api.cpp ply.cpp)
 
 if (OPENSPLAT_BUILD_VISUALIZER)
     if (Pangolin_FOUND)
@@ -254,7 +254,7 @@ endif()
 add_executable(opensplat ${OPENSPLAT_SRC_FILES})
 
 install(TARGETS opensplat DESTINATION bin)
-set_property(TARGET opensplat PROPERTY CXX_STANDARD 17)
+set_property(TARGET opensplat PROPERTY CXX_STANDARD 20)
 target_include_directories(opensplat PRIVATE
     ${PROJECT_SOURCE_DIR}/rasterizer
     ${GPU_INCLUDE_DIRS}
@@ -295,7 +295,7 @@ if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
     if (NOT WIN32)
         target_link_libraries(simple_trainer PUBLIC pthread)
     endif()
-    set_property(TARGET simple_trainer PROPERTY CXX_STANDARD 17)
+    set_property(TARGET simple_trainer PROPERTY CXX_STANDARD 20)
     if(GPU_RUNTIME STREQUAL "HIP")
         target_compile_definitions(simple_trainer PRIVATE USE_HIP __HIP_PLATFORM_AMD__)
     elseif(GPU_RUNTIME STREQUAL "CUDA")

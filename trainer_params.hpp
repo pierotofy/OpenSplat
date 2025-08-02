@@ -1,0 +1,94 @@
+#pragma once
+
+#include <string>
+#include <filesystem>
+
+
+
+class ModelParams
+{
+public:
+	int numDownscales = 2;
+	int resolutionSchedule = 3000;
+	int shDegree = 3;
+	int shDegreeInterval = 1000;
+	int refineEvery = 100;
+	int warmupLength = 500;
+	int resetAlphaEvery = 30;
+	int stopScreenSizeCullingAfterStepNumber = 4000;
+
+	float	minSplitScreenSize = 0.05;
+	float	minSplitGradient = 0.0002;	//	gradient above this gets split
+	float	minSplitScale = 0.01f; 		//	above this gets split
+	float	maxDuplicateScale = 0.01f;	//	anything below <= this gets duplicated
+	float	minCullAlpha = 0.1f;		//	above this gets culled
+	float	minCullScale = 0.5f; 		//	above this gets culled
+	float	minCullScreenSize = 0.15f;	//	size in screenspace (for a camera) gets culled
+	float	resetNewAlphaMin = 0.2f;	//	when doing alpha reset, alphas will be at least this
+
+	float	scaleAfterSplit = 1.0 / 1.6f;		//	scale gaussians by this much after splitting
+	
+	//	some clearer activity-scheduling
+	int		splitFrequency = 300;	//	do de-densification every N steps
+	//int		resetAlphaFrequency = 100;
+};
+
+
+namespace OpenSplat
+{
+	static constexpr std::string_view	randomValidationImageName = "random";
+}
+
+namespace cxxopts
+{
+	class ParseResult;
+}
+
+class AppParams
+{
+public:
+	AppParams(){};
+	AppParams(cxxopts::ParseResult& Arguments);
+	
+	//	these are for the app, rather than training
+	//	refactor to split this distinction
+	std::filesystem::path	GetOutputFilePath(const std::string& Filename);
+	std::filesystem::path	GetOutputModelFilename();
+	std::filesystem::path	GetOutputModelFilenameWithSuffix(const std::string& Suffix);
+	
+	//	output
+	std::string valImage = std::string(OpenSplat::randomValidationImageName);
+	bool validate = false;			//	this is to ex
+	int saveValidationRenderEvery = 10;
+	std::string valRender = "";		//	path to render validation camera to (rename this!)
+	std::string outputScene = "splat.ply";
+	int saveModelEvery = -1;
+	int printDebugEvery = 10;
+
+	//	input
+	std::string projectRoot;
+	float downScaleFactor = 1;	//	initial camera image downscaling
+	std::string colmapImageSourcePath = "";
+};
+
+
+class TrainerParams : public ModelParams
+{
+public:
+	TrainerParams(){};
+	TrainerParams(cxxopts::ParseResult& Arguments);
+	
+	int numIters = 30000;
+	float ssimWeight = 0.2;
+	int iterationRandomCameraIndexSeed = 42;
+
+	//	todo: move into app and load resuming points into InputData
+	std::string resumeFromPlyFilename;
+
+	std::array<float,3> BackgroundRgb = {0.6130f, 0.0101f, 0.3984f};	// Nerf Studio default
+	
+	
+	//	refactored params
+	bool		ForceCpuDevice = false;
+	bool		CheckForInvalidPoints = false;
+};

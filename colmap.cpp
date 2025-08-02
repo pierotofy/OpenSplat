@@ -34,40 +34,42 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
 
     std::unordered_map<uint32_t, Camera *> camMap;
     
-    for (size_t i = 0; i < numCameras; i++) {
+    for (size_t i = 0; i < numCameras; i++) 
+	{
         Camera *cam = &cameras[i];
+		auto& Intrinsics = cam->intrinsics;
 
         cam->id = readBinary<uint32_t>(camf);
 
         CameraModel model = static_cast<CameraModel>(readBinary<int>(camf)); // model ID
-        cam->width = readBinary<uint64_t>(camf);
-        cam->height = readBinary<uint64_t>(camf);
+		Intrinsics.imageWidth = readBinary<uint64_t>(camf);
+        Intrinsics.imageHeight = readBinary<uint64_t>(camf);
         
         if (model == SimplePinhole){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = cam->fx;
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = Intrinsics.fx;
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
         }else if (model == Pinhole){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = readBinary<double>(camf);
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = readBinary<double>(camf);
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
         }else if (model == SimpleRadial){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = cam->fx;
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
-            cam->k1 = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = Intrinsics.fx;
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
+			Intrinsics.k1 = readBinary<double>(camf);
         }else if (model == OpenCV){
-            cam->fx = readBinary<double>(camf);
-            cam->fy = readBinary<double>(camf);
-            cam->cx = readBinary<double>(camf);
-            cam->cy = readBinary<double>(camf);
-            cam->k1 = readBinary<double>(camf);
-            cam->k2 = readBinary<double>(camf);
-            cam->p1 = readBinary<double>(camf);
-            cam->p2 = readBinary<double>(camf);
+			Intrinsics.fx = readBinary<double>(camf);
+			Intrinsics.fy = readBinary<double>(camf);
+			Intrinsics.cx = readBinary<double>(camf);
+			Intrinsics.cy = readBinary<double>(camf);
+			Intrinsics.k1 = readBinary<double>(camf);
+			Intrinsics.k2 = readBinary<double>(camf);
+			Intrinsics.p1 = readBinary<double>(camf);
+			Intrinsics.p2 = readBinary<double>(camf);
         }else{
             throw std::runtime_error("Unsupported camera model: " + std::to_string(model));
         }
@@ -113,9 +115,9 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
         }
 
         if (colmapImageSourcePath.empty())
-            cam.filePath = (fs::path(projectRoot) / "images" / filePath).string();
+			cam.cameraImagePath = fs::path(projectRoot) / "images" / filePath;
         else
-            cam.filePath = (fs::path(colmapImageSourcePath) / filePath).string();
+            cam.cameraImagePath = fs::path(colmapImageSourcePath) / filePath;
 
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
         unorientedPoses[i].index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
@@ -138,20 +140,20 @@ InputData inputDataFromColmap(const std::string &projectRoot, const std::string&
 
     auto r = autoScaleAndCenterPoses(unorientedPoses);
     torch::Tensor poses = std::get<0>(r);
-    ret.translation = std::get<1>(r);
-    ret.scale = std::get<2>(r);
+    auto center = std::get<1>(r);
+    auto normalisingScale = std::get<2>(r);
 
     for (size_t i = 0; i < ret.cameras.size(); i++){
-        ret.cameras[i].camToWorld = poses[i];
+        ret.cameras[i].camToWorld.camToWorld = poses[i];
     }
 
-    PointSet *pSet = readPointSet(pointsPath.string());
-    torch::Tensor points = pSet->pointsTensor().clone();
+    auto pointSet = readPointSet(pointsPath.string());
+    torch::Tensor points = pointSet->pointsTensor().clone();
 
-    ret.points.xyz = (points - ret.translation) * ret.scale;
-    ret.points.rgb = pSet->colorsTensor().clone();
+	ret.points.xyz = points;
+    ret.points.rgb = pointSet->colorsTensor().clone();
 
-    RELEASE_POINTSET(pSet);
+	ret.TransformPoints( center, normalisingScale );
 
     return ret;
 }

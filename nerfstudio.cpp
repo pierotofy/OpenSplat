@@ -108,62 +108,132 @@ void from_json(const json& j, Transforms &t){
 
 Transforms readTransforms(const std::string &filename){
     std::ifstream f(filename);
+	if ( !f.is_open() )
+		throw std::runtime_error( std::string("Failed to open nerf transforms file ") + filename );
     json data = json::parse(f);
     f.close();
     return data.template get<Transforms>();
 }
 
-torch::Tensor posesFromTransforms(const Transforms &t){
+torch::Tensor posesFromTransforms(const Transforms &t)
+{
     torch::Tensor poses = torch::zeros({static_cast<long int>(t.frames.size()), 4, 4}, torch::kFloat32);
-    for (size_t c = 0; c < t.frames.size(); c++){
-        for (size_t i = 0; i < 4; i++){
-            for (size_t j = 0; j < 4; j++){
-                poses[c][i][j] = t.frames[c].transformMatrix[i][j];
-            }
-        }
+	
+    for (size_t c = 0; c < t.frames.size(); c++)
+	{
+		auto& Camera = t.frames[c];
+		Camera.CopyTransformToPoseInArray( poses, static_cast<int>(c) );
     }
     return poses;
 }
 
-InputData inputDataFromNerfStudio(const std::string &projectRoot){
+	
+
+
+InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndNormalisePoints,bool AddCameras)
+{
     InputData ret;
     fs::path nsRoot(projectRoot);
     fs::path transformsPath = nsRoot / "transforms.json";
-    if (!fs::exists(transformsPath)) throw std::runtime_error(transformsPath.string() + " does not exist");
+    if (!fs::exists(transformsPath)) 
+		throw std::runtime_error(transformsPath.string() + " does not exist");
 
     Transforms t = readTransforms(transformsPath.string());
-    if (t.plyFilePath.empty()) throw std::runtime_error("ply_file_path is empty");
-    PointSet *pSet = readPointSet((nsRoot / t.plyFilePath).string());
+    if (t.plyFilePath.empty()) 
+		throw std::runtime_error("ply_file_path is empty");
+    auto pSet = readPointSet((nsRoot / t.plyFilePath).string());
 
     torch::Tensor unorientedPoses = posesFromTransforms(t);
 
-    auto r = autoScaleAndCenterPoses(unorientedPoses);
-    torch::Tensor poses = std::get<0>(r);
-    ret.translation = std::get<1>(r);
-    ret.scale = std::get<2>(r);
+	torch::Tensor poses;
+	float3 center;
+	float normalisingScale = 1;
+	if ( CenterAndNormalisePoints )
+	{
+		auto r = autoScaleAndCenterPoses(unorientedPoses);
+		poses = std::get<0>(r);
+		center = std::get<1>(r);
+		normalisingScale = std::get<2>(r);
+	}
+	else
+	{
+		//	merge together
+		torch::Tensor origins = unorientedPoses.index({"...", Slice(None, 3), 3});
+		torch::Tensor transformedPoses = unorientedPoses.clone();
+		transformedPoses.index_put_({"...", Slice(None, 3), 3}, origins);
+		poses = transformedPoses;
+	}
 
-    // aabbScale = [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]]
-
-    for (size_t i = 0; i < t.frames.size(); i++){
-        Frame f = t.frames[i];
-
-        ret.cameras.emplace_back(Camera(f.width, f.height, 
-                            static_cast<float>(f.fx), static_cast<float>(f.fy), 
-                            static_cast<float>(f.cx), static_cast<float>(f.cy), 
-                            static_cast<float>(f.k1), static_cast<float>(f.k2), static_cast<float>(f.k3), 
-                            static_cast<float>(f.p1), static_cast<float>(f.p2),  
-                            
-                            poses[i], (nsRoot / f.filePath).string()));
-    }
-
+	if ( AddCameras )
+	{
+		for (size_t i = 0; i < t.frames.size(); i++){
+			Frame f = t.frames[i];
+			
+			auto Intrinsics = f.GetIntrinsics();
+			
+			ret.cameras.emplace_back(Camera(Intrinsics,  
+											poses[i], (nsRoot / f.filePath).string()));
+		}
+	}
+	
     torch::Tensor points = pSet->pointsTensor().clone();
     
-    ret.points.xyz = (points - ret.translation) * ret.scale;
+    ret.points.xyz = points;
     ret.points.rgb = pSet->colorsTensor().clone();
 
-    RELEASE_POINTSET(pSet);
+	ret.TransformPoints( center, normalisingScale );
+	
 
     return ret;
 }
 
+}
+
+
+
+CameraIntrinsics ns::Frame::GetIntrinsics() const
+{
+	CameraIntrinsics intrinsics;
+	intrinsics.imageWidth = width;
+	intrinsics.imageHeight = height;
+	intrinsics.fx = static_cast<float>(fx);
+	intrinsics.fy = static_cast<float>(fy); 
+	intrinsics.cx = static_cast<float>(cx);
+	intrinsics.cy = static_cast<float>(cy); 
+	intrinsics.k1 = static_cast<float>(k1);
+	intrinsics.k2 = static_cast<float>(k2);
+	intrinsics.k3 = static_cast<float>(k3); 
+	intrinsics.p1 = static_cast<float>(p1); 
+	intrinsics.p1 = static_cast<float>(p2);
+	return intrinsics;
+}
+
+void ns::Frame::CopyTransformToPoseInArray(torch::Tensor& Pose4x4s,int PoseIndex) const
+{
+	//	validate input data
+	int RowCount = 4;
+	int ColumnCount = 4;
+	
+	if ( transformMatrix.size() != RowCount )
+	{
+		std::stringstream Error;
+		Error << "TransformMatrix in camera/frame " << this->filePath << " has " << transformMatrix.size() << " rows, expected" << RowCount; 
+		throw std::runtime_error(Error.str());
+	}
+	
+	for (size_t y=0;	y<RowCount; y++)
+	{
+		auto& Row = transformMatrix[y];
+		if ( Row.size() != ColumnCount )
+		{
+			std::stringstream Error;
+			Error << "TransformMatrix row " << y << " in camera/frame " << this->filePath << " has " << Row.size() << " columns, expected" << ColumnCount; 
+			throw std::runtime_error(Error.str());
+		}
+		for (size_t x=0;	x<ColumnCount;	x++)
+		{
+			Pose4x4s[PoseIndex][y][x] = Row[x];
+		}
+	}
+	
 }

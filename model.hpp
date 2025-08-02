@@ -10,6 +10,9 @@
 #include "ssim.hpp"
 #include "input_data.hpp"
 #include "optim_scheduler.hpp"
+#include <functional>
+#include <span>
+#include "trainer_params.hpp"	//	model params
 
 using namespace torch::indexing;
 using namespace torch::autograd;
@@ -19,65 +22,71 @@ torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, 
 torch::Tensor psnr(const torch::Tensor& rendered, const torch::Tensor& gt);
 torch::Tensor l1(const torch::Tensor& rendered, const torch::Tensor& gt);
 
-struct Model{
-  Model(const InputData &inputData, int numCameras,
-        int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval, 
-        int refineEvery, int warmupLength, int resetAlphaEvery, float densifyGradThresh, float densifySizeThresh, int stopScreenSizeAt, float splitScreenSize,
-        int maxSteps, bool keepCrs,
-        const torch::Device &device) :
-    numCameras(numCameras),
-    numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval), 
-    refineEvery(refineEvery), warmupLength(warmupLength), resetAlphaEvery(resetAlphaEvery), stopSplitAt(maxSteps / 2), densifyGradThresh(densifyGradThresh), densifySizeThresh(densifySizeThresh), stopScreenSizeAt(stopScreenSizeAt), splitScreenSize(splitScreenSize),
-    maxSteps(maxSteps), keepCrs(keepCrs),
-    device(device), ssim(11, 3){
 
-    long long numPoints = inputData.points.xyz.size(0);
-    scale = inputData.scale;
-    translation = inputData.translation;
 
-    torch::manual_seed(42);
+//	store results of a forward render
+//	this was previously stored on the model, meaning an arbritary render/forward() would mutate state
+//	and put state out of sync 
+class ModelForwardResults
+{
+public:
+	torch::Tensor	rgb;	//	rendered image
+	torch::Tensor	radii;
+	torch::Tensor	xys;	//	splats in view/screen space
+	
+	//	store other camera intrinsics?
+	int				lastHeight;
+	int				lastWidth;
+};
 
-    means = inputData.points.xyz.to(device).requires_grad_();
-    scales = PointsTensor(inputData.points.xyz).scales().repeat({1, 3}).log().to(device).requires_grad_();
-    quats = randomQuatTensor(numPoints).to(device).requires_grad_();
+//	ephemeral post-training data for culling/splitting
+class Model2DVisibility
+{
+public:
+	torch::Tensor xysGradNorm;
+	torch::Tensor visCounts;  
+	torch::Tensor max2DSize;
+};
 
-    int dimSh = numShBases(shDegree);
-    torch::Tensor shs = torch::zeros({numPoints, dimSh, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
 
-    shs.index({Slice(), 0, Slice(None, 3)}) = rgb2sh(inputData.points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32);
-    shs.index({Slice(), Slice(1, None), Slice(3, None)}) = 0.0f;
-
-    featuresDc = shs.index({Slice(), 0, Slice()}).to(device).requires_grad_();
-    featuresRest = shs.index({Slice(), Slice(1, None), Slice()}).to(device).requires_grad_();
-    opacities = torch::logit(0.1f * torch::ones({numPoints, 1})).to(device).requires_grad_();
-    
-    backgroundColor = torch::tensor({0.6130f, 0.0101f, 0.3984f}, device).requires_grad_(); // Nerf Studio default
-
-    setupOptimizers();
-  }
-
-  ~Model(){
-    releaseOptimizers();
-  }
+class Model
+{
+public:
+	Model(const InputData &inputData,
+		  const ModelParams& modelParams,
+		  int maxSteps,
+		  std::array<float,3> backgroundColour,
+		  const torch::Device &device);
+	~Model();
   
   void setupOptimizers();
   void releaseOptimizers();
 
-  torch::Tensor forward(Camera& cam, int step);
-  void optimizersZeroGrad();
-  void optimizersStep();
-  void schedulersStep(int step);
-  int getDownscaleFactor(int step);
-  void afterTrain(int step);
-  void save(const std::string &filename, int step);
-  void savePly(const std::string &filename, int step);
-  void saveSplat(const std::string &filename);
-  void saveDebugPly(const std::string &filename, int step);
-  int loadPly(const std::string &filename);
-  torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
+	ModelForwardResults forward(Camera& cam, int step);
+	ModelForwardResults forward(CameraTransform& CameraToWorldTransform,CameraIntrinsics RenderIntrinsics,int step);
+	void optimizersZeroGrad();
+	void optimizersStep();
+	void schedulersStep(int step);
+	void afterTrain(int step,ModelForwardResults& ForwardMeta);
+	Model2DVisibility calculateVisibility(ModelForwardResults& ForwardMeta);
+	torch::Tensor doSplits(int step,Model2DVisibility& Visibility,ModelForwardResults& ForwardMeta);
+	void doCulls(int step,torch::Tensor& SplitsMask,Model2DVisibility& Visibility);
+	void doAlphaReset();
+	void flushAllocatorCaches();
+	
+	int getDownscaleFactor(int step);
+	void iteratePoints(std::function<void(std::span<float> xyz,std::span<float> opacity,std::span<float> scale,std::span<float> quaternionwxyz,std::span<float> dcFeatures,std::span<float> restFeatures)> OnFoundPoint);
+	int getPointCount();
+	void findInvalidPoints();
+	
 
-  void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
-  void removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
+	//	move this to input daa	
+	int loadPly(const std::string &filename);
+	
+	torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, float ssimWeight);
+
+  void addToOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
+  void removeFromOptimizer(torch::optim::Adam& optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
   torch::Tensor means;
   torch::Tensor scales;
   torch::Tensor quats;
@@ -85,47 +94,26 @@ struct Model{
   torch::Tensor featuresRest;
   torch::Tensor opacities;
 
-  torch::optim::Adam *meansOpt = nullptr;
-  torch::optim::Adam *scalesOpt = nullptr;
-  torch::optim::Adam *quatsOpt = nullptr;
-  torch::optim::Adam *featuresDcOpt = nullptr;
-  torch::optim::Adam *featuresRestOpt = nullptr;
-  torch::optim::Adam *opacitiesOpt = nullptr;
+	std::shared_ptr<torch::optim::Adam> meansOpt;
+	std::shared_ptr<torch::optim::Adam> scalesOpt;
+	std::shared_ptr<torch::optim::Adam> quatsOpt;
+	std::shared_ptr<torch::optim::Adam> featuresDcOpt;
+	std::shared_ptr<torch::optim::Adam> featuresRestOpt;
+	std::shared_ptr<torch::optim::Adam> opacitiesOpt;
 
-  OptimScheduler *meansOptScheduler = nullptr;
-
-  torch::Tensor radii; // set in forward()
-  torch::Tensor xys; // set in forward()
-  int lastHeight; // set in forward()
-  int lastWidth; // set in forward()
-
-  torch::Tensor xysGradNorm; // set in afterTrain()
-  torch::Tensor visCounts; // set in afterTrain()  
-  torch::Tensor max2DSize; // set in afterTrain()
+	std::shared_ptr<OptimScheduler> meansOptScheduler;
 
 
   torch::Tensor backgroundColor;
   torch::Device device;
   SSIM ssim;
 
-  int numCameras;
-  int numDownscales;
-  int resolutionSchedule;
-  int shDegree;
-  int shDegreeInterval;
-  int refineEvery;
-  int warmupLength;
-  int resetAlphaEvery;
-  int stopSplitAt;
-  float densifyGradThresh;
-  float densifySizeThresh;
-  int stopScreenSizeAt;
-  float splitScreenSize;
-  int maxSteps;
-  bool keepCrs;
-
-  float scale;
-  torch::Tensor translation;
+	ModelParams	params;
+	
+	//	move these to params
+	int numCameras = 0;		//	used only for determining refine parameters (no other camera meta required)
+	int stopSplitAt = 0;	//	maxsteps/2
+	int maxSteps = 0;
 };
 
 

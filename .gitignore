@@ -1,8 +1,12 @@
 # MacOS
 .DS_Store
 
+# xcode
+xcuserdata/
+
 # build
 build/
 my_build/
 .idea/
 .vscode/
+

@@ -27,6 +27,10 @@ namespace ns{
         double p2 = 0;
         double k3 = 0;
         Mat4 transformMatrix;
+		
+		//	copy this transform into an entry in an array of poses
+		void				CopyTransformToPoseInArray(torch::Tensor& Poses,int PoseIndex) const;
+		CameraIntrinsics	GetIntrinsics() const;
     };
     void to_json(json &j, const Frame &f);
     void from_json(const json& j, Frame &f);
@@ -42,7 +46,7 @@ namespace ns{
     Transforms readTransforms(const std::string &filename);
     torch::Tensor posesFromTransforms(const Transforms &t);
 
-    InputData inputDataFromNerfStudio(const std::string &projectRoot);
+   InputData inputDataFromNerfStudio(const std::string &projectRoot,bool CenterAndNormalise,bool AddCameras);
 }   
 
 

@@ -2,21 +2,23 @@
 #include <nlohmann/json.hpp>
 #include "input_data.hpp"
 #include "cv_utils.hpp"
+#include "trainer.hpp"	//	NoCameraException
+#include "nerfstudio.hpp"
 
 namespace fs = std::filesystem;
 using namespace torch::indexing;
 using json = nlohmann::json;
 
-namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
 namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot, const std::string& imageSourcePath); }
 namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot); }
 namespace omvg { InputData inputDataFromOpenMVG(const std::string &projectRoot); }
 
-InputData inputDataFromX(const std::string &projectRoot, const std::string& colmapImageSourcePath){
+InputData inputDataFromX(const std::string &projectRoot, const std::string& colmapImageSourcePath,bool CenterAndNormalisePoints,bool AddCameras)
+{
     fs::path root(projectRoot);
 
     if (fs::exists(root / "transforms.json")){
-        return ns::inputDataFromNerfStudio(projectRoot);
+        return ns::inputDataFromNerfStudio(projectRoot,CenterAndNormalisePoints,AddCameras);
     }else if (fs::exists(root / "sparse") || fs::exists(root / "cameras.bin")){
         return cm::inputDataFromColmap(projectRoot, colmapImageSourcePath);
     }else if (fs::exists(root / "reconstruction.json")){
@@ -31,54 +33,209 @@ InputData inputDataFromX(const std::string &projectRoot, const std::string& colm
     }
 }
 
-torch::Tensor Camera::getIntrinsicsMatrix(){
+Camera::Camera(CameraIntrinsics intrinsics,const torch::Tensor &camToWorld,std::filesystem::path cameraImageFilename) : 
+	intrinsics(intrinsics),
+	camToWorld(camToWorld), 
+	cameraImagePath(cameraImageFilename)
+{
+}
+
+void CameraIntrinsics::RemoveDistortionParameters()
+{
+	k1 = 0;
+	k2 = 0;
+	k3 = 0;
+	p1 = 0;
+	p2 = 0;
+}
+
+void CameraIntrinsics::ScaleTo(int Width,int Height)
+{
+	//	allowing x & y scale is going to mess up distortion parameters
+	//	this would be fine for forward rendering (which doesnt distort)
+	//	if there are distortion values here for record of the original camera
+	//	they should really have been zeroed out already if they no longer apply
+	//	to the image they're attached to
+	if ( HasDistortionParameters() )
+		throw std::runtime_error("Cannot scale CameraIntrinsics which have distortion parameters");
+	
+	if ( Width <= 0 || Height <= 0 )
+	{
+		std::stringstream Error;
+		Error << "Cannot scale CameraIntrinsics to " << Width << "x" << Height;
+		throw std::runtime_error(Error.str());
+	}
+
+	float scalex = static_cast<float>(Width) / imageWidth; 
+	float scaley = static_cast<float>(Height) / imageHeight; 
+	
+	fx *= scalex;
+	fy *= scaley;
+	cx *= scalex;
+	cy *= scaley;
+	imageWidth *= scalex;
+	imageHeight *= scaley;
+	
+	imageWidth = Width;
+	imageHeight = Height;
+}
+
+torch::Tensor CameraIntrinsics::GetProjectionMatrix() const
+{
     return torch::tensor({{fx, 0.0f, cx},
                           {0.0f, fy, cy},
                           {0.0f, 0.0f, 1.0f}}, torch::kFloat32);
 }
 
-void Camera::loadImage(float downscaleFactor){
+
+CameraTransform::CameraTransform() :
+	CameraTransform(	{1,0,0,0,	0,1,0,0,	0,0,1,0,	0,0,0,1	})
+{
+}
+	
+CameraTransform::CameraTransform(const torch::Tensor& Transform) :
+	camToWorld	( Transform.clone().detach() )
+{
+	//	check dimensions are correct
+}
+
+CameraTransform::CameraTransform(const OpenSplat_Matrix4x4& Transform)
+{
+	camToWorld = torch::tensor({ 
+		{Transform.m00,Transform.m01,Transform.m02,Transform.m03}, 
+		{Transform.m10,Transform.m11,Transform.m12,Transform.m13}, 
+		{Transform.m20,Transform.m21,Transform.m22,Transform.m23}, 
+		{Transform.m30,Transform.m31,Transform.m32,Transform.m33}, 
+	});
+}
+
+OpenSplat_Matrix4x4 CameraTransform::GetCamToWorldMatrix() const
+{
+	auto& t = this->camToWorld;
+	OpenSplat_Matrix4x4 Out;
+	
+	Out.m00 = t[0][0].item<float>();
+	Out.m01 = t[0][1].item<float>();
+	Out.m02 = t[0][2].item<float>();
+	Out.m03 = t[0][3].item<float>();
+	
+	Out.m10 = t[1][0].item<float>();
+	Out.m11 = t[1][1].item<float>();
+	Out.m12 = t[1][2].item<float>();
+	Out.m13 = t[1][3].item<float>();
+	
+	Out.m20 = t[2][0].item<float>();
+	Out.m21 = t[2][1].item<float>();
+	Out.m22 = t[2][2].item<float>();
+	Out.m23 = t[2][3].item<float>();
+	
+	Out.m30 = t[3][0].item<float>();
+	Out.m31 = t[3][1].item<float>();
+	Out.m32 = t[3][2].item<float>();
+	Out.m33 = t[3][3].item<float>();
+	
+	return Out;
+}
+
+
+torch::Tensor CameraTransform::GetCamToWorldRotation() const
+{
+	torch::Tensor R = camToWorld.index({Slice(None, 3), Slice(None, 3)});
+	
+	// Flip the z and y axes to align with gsplat conventions
+	R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f}, R.device())));
+	
+	return R;
+}
+
+
+torch::Tensor CameraTransform::GetWorldToCamRotation() const
+{
+	torch::Tensor R = GetCamToWorldRotation();
+	
+	// worldToCam
+	torch::Tensor Rinv = R.transpose(0, 1);
+	return Rinv;
+}
+
+
+torch::Tensor CameraTransform::GetWorldToCamTranslation() const
+{
+	auto Rinv = GetWorldToCamRotation();
+	
+	torch::Tensor T = GetCamToWorldTranslation();
+	torch::Tensor Tinv = torch::matmul(-Rinv, T);
+	return Tinv;
+}
+
+torch::Tensor CameraTransform::GetCamToWorldTranslation() const
+{
+	torch::Tensor T = camToWorld.index({Slice(None, 3), Slice(3,4)});
+	return T;
+}
+
+
+void Camera::loadImageFromFilename(float downscaleFactor)
+{
+	auto PathString = cameraImagePath.string();
+	std::cout << "Camera Loading Image " << PathString << "..." << std::endl;
+	
+	cv::Mat cImg = imreadRGB(PathString);
+	loadImage( cImg, downscaleFactor );
+}
+
+void Camera::loadImage(cv::Mat& RgbPixels,float downscaleFactor)
+{
+	auto& cImg = RgbPixels;
+	auto Components = cImg.channels();
+	if ( Components != 3 )
+		throw std::runtime_error("Expecting BGR image");
+	
     // Populates image and K, then updates the camera parameters
     // Caution: this function has destructive behaviors
     // and should be called only once
-    if (image.numel()) std::runtime_error("loadImage already called");
-    std::cout << "Loading " << filePath << std::endl;
-
-    cv::Mat cImg = imreadRGB(filePath);
-    
+    if (image.numel()) 
+		throw std::runtime_error("loadImage already called");
+    	
     float rescaleF = 1.0f;
-    // If camera intrinsics don't match the image dimensions 
-    if (cImg.rows != height || cImg.cols != width){
-        rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(height);
+	
+    // If camera intrinsics don't match the image dimensions, rescale intrinsics to match pixels
+    if (cImg.rows != intrinsics.imageHeight || cImg.cols != intrinsics.imageWidth )
+	{
+        rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(intrinsics.imageHeight);
+		intrinsics.fx *= rescaleF;
+		intrinsics.fy *= rescaleF;
+		intrinsics.cx *= rescaleF;
+		intrinsics.cy *= rescaleF;
+		//	gr: should be changing imageWidth/Height in intrinsics here! - currently data is out of sync
     }
-    fx *= rescaleF;
-    fy *= rescaleF;
-    cx *= rescaleF;
-    cy *= rescaleF;
 
-    if (downscaleFactor > 1.0f){
+	//	user-specified scale regardless (only scales down)
+    if (downscaleFactor > 1.0f)
+	{
         float scaleFactor = 1.0f / downscaleFactor;
         cv::resize(cImg, cImg, cv::Size(), scaleFactor, scaleFactor, cv::INTER_AREA);
-        fx *= scaleFactor;
-        fy *= scaleFactor;
-        cx *= scaleFactor;
-        cy *= scaleFactor;
+		intrinsics.fx *= scaleFactor;
+		intrinsics.fy *= scaleFactor;
+		intrinsics.cx *= scaleFactor;
+		intrinsics.cy *= scaleFactor;
     }
 
-    K = getIntrinsicsMatrix();
+	//	cache projection matrix
+	projectionMatrix = intrinsics.GetProjectionMatrix();
     cv::Rect roi;
 
-    if (hasDistortionParameters()){
-        // Undistort
-        std::vector<float> distCoeffs = undistortionParameters();
-        cv::Mat cK = floatNxNtensorToMat(K);
+    if (intrinsics.HasDistortionParameters()){
+        // Undistort with opencv
+        std::vector<float> distCoeffs = intrinsics.GetOpencvUndistortionParameters();
+        cv::Mat cK = floatNxNtensorToMat(projectionMatrix);
         cv::Mat newK = cv::getOptimalNewCameraMatrix(cK, distCoeffs, cv::Size(cImg.cols, cImg.rows), 0, cv::Size(), &roi);
 
         cv::Mat undistorted = cv::Mat::zeros(cImg.rows, cImg.cols, cImg.type());
         cv::undistort(cImg, undistorted, cK, distCoeffs, newK);
         
         image = imageToTensor(undistorted);
-        K = floatNxNMatToTensor(newK);
+		projectionMatrix = floatNxNMatToTensor(newK);
     }else{
         roi = cv::Rect(0, 0, cImg.cols, cImg.rows);
         image = imageToTensor(cImg);
@@ -87,76 +244,156 @@ void Camera::loadImage(float downscaleFactor){
     // Crop to ROI
     image = image.index({Slice(roi.y, roi.y + roi.height), Slice(roi.x, roi.x + roi.width), Slice()});
 
-    // Update parameters
-    height = image.size(0);
-    width = image.size(1);
-    fx = K[0][0].item<float>();
-    fy = K[1][1].item<float>();
-    cx = K[0][2].item<float>();
-    cy = K[1][2].item<float>();
+    // Update intrinsics to newly scaled parameters & image pixels
+	intrinsics.imageHeight = image.size(0);
+	intrinsics.imageWidth = image.size(1);
+    intrinsics.fx = projectionMatrix[0][0].item<float>();
+	intrinsics.fy = projectionMatrix[1][1].item<float>();
+	intrinsics.cx = projectionMatrix[0][2].item<float>();
+	intrinsics.cy = projectionMatrix[1][2].item<float>();
 }
 
-torch::Tensor Camera::getImage(int downscaleFactor){
-    if (downscaleFactor <= 1) return image;
-    else{
-
-        // torch::jit::script::Module container = torch::jit::load("gt.pt");
-        // return container.attr("val").toTensor();
-
-        if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
-            return imagePyramids[downscaleFactor];
-        }
-
-        // Rescale, store and return
-        cv::Mat cImg = tensorToImage(image);
-        cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
-        torch::Tensor t = imageToTensor(cImg);
-        imagePyramids[downscaleFactor] = t;
-        return t;
-    }
+std::string Camera::getName() const
+{
+	auto Filename = cameraImagePath.filename().string();
+	return Filename;
 }
 
-bool Camera::hasDistortionParameters(){
+
+torch::Tensor Camera::getImage(int downscaleFactor)
+{
+	//	image isn't loaded if missing 2nd dimension (default is 0 width 1 dimension)
+	if ( image.dim() <= 1 )
+		throw std::runtime_error(std::string("No image loaded for camera ") + getName() );
+	
+	if (downscaleFactor <= 1) 
+		return image;
+
+	// torch::jit::script::Module container = torch::jit::load("gt.pt");
+	// return container.attr("val").toTensor();
+
+	auto ExistingIt = imagePyramids.find(downscaleFactor);
+	if ( ExistingIt != imagePyramids.end() )
+	{
+		return ExistingIt->second;
+	}
+
+	// Rescale, store and return
+	int NewHeight = image.size(0);
+	int NewWidth = image.size(1);
+	NewWidth /= downscaleFactor;
+	NewHeight /= downscaleFactor;
+	std::cerr << "Adding image pyramid x" << downscaleFactor << "(" << NewWidth << "x" << NewHeight << ") for " << getName() << std::endl;
+	cv::Mat cImg = getOpencvRgbImageStretched(NewWidth,NewHeight);
+	torch::Tensor t = imageToTensor(cImg);
+	imagePyramids[downscaleFactor] = t;
+	return t;
+}
+
+cv::Mat Camera::getOpencvRgbImageStretched(int Width,int Height)
+{
+	cv::Mat SmallImage;
+	auto CopyToSmall = [&](const cv::Mat& Big)
+	{
+		cv::resize(Big,SmallImage, cv::Size(Width,Height), 0.0, 0.0, cv::INTER_AREA);
+	};
+	tensorToImage(image,CopyToSmall);
+	return SmallImage;
+}
+
+CameraIntrinsics::CameraIntrinsics(const OpenSplat_CameraIntrinsics& Intrinsics)
+{
+	imageWidth = Intrinsics.Width;
+	imageHeight = Intrinsics.Height;
+	fx = Intrinsics.FocalWidth;
+	fy = Intrinsics.FocalHeight;
+	cx = Intrinsics.CenterX;
+	cy = Intrinsics.CenterY;
+	k1 = Intrinsics.k1;
+	k2 = Intrinsics.k2;
+	k3 = Intrinsics.k3;
+	p1 = Intrinsics.p1;
+	p2 = Intrinsics.p2;
+}
+
+
+bool CameraIntrinsics::HasDistortionParameters(){
     return k1 != 0.0f || k2 != 0.0f || k3 != 0.0f || p1 != 0.0f || p2 != 0.0f;
 }
 
-std::vector<float> Camera::undistortionParameters(){
+std::vector<float> CameraIntrinsics::GetOpencvUndistortionParameters(){
     std::vector<float> p = { k1, k2, p1, p2, k3, 0.0f, 0.0f, 0.0f };
     return p;
 }
 
-std::tuple<std::vector<Camera>, Camera *> InputData::getCameras(bool validate, const std::string &valImage){
-    if (!validate) return std::make_tuple(cameras, nullptr);
-    else{
-        size_t valIdx = -1;
-        std::srand(42);
 
-        if (valImage == "random"){
-            valIdx = std::rand() % cameras.size();
-        }else{
-            for (size_t i = 0; i < cameras.size(); i++){
-                if (fs::path(cameras[i].filePath).filename().string() == valImage){
-                    valIdx = i;
-                    break;
-                }
-            }
-            if (valIdx == -1) throw std::runtime_error(valImage + " not in the list of cameras");
-        }
-
-        std::vector<Camera> cams;
-        Camera *valCam = nullptr;
-
-        for (size_t i = 0; i < cameras.size(); i++){
-            if (i != valIdx) cams.push_back(cameras[i]);
-            else valCam = &cameras[i];
-        }
-
-        return std::make_tuple(cams, valCam);
-    }
+void InputData::TransformPoints(float3 translate,float scale)
+{
+	//	apply to data
+	torch::Tensor translation = torch::tensor({translate.x,translate.y,translate.z});
+	points.xyz = (points.xyz - translation) * scale;
 }
 
 
-void InputData::saveCameras(const std::string &filename, bool keepCrs){
+
+std::vector<std::string> InputData::GetCameraNames()
+{
+	std::vector<std::string> Names;
+	for ( auto& Camera : cameras )
+	{
+		auto Name = Camera.getName();
+		Names.emplace_back( Name );
+	}
+	return Names;
+}
+
+//	remove camera from the training data (typically for application to use for validation)
+std::shared_ptr<Camera>	InputData::PopCamera(std::string_view CameraImageName)
+{
+	auto FindMatchingCameraIndex = [this,CameraImageName]() -> int
+	{
+		//	todo: put seed into params, and use a RNG, rather than changing global (random) state
+		std::srand(42);
+		
+		//	pick a random camera index
+		if ( cameras.size() > 0 && CameraImageName == OpenSplat::randomValidationImageName )
+		{
+			auto Index = std::rand() % cameras.size();
+			return Index;
+		}
+		
+		//	find match
+		for ( auto i=0;	i<cameras.size();	i++ )
+		{
+			auto CameraName = cameras[i].getName();
+			if ( CameraName != CameraImageName )
+				continue;
+			return i;
+		}
+
+		//	helpful error listing all possibilites for the user
+		std::stringstream Error;
+		Error << "Input data has no camera matching " << CameraImageName << " (";
+		for ( auto& CameraName : GetCameraNames() )
+			Error << CameraName << ",";
+		Error << ")";
+		throw std::runtime_error(Error.str());
+	};
+	
+	auto MatchingCameraIndex = FindMatchingCameraIndex();
+	auto& MatchingCamera = cameras[MatchingCameraIndex];
+	
+	//	make copy of camera before removing it
+	auto PoppedCameraCopy = std::make_shared<Camera>(MatchingCamera);
+	
+	cameras.erase( cameras.begin() + MatchingCameraIndex );
+	
+	return PoppedCameraCopy;
+}
+
+
+void InputData::saveCamerasJson(const std::string &filename)
+{
     json j = json::array();
     
     for (size_t i = 0; i < cameras.size(); i++){
@@ -164,19 +401,16 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
 
         json camera = json::object();
         camera["id"] = i;
-        camera["img_name"] = fs::path(cam.filePath).filename().string();
-        camera["width"] = cam.width;
-        camera["height"] = cam.height;
-        camera["fx"] = cam.fx;
-        camera["fy"] = cam.fy;
+		camera["img_name"] = cam.getName();
+        camera["width"] = cam.intrinsics.imageWidth;
+        camera["height"] = cam.intrinsics.imageHeight;
+        camera["fx"] = cam.intrinsics.fx;
+        camera["fy"] = cam.intrinsics.fy;
 
-        torch::Tensor R = cam.camToWorld.index({Slice(None, 3), Slice(None, 3)});
-        torch::Tensor T = cam.camToWorld.index({Slice(None, 3), Slice(3,4)}).squeeze();
-        
-        // Flip z and y
-        R = torch::matmul(R, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f})));
+		torch::Tensor R = cam.camToWorld.GetCamToWorldRotation();
+		//	gr: what is squeeze()? 
+        torch::Tensor T = cam.camToWorld.GetCamToWorldTranslation().squeeze();
 
-        if (keepCrs) T = (T / scale) + translation;
 
         std::vector<float> position(3);
         std::vector<std::vector<float>> rotation(3, std::vector<float>(3));
@@ -189,12 +423,52 @@ void InputData::saveCameras(const std::string &filename, bool keepCrs){
 
         camera["position"] = position;
         camera["rotation"] = rotation;
+ 
         j.push_back(camera);
     }
     
     std::ofstream of(filename);
-    of << j;
+	if ( !of.is_open() )
+		throw std::runtime_error(std::string("Failed to open file") + filename + " to write cameras meta");
+    
+	of << j;
     of.close();
 
     std::cout << "Wrote " << filename << std::endl;
+}
+
+Camera& InputData::GetCamera(int CameraIndex)
+{
+	if ( CameraIndex < 0 || CameraIndex >= cameras.size() )
+	{
+		throw OpenSplat::NoCameraException(CameraIndex,cameras.size());
+	}
+
+	return cameras[CameraIndex];
+}
+
+Camera& InputData::GetCamera(std::string_view CameraName)
+{
+	for ( auto& Camera : cameras )
+	{
+		if ( Camera.getName() != CameraName )
+			continue;
+		return Camera;
+	}
+	throw std::runtime_error( std::string("No camera named ") + std::string(CameraName) );
+}
+
+void InputData::AddCamera(const Camera& newCamera)
+{
+	if ( newCamera.getName().empty() )
+		throw std::runtime_error("Tring to add camera with no name");
+	
+	//	force names to be unique
+	for ( auto& Camera : cameras )
+	{
+		if ( Camera.getName() == newCamera.getName() )
+			throw std::runtime_error( std::string("Trying to add camera with duplicate name ") + std::string(newCamera.getName()) );
+	}
+
+	cameras.push_back(newCamera);	
 }
