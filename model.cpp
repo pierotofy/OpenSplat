@@ -8,6 +8,10 @@
 #include "gsplat.hpp"
 #include "utils.hpp"
 
+#ifdef USE_MPS
+#include <torch/mps.h>
+#endif
+
 #ifdef USE_HIP
 #include <c10/hip/HIPCachingAllocator.h>
 #elif defined(USE_CUDA)
@@ -178,6 +182,9 @@ torch::Tensor Model::forward(Camera& cam, int step){
         rgbs = SphericalHarmonicsCPU::apply(degreesToUse, viewDirs, colors);
     }else{
         #if defined(USE_HIP) || defined(USE_CUDA) || defined(USE_MPS)
+        #ifdef USE_MPS
+        torch::mps::synchronize();
+        #endif
         rgbs = SphericalHarmonics::apply(degreesToUse, viewDirs, colors);
         #endif
     }
