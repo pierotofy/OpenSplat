@@ -42,6 +42,7 @@ int main(int argc, char *argv[]){
         ("stop-screen-size-at", "Stop splitting gaussians that are larger than [split-screen-size] after these many steps", cxxopts::value<int>()->default_value("4000"))
         ("split-screen-size", "Split gaussians that are larger than this percentage of screen space", cxxopts::value<float>()->default_value("0.05"))
         ("colmap-image-path", "Override the default image path for COLMAP-based input", cxxopts::value<std::string>()->default_value(""))
+        ("has-visualization", "Show the visualization steps of training", cxxopts::value<bool>()->default_value("0"))
 
         ("h,help", "Print usage")
         ("version", "Print version")
@@ -92,7 +93,9 @@ int main(int argc, char *argv[]){
     const int stopScreenSizeAt = result["stop-screen-size-at"].as<int>();
     const float splitScreenSize = result["split-screen-size"].as<float>();
     const std::string colmapImageSourcePath = result["colmap-image-path"].as<std::string>();
-
+#ifdef USE_VISUALIZATION
+    const bool hasVisualization = result["has-visualization"].as<bool>();
+#endif
     torch::Device device = torch::kCPU;
     int displayStep = 10;
 
@@ -109,7 +112,8 @@ int main(int argc, char *argv[]){
 
 #ifdef USE_VISUALIZATION
     Visualizer visualizer;
-    visualizer.Initialize(numIters);
+    if (hasVisualization)
+        visualizer.Initialize(numIters);
 #endif
 
     try{
@@ -176,12 +180,14 @@ int main(int argc, char *argv[]){
             }
 
 #ifdef USE_VISUALIZATION
-            visualizer.SetInitialGaussianNum(inputData.points.xyz.size(0));
-            visualizer.SetLoss(step, mainLoss.item<float>());
-            visualizer.SetGaussians(model.means, model.scales, model.featuresDc,
-                                    model.opacities);
-            visualizer.SetImage(rgb, gt);
-            visualizer.Draw();
+            if (hasVisualization) {
+                visualizer.SetInitialGaussianNum(inputData.points.xyz.size(0));
+                visualizer.SetLoss(step, mainLoss.item<float>());
+                visualizer.SetGaussians(model.means, model.scales, model.featuresDc,
+                                        model.opacities);
+                visualizer.SetImage(rgb, gt);
+                visualizer.Draw();
+            }
 #endif
         }
 
