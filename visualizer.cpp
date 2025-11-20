@@ -10,6 +10,7 @@ bool Visualizer::Initialize(int iter_num) {
   pangolin::CreateWindowAndBind("OpenSplat", 1200, 1000);
   glEnable(GL_DEPTH_TEST);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  iter_num_ = iter_num;
 
   cam_state_ = std::make_unique<pangolin::OpenGlRenderState>(
       pangolin::ProjectionMatrix(1200, 1000, 420, 420, 600, 500, 0.1f, 1000),
@@ -43,7 +44,9 @@ bool Visualizer::Initialize(int iter_num) {
   gaussian_num_ = std::make_unique<pangolin::Var<int>>("panel.gaussian num", 0);
   loss_ = std::make_unique<pangolin::Var<float>>("panel.loss", 0.0f);
   pause_button_ =
-      std::make_unique<pangolin::Var<bool>>("panel.Start/Pause", false, false);
+      std::make_unique<pangolin::Var<bool>>("panel.Start/Pause", true, false);
+  quit_button_ =
+      std::make_unique<pangolin::Var<bool>>("panel.Quit", false, false);
 
   return true;
 }
@@ -72,6 +75,10 @@ void Visualizer::SetInitialGaussianNum(int num) {
   }
 }
 
+bool Visualizer::QuitApp() {
+    return quit_;
+}
+
 void Visualizer::SetGaussians(const torch::Tensor& means,
                               const torch::Tensor& covariances,
                               const torch::Tensor& colors,
@@ -92,18 +99,31 @@ void Visualizer::SetImage(const torch::Tensor& rendered_img,
   gt_img_ = (gt_img.cpu() * 255).to(torch::kUInt8);
 }
 
-void Visualizer::Draw() {
+void Visualizer::DrawInern() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   DrawGaussians();
   DrawImage();
 
   pangolin::FinishFrame();
+  if (iter_num_ == *step_)
+     *pause_button_ = true; 
+  if (*quit_button_) {
+     quit_ = true;;
+  }
+}
+
+void Visualizer::Draw() {
+  pangolin::WindowInterface* window = pangolin::GetBoundWindow();
+
+  DrawInern();
 
   while (*pause_button_) {
+
+    DrawInern();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    pangolin::WindowInterface* window = pangolin::GetBoundWindow();
-    if (window) {
+
+    if (!quit_ && window) {
       window->ProcessEvents();
     } else {
       break;

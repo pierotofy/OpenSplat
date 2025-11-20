@@ -29,10 +29,14 @@ class Visualizer {
 
   void Draw();
 
+  bool QuitApp();
+
  private:
   bool DrawGaussians();
 
   bool DrawImage();
+
+  void DrawInern();
 
  private:
   std::unique_ptr<pangolin::OpenGlRenderState> cam_state_;
@@ -46,6 +50,7 @@ class Visualizer {
   std::unique_ptr<pangolin::Var<int>> gaussian_num_;
   std::unique_ptr<pangolin::Var<float>> loss_;
   std::unique_ptr<pangolin::Var<bool>> pause_button_;
+  std::unique_ptr<pangolin::Var<bool>> quit_button_;
 
   torch::Tensor means_;
   torch::Tensor covariances_;
@@ -54,6 +59,9 @@ class Visualizer {
 
   torch::Tensor rendered_img_;
   torch::Tensor gt_img_;
+
+  int iter_num_;
+  bool quit_ {false};
 };
 
 #endif

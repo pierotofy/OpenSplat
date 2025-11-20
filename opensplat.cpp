@@ -188,6 +188,8 @@ int main(int argc, char *argv[]){
                 visualizer.SetGaussians(model.means, model.scales, model.featuresDc,
                                         model.opacities);
                 visualizer.SetImage(rgb, gt);
+                if (visualizer.QuitApp())
+                    step = numIters + 1;
                 visualizer.Draw();
             }
 #endif
