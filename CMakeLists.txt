@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 project(opensplat)
 
 set(OPENSPLAT_BUILD_SIMPLE_TRAINER OFF CACHE BOOL "Build simple trainer applications")
+set(OPENSPLAT_BUILD_TESTS OFF CACHE BOOL "Build camera cache lifecycle tests")
 if(APPLE)
     set(GPU_RUNTIME_DEFAULT "MPS")
 else()
@@ -265,7 +266,8 @@ target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 set(OPENSPLAT_SRC_FILES opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp
 kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp project_gaussians.cpp
 rasterize_gaussians.cpp ssim.cpp colmap.cpp opensfm.cpp openmvg.cpp input_data.cpp
-tensor_math.cpp rad.cpp zip_utils.cpp undistort.cpp)
+tensor_math.cpp rad.cpp zip_utils.cpp undistort.cpp camera_image_store.cpp
+)
 
 if (OPENSPLAT_BUILD_VISUALIZER)
     if (Pangolin_FOUND)
@@ -343,6 +345,33 @@ if(OPENSPLAT_BUILD_SIMPLE_TRAINER)
     elseif(GPU_RUNTIME STREQUAL "MPS")
         target_compile_definitions(simple_trainer PRIVATE USE_MPS)
     endif()
+endif()
+
+if(OPENSPLAT_BUILD_TESTS)
+    enable_testing()
+    add_executable(camera_image_store_test
+        tests/camera_image_store_test.cpp camera_image_store.cpp cv_utils.cpp
+        undistort.cpp input_data.cpp)
+    target_include_directories(camera_image_store_test PRIVATE
+        ${TORCH_INCLUDE_DIRS}
+        ${GPU_INCLUDE_DIRS}
+        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+    )
+    target_compile_definitions(camera_image_store_test PRIVATE CAMERA_IMAGE_STORE_TESTING)
+    if(GPU_RUNTIME STREQUAL "HIP")
+        target_compile_definitions(camera_image_store_test PRIVATE USE_HIP __HIP_PLATFORM_AMD__)
+    elseif(GPU_RUNTIME STREQUAL "CUDA")
+        target_compile_definitions(camera_image_store_test PRIVATE USE_CUDA)
+    elseif(GPU_RUNTIME STREQUAL "MPS")
+        target_compile_definitions(camera_image_store_test PRIVATE USE_MPS)
+    endif()
+    target_link_libraries(camera_image_store_test PRIVATE ${GPU_LIBRARIES} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+    if(NOT WIN32)
+        target_link_libraries(camera_image_store_test PRIVATE pthread)
+    endif()
+    set_property(TARGET camera_image_store_test PROPERTY CXX_STANDARD ${OPENSPLAT_CXX_STANDARD})
+    add_test(NAME camera_image_store_test COMMAND camera_image_store_test)
+
 endif()
 
 # The following code block is suggested to be used on Windows.

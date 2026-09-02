@@ -93,8 +93,10 @@ jobs:
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install \
             -DGPU_RUNTIME=${GPU_RUNTIME} \
+            -DOPENSPLAT_BUILD_TESTS=ON \
             -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           ninja
+          ctest --output-on-failure
           ls -l .
 
       - name: Save Artifacts

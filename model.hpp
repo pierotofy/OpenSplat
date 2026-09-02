@@ -9,6 +9,7 @@
 #include "spherical_harmonics.hpp"
 #include "ssim.hpp"
 #include "input_data.hpp"
+#include "camera_image_store.hpp"
 
 using namespace torch::indexing;
 using namespace torch::autograd;
@@ -17,18 +18,18 @@ torch::Tensor identityQuatTensor(long long n);
 torch::Tensor projectionMatrix(float zNear, float zFar, float fovX, float fovY, const torch::Device &device);
 
 struct Model{
-  Model(const InputData &inputData, int numCameras,
+  Model(const InputData &inputData, CameraImageStore &imageStore, const std::vector<CameraKey> &trainingKeys,
+        float sceneExtent,
         int numDownscales, int resolutionSchedule, int shDegree, int shDegreeInterval,
         int densificationInterval, int densifyFromIter, int densifyUntilIter, int maxGaussians,
         float lossThresh,
         int maxSteps, bool keepCrs,
         const torch::Device &device) :
-    numCameras(numCameras),
+    imageStore(imageStore), trainingKeys(trainingKeys), device(device),
     numDownscales(numDownscales), resolutionSchedule(resolutionSchedule), shDegree(shDegree), shDegreeInterval(shDegreeInterval),
     densificationInterval(densificationInterval), densifyFromIter(densifyFromIter), densifyUntilIter(densifyUntilIter), maxGaussians(maxGaussians),
     lossThresh(lossThresh),
-    maxSteps(maxSteps), keepCrs(keepCrs),
-    device(device){
+    maxSteps(maxSteps), keepCrs(keepCrs){
 
     long long numPoints = inputData.points.xyz.size(0);
     scale = inputData.scale;
@@ -52,17 +53,7 @@ struct Model{
 
     backgroundColor = torch::zeros({3}, device);
 
-    // Scene extent from camera positions (vanilla 3DGS cameras_extent)
-    spatialLrScale = 1.0f;
-    if (!inputData.cameras.empty()){
-        torch::Tensor centers = torch::zeros({static_cast<long long>(inputData.cameras.size()), 3});
-        for (size_t i = 0; i < inputData.cameras.size(); i++){
-            centers[i] = inputData.cameras[i].camToWorld.index({Slice(None, 3), 3});
-        }
-        torch::Tensor avg = centers.mean(0, true);
-        spatialLrScale = (centers - avg).norm(2, 1).max().item<float>() * 1.1f;
-        if (spatialLrScale <= 0.0f) spatialLrScale = 1.0f;
-    }
+    spatialLrScale = sceneExtent;
 
     setupOptimizers();
   }
@@ -74,7 +65,7 @@ struct Model{
   void setupOptimizers();
   void releaseOptimizers();
 
-  torch::Tensor forward(Camera& cam, int step);
+  torch::Tensor forward(const PreparedCamera &cam, int step, const torch::Tensor &edgeMap = torch::Tensor());
   void optimizerStepCadence(int step); // FastGS stepping schedule with gradient accumulation
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
@@ -90,7 +81,7 @@ struct Model{
   bool saveRad(const std::string &filename);
   void saveDebugPly(const std::string &filename, int step);
   int loadPly(const std::string &filename);
-  torch::Tensor mainLoss(torch::Tensor &rgb, torch::Tensor &gt, torch::Tensor &mask, float ssimWeight);
+  torch::Tensor mainLoss(const torch::Tensor &rgb, const torch::Tensor &gt, const torch::Tensor &mask, float ssimWeight);
 
   void addToOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &idcs, int nSamples);
   void removeFromOptimizer(torch::optim::Adam *optimizer, const torch::Tensor &newParam, const torch::Tensor &deletedMask);
@@ -109,8 +100,6 @@ struct Model{
   torch::optim::Adam *opacitiesOpt = nullptr;
 
   float spatialLrScale = 1.0f;
-  std::vector<Camera> *trainCams = nullptr; // set by the trainer, used for multi-view scoring
-
   torch::Tensor radii; // set in forward()
   torch::Tensor xys; // set in forward()
   torch::Tensor lastAlpha; // set in forward()
@@ -128,9 +117,10 @@ struct Model{
 
 
   torch::Tensor backgroundColor;
+  CameraImageStore &imageStore;
+  const std::vector<CameraKey> &trainingKeys;
   torch::Device device;
 
-  int numCameras;
   int numDownscales;
   int resolutionSchedule;
   int shDegree;

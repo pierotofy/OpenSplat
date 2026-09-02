@@ -116,7 +116,7 @@ InputData inputDataFromOpenSfM(const std::string &projectRoot){
         }
 
         float normalizer = static_cast<float>((std::max)(c.width, c.height));
-        ret.cameras.emplace_back(Camera(c.width, c.height, 
+        ret.cameras.emplace_back(Camera(c.width, c.height,
                             static_cast<float>(c.fx * normalizer), static_cast<float>(c.fy * normalizer), 
                             static_cast<float>(static_cast<float>(c.width) / 2.0f + normalizer * c.cx), static_cast<float>(static_cast<float>(c.height) / 2.0f + normalizer * c.cy), 
                             static_cast<float>(c.k1), static_cast<float>(c.k2), static_cast<float>(c.k3), 

@@ -137,8 +137,10 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=ccache `
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\libtorch `
             -DOPENCV_DIR=${{ github.workspace }}\OpenCV\opencv\build `
+            -DOPENSPLAT_BUILD_TESTS=ON `
             -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           cmake --build . --parallel --config ${{ matrix.cmake-build-type }}
+          ctest --output-on-failure -C ${{ matrix.cmake-build-type }}
 
       - name: Save Artifacts
         if: ${{ matrix.os == 'windows-2022' && matrix.torch-version == '2.2.1' && matrix.cmake-build-type == 'Release' }}

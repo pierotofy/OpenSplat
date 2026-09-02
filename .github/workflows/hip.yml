@@ -171,8 +171,10 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
             -DGPU_RUNTIME=HIP \
             -DHIP_ROOT_DIR=/opt/rocm \
+            -DOPENSPLAT_BUILD_TESTS=ON \
             -DOPENSPLAT_BUILD_SIMPLE_TRAINER=ON
           ninja
+          ctest --output-on-failure
 
       - name: Save Artifacts
         if: ${{ matrix.os == 'ubuntu-22.04' && matrix.rocm-version == '5.7.1' && matrix.torch-version == '2.2.1' && matrix.cmake-build-type == 'Release' }}

@@ -73,7 +73,7 @@ void Model::releaseOptimizers(){
 }
 
 
-torch::Tensor Model::forward(Camera& cam, int step){
+torch::Tensor Model::forward(const PreparedCamera &cam, int step, const torch::Tensor &edgeMap){
 
     const float scaleFactor = getDownscaleFactor(step);
     const float fx = cam.fx / scaleFactor;
@@ -194,8 +194,8 @@ torch::Tensor Model::forward(Camera& cam, int step){
         densificationInfo = torch::empty({0}, fOpts);
         xyAbsGrad = step <= densifyUntilIter ? torch::zeros({means.size(0), 2}, fOpts)
                                              : torch::empty({0}, fOpts);
-    }else if (edgeGuidance){
-        camEdgeMap = cam.getEdgeMapGpu(getDownscaleFactor(step), device);
+    }else if (edgeGuidance && edgeMap.defined()){
+        camEdgeMap = edgeMap;
     }
     
     if (device == torch::kCPU){
@@ -365,7 +365,7 @@ std::tuple<torch::Tensor, torch::Tensor> Model::computeMultiViewScores(int step,
     torch::Tensor fullScore = torch::zeros({N}, fOpts);
     torch::Tensor edgeScores = torch::zeros({N}, fOpts);
 
-    std::vector<size_t> indices(trainCams->size());
+    std::vector<size_t> indices(trainingKeys.size());
     std::iota(indices.begin(), indices.end(), 0);
     static thread_local std::mt19937 rng(42 + step);
     std::shuffle(indices.begin(), indices.end(), rng);
@@ -373,15 +373,15 @@ std::tuple<torch::Tensor, torch::Tensor> Model::computeMultiViewScores(int step,
 
     scoringPass = true;
     for (size_t v = 0; v < numViews; v++){
-        Camera &cam = (*trainCams)[indices[v]];
         int ds = getDownscaleFactor(step);
-        torch::Tensor gt = cam.getImageGpu(ds, device);
+        auto lease = imageStore.acquire(trainingKeys[indices[v]], FrameRequest{ds, device, false, edgeGuidance});
+        const torch::Tensor &gt = lease.image();
 
         errorMap = torch::zeros({gt.size(0), gt.size(1)}, fOpts);
         densificationInfo = torch::zeros({4, N}, fOpts);
         xyAbsGrad = torch::empty({0}, fOpts);
 
-        torch::Tensor rgb = forward(cam, step);
+        torch::Tensor rgb = forward(lease.camera(), step, lease.edgeMap());
 
         {
             torch::NoGradGuard noGrad;
@@ -607,7 +607,7 @@ bool Model::afterTrain(int step){
             maxRadii2D = torch::maximum(maxRadii2D, radii.detach().to(torch::kFloat32) * visible.to(torch::kFloat32));
         }
 
-        if (step > densifyFromIter && step % densificationInterval == 0 && trainCams != nullptr){
+        if (step > densifyFromIter && step % densificationInterval == 0){
             auto scores = computeMultiViewScores(step, true);
             densifyAndPrune(step, std::get<0>(scores), std::get<1>(scores));
             restructured = true;
@@ -617,7 +617,7 @@ bool Model::afterTrain(int step){
             resetOpacity(0.01f);
             std::cout << "Opacity reset" << std::endl;
         }
-    }else if (step % 3000 == 0 && step > densifyUntilIter && step < maxSteps && trainCams != nullptr){
+    }else if (step % 3000 == 0 && step > densifyUntilIter && step < maxSteps){
         // Final pruning
         auto scores = computeMultiViewScores(step, false);
         torch::NoGradGuard noGrad;
@@ -1020,7 +1020,7 @@ int Model::loadPly(const std::string &filename){
     throw std::runtime_error("Invalid PLY file");
 }
 
-torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, torch::Tensor &mask, float ssimWeight){
+torch::Tensor Model::mainLoss(const torch::Tensor &rgb, const torch::Tensor &gt, const torch::Tensor &mask, float ssimWeight){
     bool hasMask = mask.defined() && mask.numel() > 0;
     torch::Tensor loss;
 

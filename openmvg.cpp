@@ -326,7 +326,7 @@ InputData inputDataFromOpenMVG(const std::string &projectRoot){
         std::uint32_t current_pose = pose_indexes.at(v.id_pose);
 
         float normalizer = static_cast<float>((std::max)(intrinsic.width, intrinsic.height));
-        ret.cameras.emplace_back(Camera(intrinsic.width, intrinsic.height, 
+        ret.cameras.emplace_back(Camera(intrinsic.width, intrinsic.height,
                             static_cast<float>(intrinsic.fx * normalizer), static_cast<float>(intrinsic.fy * normalizer), 
                             static_cast<float>(static_cast<float>(intrinsic.width) / 2.0f + normalizer * intrinsic.cx), 
                             static_cast<float>(static_cast<float>(intrinsic.height) / 2.0f + normalizer * intrinsic.cy), 

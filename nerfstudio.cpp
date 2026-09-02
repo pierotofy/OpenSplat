@@ -147,7 +147,7 @@ InputData inputDataFromNerfStudio(const std::string &projectRoot){
     for (size_t i = 0; i < t.frames.size(); i++){
         Frame f = t.frames[i];
 
-        ret.cameras.emplace_back(Camera(f.width, f.height, 
+        ret.cameras.emplace_back(Camera(f.width, f.height,
                             static_cast<float>(f.fx), static_cast<float>(f.fy), 
                             static_cast<float>(f.cx), static_cast<float>(f.cy), 
                             static_cast<float>(f.k1), static_cast<float>(f.k2), static_cast<float>(f.k3), 

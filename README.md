@@ -224,6 +224,27 @@ There's several parameters you can tune. To view the full list:
 ./opensplat --help
 ```
 
+### Host image memory
+
+Input images are kept in a byte-budgeted host cache instead of all being kept
+in RAM. A training set that is estimated to fit is decoded into the cache in
+parallel at startup; otherwise images are decoded on demand. By default, the
+budget is 25% of the detected system memory limit (including a detected Linux
+container limit), clamped between 512 MiB and 8 GiB. Set an explicit limit when
+sharing a machine or processing a very large dataset:
+
+```bash
+./opensplat /path/to/project --host-cache-mb 2048
+```
+
+A smaller cache reduces resident memory but can be slower because an evicted
+camera is decoded synchronously when selected again. A single camera payload
+larger than the budget is admitted while in use and evicted as soon as its lease
+ends. The cache includes decoded images, masks, resolution pyramids, and edge
+maps. Archive extraction and model/Gaussian memory are separate from this
+budget. `--no-gpu-cache` independently controls device-side image copies and
+does not disable or resize the host cache.
+
 ### Google Colab
 
 To run OpenSplat in Google Colab follow this [example notebook](https://colab.research.google.com/drive/1USqQsIBcqdOP6Fy0aVAyoXzTdpaEoTL_).
