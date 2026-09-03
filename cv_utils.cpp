@@ -22,7 +22,9 @@ cv::Mat tensorToImage(const torch::Tensor &t){
     if (c != 3) throw std::runtime_error("Only images with 3 channels are supported");
 
     cv::Mat image(h, w, type);
-    torch::Tensor scaledTensor = (t * 255.0).toType(torch::kU8);
+    torch::Tensor scaledTensor = t.scalar_type() == torch::kUInt8
+                                     ? t.contiguous()
+                                     : (t * 255.0).toType(torch::kU8);
     uint8_t* dataPtr = static_cast<uint8_t*>(scaledTensor.data_ptr());
     std::copy(dataPtr, dataPtr + (w * h * c), image.data);
 
@@ -30,7 +32,11 @@ cv::Mat tensorToImage(const torch::Tensor &t){
 }
 
 torch::Tensor imageToTensor(const cv::Mat &image){
-    torch::Tensor img = torch::from_blob(image.data, { image.rows, image.cols, image.dims + 1 }, torch::kU8);
-    return (img.toType(torch::kFloat32) / 255.0f);
+    return imageToByteTensor(image).to(torch::kFloat32).div(255.0f);
 }
 
+torch::Tensor imageToByteTensor(const cv::Mat &image){
+    cv::Mat contiguous = image.isContinuous() ? image : image.clone();
+    return torch::from_blob(contiguous.data, {contiguous.rows, contiguous.cols, contiguous.channels()}, torch::kUInt8)
+        .clone();
+}

@@ -9,5 +9,6 @@
 cv::Mat imreadRGB(const std::string &filename);
 cv::Mat tensorToImage(const torch::Tensor &t);
 torch::Tensor imageToTensor(const cv::Mat &image);
+torch::Tensor imageToByteTensor(const cv::Mat &image);
 
 #endif

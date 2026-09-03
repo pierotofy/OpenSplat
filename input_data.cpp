@@ -101,7 +101,7 @@ void Camera::loadImage(float downscaleFactor){
         buildUndistortMaps(p, mapx, mapy);
         cv::Mat undistorted;
         cv::remap(cImg, undistorted, mapx, mapy, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
-        image = imageToTensor(undistorted);
+        image = imageToByteTensor(undistorted);
         if (!cMask.empty()){
             cv::Mat remapped;
             cv::remap(cMask, remapped, mapx, mapy, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
@@ -112,7 +112,7 @@ void Camera::loadImage(float downscaleFactor){
         cx = p.dstCx;
         cy = p.dstCy;
     }else{
-        image = imageToTensor(cImg);
+        image = imageToByteTensor(cImg);
     }
 
     height = image.size(0);
@@ -127,22 +127,27 @@ void Camera::loadImage(float downscaleFactor){
 }
 
 torch::Tensor Camera::getImage(int downscaleFactor){
-    if (downscaleFactor <= 1) return image;
+    auto asFloat = [](const torch::Tensor &value){
+        return value.scalar_type() == torch::kUInt8
+                   ? value.to(torch::kFloat32).div(255.0f)
+                   : value;
+    };
+    if (downscaleFactor <= 1) return asFloat(image);
     else{
 
         // torch::jit::script::Module container = torch::jit::load("gt.pt");
         // return container.attr("val").toTensor();
 
         if (imagePyramids.find(downscaleFactor) != imagePyramids.end()){
-            return imagePyramids[downscaleFactor];
+            return asFloat(imagePyramids[downscaleFactor]);
         }
 
         // Rescale, store and return
         cv::Mat cImg = tensorToImage(image);
         cv::resize(cImg, cImg, cv::Size(cImg.cols / downscaleFactor, cImg.rows / downscaleFactor), 0.0, 0.0, cv::INTER_AREA);
-        torch::Tensor t = imageToTensor(cImg);
+        torch::Tensor t = imageToByteTensor(cImg);
         imagePyramids[downscaleFactor] = t;
-        return t;
+        return asFloat(t);
     }
 }
 
@@ -210,6 +215,10 @@ static torch::Tensor gpuCached(std::unordered_map<int, torch::Tensor> &cache, in
 }
 
 torch::Tensor Camera::getImageGpu(int downscaleFactor, const torch::Device &device){
+    if (device != torch::kCPU && gpuCacheEnabled){
+        auto cached = gpuImageCache.find(downscaleFactor);
+        if (cached != gpuImageCache.end()) return cached->second;
+    }
     return gpuCached(gpuImageCache, downscaleFactor, getImage(downscaleFactor), device);
 }
 
