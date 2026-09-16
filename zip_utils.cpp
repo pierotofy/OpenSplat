@@ -117,9 +117,9 @@ static fs::path descendSingleDir(fs::path dir){
     return dir;
 }
 
-std::string extractZipToCache(const std::string &zipPath){
+std::string extractZipToCache(const std::string &zipPath, const std::string &cacheDir){
     fs::path zp = fs::absolute(zipPath);
-    fs::path dest = fs::temp_directory_path() / ("opensplat-" + crc32Hex(zp));
+    fs::path dest = fs::path(cacheDir) / ("opensplat-" + crc32Hex(zp));
     if (!fs::exists(dest)){
         fs::path staging = dest;
         staging += ".partial";

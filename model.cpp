@@ -12,6 +12,7 @@
 #include "tensor_math.hpp"
 #include "gsplat.hpp"
 #include "utils.hpp"
+#include "cv_utils.hpp"
 #include "rad.hpp"
 
 #ifdef USE_MPS
@@ -73,7 +74,7 @@ void Model::releaseOptimizers(){
 }
 
 
-torch::Tensor Model::forward(Camera& cam, int step){
+torch::Tensor Model::forward(Camera& cam, int step, const torch::Tensor &edgeMap){
 
     const float scaleFactor = getDownscaleFactor(step);
     const float fx = cam.fx / scaleFactor;
@@ -194,8 +195,8 @@ torch::Tensor Model::forward(Camera& cam, int step){
         densificationInfo = torch::empty({0}, fOpts);
         xyAbsGrad = step <= densifyUntilIter ? torch::zeros({means.size(0), 2}, fOpts)
                                              : torch::empty({0}, fOpts);
-    }else if (edgeGuidance){
-        camEdgeMap = cam.getEdgeMapGpu(getDownscaleFactor(step), device);
+    }else if (edgeGuidance && edgeMap.defined()){
+        camEdgeMap = edgeMap;
     }
     
     if (device == torch::kCPU){
@@ -375,17 +376,18 @@ std::tuple<torch::Tensor, torch::Tensor> Model::computeMultiViewScores(int step,
     for (size_t v = 0; v < numViews; v++){
         Camera &cam = (*trainCams)[indices[v]];
         int ds = getDownscaleFactor(step);
-        torch::Tensor gt = cam.getImageGpu(ds, device);
+        FrameLease frame = images->acquire(cam, ds, edgeGuidance);
+        torch::Tensor gt = frame->image;
 
         errorMap = torch::zeros({gt.size(0), gt.size(1)}, fOpts);
         densificationInfo = torch::zeros({4, N}, fOpts);
         xyAbsGrad = torch::empty({0}, fOpts);
 
-        torch::Tensor rgb = forward(cam, step);
+        torch::Tensor rgb = forward(cam, step, frame->edges);
 
         {
             torch::NoGradGuard noGrad;
-            torch::Tensor l1Map = (rgb.detach() - gt).abs().mean(-1);
+            torch::Tensor l1Map = (rgb.detach() - toUnitFloat(gt)).abs().mean(-1);
             float lo = l1Map.min().item<float>();
             float hi = l1Map.max().item<float>();
             torch::Tensor norm = (l1Map - lo) / (std::max)(hi - lo, 1e-8f);
@@ -1028,7 +1030,7 @@ torch::Tensor Model::mainLoss(torch::Tensor &rgb, torch::Tensor &gt, torch::Tens
         torch::Tensor m = hasMask ? mask : torch::empty({0}, rgb.options());
         loss = fusedL1SsimLoss(rgb, gt, m, ssimWeight, !hasMask);
     }else{
-        torch::Tensor absDiff = torch::abs(gt - rgb);
+        torch::Tensor absDiff = torch::abs(toUnitFloat(gt) - rgb);
         loss = hasMask
             ? (mask.unsqueeze(-1) * absDiff).sum() / (mask.sum() * gt.size(2) + 1e-8f)
             : absDiff.sum() / (static_cast<float>(gt.numel()) + 1e-8f);

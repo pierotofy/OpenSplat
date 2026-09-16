@@ -213,7 +213,7 @@ endif()
 if (NOT WIN32 AND NOT APPLE)
     set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 endif()
-set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui)
+set(OpenCV_LIBS opencv_core opencv_imgproc opencv_imgcodecs opencv_highgui)
 
 set(GSPLAT_LIBS gsplat_cpu)
 if((GPU_RUNTIME STREQUAL "CUDA") OR (GPU_RUNTIME STREQUAL "HIP"))
@@ -265,7 +265,7 @@ target_include_directories(gsplat_cpu PRIVATE ${TORCH_INCLUDE_DIRS})
 set(OPENSPLAT_SRC_FILES opensplat.cpp point_io.cpp nerfstudio.cpp model.cpp
 kdtree_tensor.cpp spherical_harmonics.cpp cv_utils.cpp project_gaussians.cpp
 rasterize_gaussians.cpp ssim.cpp colmap.cpp opensfm.cpp openmvg.cpp input_data.cpp
-tensor_math.cpp rad.cpp zip_utils.cpp undistort.cpp)
+tensor_math.cpp rad.cpp zip_utils.cpp undistort.cpp sysinfo.cpp image_store.cpp image_pipeline.cpp)
 
 if (OPENSPLAT_BUILD_VISUALIZER)
     if (Pangolin_FOUND)

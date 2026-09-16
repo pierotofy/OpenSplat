@@ -25,10 +25,8 @@
 
 namespace cg = cooperative_groups;
 
-// Fused L1 + DSSIM loss over [H,W,C] images. One kernel computes the
-// SSIM map and the closed-form partials in a shared-memory tile (two-pass
-// separable 11-tap blur), one reduces to the scalar loss on-device, and one
-// produces dL/dimage directly.
+// Fused L1 + DSSIM loss over [H,W,C] images in three kernels:
+// SSIM map + partials (tiled 11-tap blur), loss reduction, and dL/dimage
 
 #define LOSS_BX 16
 #define LOSS_BY 16
@@ -45,11 +43,16 @@ __device__ __constant__ float lossGauss[11] = {
     0.21300552785396576f, 0.10936068743467331f, 0.036000773310661316f,
     0.0075987582094967365f, 0.001028380123898387f};
 
+// Ground truth may be float [0,1] or uint8 [0,255]
+__device__ __forceinline__ float gt_unit(float v){ return v; }
+__device__ __forceinline__ float gt_unit(uint8_t v){ return static_cast<float>(v) * (1.0f / 255.0f); }
+
+template <typename T>
 __device__ __forceinline__ float loss_pix(
-    const float* __restrict__ img, int y, int x, int c, int H, int W, int C
+    const T* __restrict__ img, int y, int x, int c, int H, int W, int C
 ){
     if (x < 0 || x >= W || y < 0 || y >= H) return 0.0f;
-    return img[(y * W + x) * C + c];
+    return gt_unit(img[(y * W + x) * C + c]);
 }
 
 // A pixel participates in the unmasked loss only away from the blur border
@@ -58,10 +61,11 @@ __device__ __forceinline__ bool loss_valid(int y, int x, int H, int W, bool vali
     return x >= LOSS_HALO && x < W - LOSS_HALO && y >= LOSS_HALO && y < H - LOSS_HALO;
 }
 
+template <typename GtT>
 __global__ void fused_loss_fwd_kernel(
     const int H, const int W, const int C,
     const float* __restrict__ rendered,
-    const float* __restrict__ gt,
+    const GtT* __restrict__ gt,
     float* __restrict__ ssimMap, // [H,W] channel mean
     __half* __restrict__ pMu,    // [H,W,C] each, or nullptr
     __half* __restrict__ pS1,
@@ -167,10 +171,11 @@ __global__ void fused_loss_fwd_kernel(
 
 // Reduces the combined loss over pixels: out[0] += sum of gate * ((1-w)*sum_c|d_c| + C*w*(1-ssim)),
 // out[1] += sum of gate. The gate is the mask value or the valid-padding indicator.
+template <typename GtT>
 __global__ void fused_loss_reduce_kernel(
     const int H, const int W, const int C,
     const float* __restrict__ rendered,
-    const float* __restrict__ gt,
+    const GtT* __restrict__ gt,
     const float* __restrict__ ssimMap,
     const float* __restrict__ mask, // nullptr when unmasked
     const float ssimWeight,
@@ -192,7 +197,7 @@ __global__ void fused_loss_reduce_kernel(
         if (gate != 0.0f){
             float l1 = 0.0f;
             for (int c = 0; c < C; c++){
-                l1 += fabsf(rendered[p * C + c] - gt[p * C + c]);
+                l1 += fabsf(rendered[p * C + c] - gt_unit(gt[p * C + c]));
             }
             const float contrib = (1.0f - ssimWeight) * l1
                                 + static_cast<float>(C) * ssimWeight * (1.0f - ssimMap[p]);
@@ -226,12 +231,13 @@ __global__ void fused_loss_finalize_kernel(const int C, float* __restrict__ out)
     out[1] = denom;
 }
 
+template <typename GtT>
 __global__ void fused_loss_bwd_kernel(
     const int H, const int W, const int C,
     const float ssimWeight,
     const bool validPad,
     const float* __restrict__ rendered,
-    const float* __restrict__ gt,
+    const GtT* __restrict__ gt,
     const float* __restrict__ mask, // nullptr when unmasked
     const __half* __restrict__ pMu,
     const __half* __restrict__ pS1,
@@ -253,7 +259,7 @@ __global__ void fused_loss_bwd_kernel(
         float p1 = 0.f, p2 = 0.f;
         if (px < W && py < H){
             p1 = rendered[(py * W + px) * C + c];
-            p2 = gt[(py * W + px) * C + c];
+            p2 = gt_unit(gt[(py * W + px) * C + c]);
         }
 
         // Load the chain-weighted partials for the tile + halo
@@ -328,16 +334,15 @@ __global__ void fused_loss_bwd_kernel(
     }
 }
 
-std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
+template <typename GtT>
+static std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_impl(
     const torch::Tensor &rendered,
-    const torch::Tensor &gt,
+    const GtT* gt,
     const torch::Tensor &mask,
     const float ssim_weight,
     const bool valid_padding,
     const bool want_grad
 ){
-    CHECK_INPUT(rendered);
-    CHECK_INPUT(gt);
     const int H = rendered.size(0);
     const int W = rendered.size(1);
     const int C = rendered.size(2);
@@ -354,9 +359,9 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
 
     const dim3 block(LOSS_BX, LOSS_BY);
     const dim3 grid((W + LOSS_BX - 1) / LOSS_BX, (H + LOSS_BY - 1) / LOSS_BY);
-    fused_loss_fwd_kernel<<<grid, block>>>(
+    fused_loss_fwd_kernel<GtT><<<grid, block>>>(
         H, W, C,
-        rendered.data_ptr<float>(), gt.data_ptr<float>(),
+        rendered.data_ptr<float>(), gt,
         ssimMap.data_ptr<float>(),
         pBase, pBase ? pBase + planeSize : nullptr, pBase ? pBase + 2 * planeSize : nullptr
     );
@@ -364,9 +369,9 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
     torch::Tensor stats = torch::zeros({2}, opts);
     const int numPix = H * W;
     const int reduceBlocks = (std::min)(1024, (numPix + 255) / 256);
-    fused_loss_reduce_kernel<<<reduceBlocks, 256>>>(
+    fused_loss_reduce_kernel<GtT><<<reduceBlocks, 256>>>(
         H, W, C,
-        rendered.data_ptr<float>(), gt.data_ptr<float>(),
+        rendered.data_ptr<float>(), gt,
         ssimMap.data_ptr<float>(),
         hasMask ? mask.data_ptr<float>() : nullptr,
         ssim_weight, valid_padding,
@@ -377,9 +382,26 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
     return std::make_tuple(stats, partials);
 }
 
-torch::Tensor fused_loss_backward_tensor(
+std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
     const torch::Tensor &rendered,
     const torch::Tensor &gt,
+    const torch::Tensor &mask,
+    const float ssim_weight,
+    const bool valid_padding,
+    const bool want_grad
+){
+    CHECK_INPUT(rendered);
+    CHECK_INPUT(gt);
+    if (gt.scalar_type() == torch::kU8){
+        return fused_loss_forward_impl<uint8_t>(rendered, gt.data_ptr<uint8_t>(), mask, ssim_weight, valid_padding, want_grad);
+    }
+    return fused_loss_forward_impl<float>(rendered, gt.data_ptr<float>(), mask, ssim_weight, valid_padding, want_grad);
+}
+
+template <typename GtT>
+static torch::Tensor fused_loss_backward_impl(
+    const torch::Tensor &rendered,
+    const GtT* gt,
     const torch::Tensor &mask,
     const torch::Tensor &partials,
     const torch::Tensor &stats,
@@ -398,9 +420,9 @@ torch::Tensor fused_loss_backward_tensor(
 
     const dim3 block(LOSS_BX, LOSS_BY);
     const dim3 grid((W + LOSS_BX - 1) / LOSS_BX, (H + LOSS_BY - 1) / LOSS_BY);
-    fused_loss_bwd_kernel<<<grid, block>>>(
+    fused_loss_bwd_kernel<GtT><<<grid, block>>>(
         H, W, C, ssim_weight, valid_padding,
-        rendered.data_ptr<float>(), gt.data_ptr<float>(),
+        rendered.data_ptr<float>(), gt,
         hasMask ? mask.data_ptr<float>() : nullptr,
         pBase, pBase + planeSize, pBase + 2 * planeSize,
         stats.data_ptr<float>(),
@@ -408,6 +430,22 @@ torch::Tensor fused_loss_backward_tensor(
         vRendered.data_ptr<float>()
     );
     return vRendered;
+}
+
+torch::Tensor fused_loss_backward_tensor(
+    const torch::Tensor &rendered,
+    const torch::Tensor &gt,
+    const torch::Tensor &mask,
+    const torch::Tensor &partials,
+    const torch::Tensor &stats,
+    const torch::Tensor &v_loss,
+    const float ssim_weight,
+    const bool valid_padding
+){
+    if (gt.scalar_type() == torch::kU8){
+        return fused_loss_backward_impl<uint8_t>(rendered, gt.data_ptr<uint8_t>(), mask, partials, stats, v_loss, ssim_weight, valid_padding);
+    }
+    return fused_loss_backward_impl<float>(rendered, gt.data_ptr<float>(), mask, partials, stats, v_loss, ssim_weight, valid_padding);
 }
 
 __global__ void compute_cov2d_bounds_kernel(
@@ -705,11 +743,15 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
 }
 
 torch::Tensor get_tile_bin_edges_tensor(
-    int num_intersects, const torch::Tensor &isect_ids_sorted
+    int num_intersects, const torch::Tensor &isect_ids_sorted,
+    const std::tuple<int, int, int> tile_bounds
 ) {
     CHECK_INPUT(isect_ids_sorted);
+    // Indexed by tile id, so it must cover every tile even when few
+    // gaussians intersect the image
+    const int num_tiles = std::get<0>(tile_bounds) * std::get<1>(tile_bounds);
     torch::Tensor tile_bins = torch::zeros(
-        {num_intersects, 2}, isect_ids_sorted.options().dtype(torch::kInt32)
+        {num_tiles, 2}, isect_ids_sorted.options().dtype(torch::kInt32)
     );
     get_tile_bin_edges<<<
         (num_intersects + N_THREADS - 1) / N_THREADS,

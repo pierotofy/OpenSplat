@@ -9,6 +9,7 @@
 #include "spherical_harmonics.hpp"
 #include "ssim.hpp"
 #include "input_data.hpp"
+#include "image_pipeline.hpp"
 
 using namespace torch::indexing;
 using namespace torch::autograd;
@@ -74,7 +75,7 @@ struct Model{
   void setupOptimizers();
   void releaseOptimizers();
 
-  torch::Tensor forward(Camera& cam, int step);
+  torch::Tensor forward(Camera& cam, int step, const torch::Tensor &edgeMap = torch::Tensor());
   void optimizerStepCadence(int step); // FastGS stepping schedule with gradient accumulation
   void schedulersStep(int step);
   int getDownscaleFactor(int step);
@@ -110,6 +111,7 @@ struct Model{
 
   float spatialLrScale = 1.0f;
   std::vector<Camera> *trainCams = nullptr; // set by the trainer, used for multi-view scoring
+  ImagePipeline *images = nullptr; // set by the trainer, decodes ground truth on demand
 
   torch::Tensor radii; // set in forward()
   torch::Tensor xys; // set in forward()

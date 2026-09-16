@@ -590,10 +590,8 @@ torch::Tensor compute_sh_forward_tensor_cpu(
     return (result.index({"...", None}) * coeffs).sum(-2);
 }
 
-// Fused L1 + DSSIM loss over [H,W,C] images: same method as the GPU
-// backends (two-pass separable 11-tap blur computing all five moments in one
-// sweep, closed-form SSIM partials saved for a direct backward), parallelized
-// over row bands.
+// Fused L1 + DSSIM loss over [H,W,C] images, same method as the GPU backends
+// (tiled 11-tap blur, closed-form SSIM partials), parallelized over row bands
 
 namespace {
 
@@ -611,9 +609,12 @@ inline bool lossValid(int y, int x, int H, int W, bool validPad){
     return x >= LOSS_HALO && x < W - LOSS_HALO && y >= LOSS_HALO && y < H - LOSS_HALO;
 }
 
-}
+// Ground truth may be float [0,1] or uint8 [0,255]
+inline float gtUnit(float v){ return v; }
+inline float gtUnit(uint8_t v){ return static_cast<float>(v) * (1.0f / 255.0f); }
 
-std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor_cpu(
+template <typename GtT>
+std::tuple<torch::Tensor, torch::Tensor> fusedLossForwardCpuImpl(
     const torch::Tensor &rendered,
     const torch::Tensor &gt,
     const torch::Tensor &mask,
@@ -630,7 +631,7 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor_cpu(
     torch::Tensor m = hasMask ? mask.contiguous() : torch::Tensor();
 
     const float *rp = r.data_ptr<float>();
-    const float *gp = g.data_ptr<float>();
+    const GtT *gp = g.data_ptr<GtT>();
     const float *mp = hasMask ? m.data_ptr<float>() : nullptr;
 
     auto fOpts = r.options();
@@ -664,7 +665,7 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor_cpu(
                         if (xx < 0 || xx >= W) continue;
                         const float w = lossGauss[LOSS_HALO + d];
                         const float X = rp[(y * W + xx) * C + c];
-                        const float Y = gp[(y * W + xx) * C + c];
+                        const float Y = gtUnit(gp[(y * W + xx) * C + c]);
                         sX += X * w;
                         sX2 += X * X * w;
                         sY += Y * w;
@@ -737,7 +738,7 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor_cpu(
                 if (gate == 0.0f) continue;
                 float l1 = 0.0f;
                 for (int c = 0; c < C; c++){
-                    l1 += std::fabs(rp[p * C + c] - gp[p * C + c]);
+                    l1 += std::fabs(rp[p * C + c] - gtUnit(gp[p * C + c]));
                 }
                 lossSum += gate * ((1.0f - ssim_weight) * l1
                                  + static_cast<float>(C) * ssim_weight * (1.0f - sp[p]));
@@ -757,7 +758,8 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor_cpu(
     return std::make_tuple(stats, partials);
 }
 
-torch::Tensor fused_loss_backward_tensor_cpu(
+template <typename GtT>
+torch::Tensor fusedLossBackwardCpuImpl(
     const torch::Tensor &rendered,
     const torch::Tensor &gt,
     const torch::Tensor &mask,
@@ -776,7 +778,7 @@ torch::Tensor fused_loss_backward_tensor_cpu(
     torch::Tensor m = hasMask ? mask.contiguous() : torch::Tensor();
 
     const float *rp = r.data_ptr<float>();
-    const float *gp = g.data_ptr<float>();
+    const GtT *gp = g.data_ptr<GtT>();
     const float *mp = hasMask ? m.data_ptr<float>() : nullptr;
     const at::Half *pBase = partials.data_ptr<at::Half>();
     const long long planeSize = static_cast<long long>(H) * W * C;
@@ -839,7 +841,7 @@ torch::Tensor fused_loss_backward_tensor_cpu(
                     }
                     const long long p = static_cast<long long>(y) * W + x;
                     const float p1 = rp[p * C + c];
-                    const float p2 = gp[p * C + c];
+                    const float p2 = gtUnit(gp[p * C + c]);
                     const float gradSsim = s0 + 2.f * p1 * s1 + p2 * s2;
 
                     const float gate = gateAt(y, x);
@@ -851,4 +853,36 @@ torch::Tensor fused_loss_backward_tensor_cpu(
     }
 
     return vRendered;
+}
+
+}
+
+std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor_cpu(
+    const torch::Tensor &rendered,
+    const torch::Tensor &gt,
+    const torch::Tensor &mask,
+    const float ssim_weight,
+    const bool valid_padding,
+    const bool want_grad
+){
+    if (gt.scalar_type() == torch::kU8){
+        return fusedLossForwardCpuImpl<uint8_t>(rendered, gt, mask, ssim_weight, valid_padding, want_grad);
+    }
+    return fusedLossForwardCpuImpl<float>(rendered, gt, mask, ssim_weight, valid_padding, want_grad);
+}
+
+torch::Tensor fused_loss_backward_tensor_cpu(
+    const torch::Tensor &rendered,
+    const torch::Tensor &gt,
+    const torch::Tensor &mask,
+    const torch::Tensor &partials,
+    const torch::Tensor &stats,
+    const torch::Tensor &v_loss,
+    const float ssim_weight,
+    const bool valid_padding
+){
+    if (gt.scalar_type() == torch::kU8){
+        return fusedLossBackwardCpuImpl<uint8_t>(rendered, gt, mask, partials, stats, v_loss, ssim_weight, valid_padding);
+    }
+    return fusedLossBackwardCpuImpl<float>(rendered, gt, mask, partials, stats, v_loss, ssim_weight, valid_padding);
 }

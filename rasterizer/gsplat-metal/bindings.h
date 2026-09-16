@@ -16,10 +16,8 @@ std::tuple<
     torch::Tensor> // output radii
 compute_cov2d_bounds_tensor(const int num_pts, torch::Tensor &A);
 
-// Fused L1 + DSSIM loss over [H,W,C] float images.
-// Returns {stats, partials}: stats[0] = loss, stats[1] = normalization
-// denominator (both on device); partials holds the SSIM derivative maps
-// needed by the backward pass (empty when want_grad is false).
+// Fused L1 + DSSIM loss; gt is float [0,1] or uint8 [0,255]. Returns {stats, partials}:
+// stats = {loss, normalization denominator}, partials = SSIM derivative maps for the backward
 std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
     const torch::Tensor &rendered,
     const torch::Tensor &gt,
@@ -120,7 +118,8 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
 
 torch::Tensor get_tile_bin_edges_tensor(
     int num_intersects,
-    const torch::Tensor &isect_ids_sorted
+    const torch::Tensor &isect_ids_sorted,
+    const std::tuple<int, int, int> tile_bounds
 );
 
 std::tuple<

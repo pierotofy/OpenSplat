@@ -22,15 +22,20 @@ cv::Mat tensorToImage(const torch::Tensor &t){
     if (c != 3) throw std::runtime_error("Only images with 3 channels are supported");
 
     cv::Mat image(h, w, type);
-    torch::Tensor scaledTensor = (t * 255.0).toType(torch::kU8);
-    uint8_t* dataPtr = static_cast<uint8_t*>(scaledTensor.data_ptr());
+    torch::Tensor u8 = t.scalar_type() == torch::kU8
+        ? t.contiguous()
+        : (t * 255.0).toType(torch::kU8);
+    uint8_t* dataPtr = static_cast<uint8_t*>(u8.data_ptr());
     std::copy(dataPtr, dataPtr + (w * h * c), image.data);
 
     return image;
 }
 
 torch::Tensor imageToTensor(const cv::Mat &image){
-    torch::Tensor img = torch::from_blob(image.data, { image.rows, image.cols, image.dims + 1 }, torch::kU8);
-    return (img.toType(torch::kFloat32) / 255.0f);
+    return torch::from_blob(image.data, { image.rows, image.cols, image.dims + 1 }, torch::kU8).clone();
 }
 
+torch::Tensor toUnitFloat(const torch::Tensor &img){
+    if (img.scalar_type() == torch::kU8) return img.to(torch::kFloat32).mul_(1.0f / 255.0f);
+    return img;
+}

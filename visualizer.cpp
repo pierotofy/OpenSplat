@@ -96,7 +96,9 @@ void Visualizer::SetGaussians(const torch::Tensor& means,
 void Visualizer::SetImage(const torch::Tensor& rendered_img,
                           const torch::Tensor& gt_img) {
   rendered_img_ = (rendered_img.cpu() * 255).to(torch::kUInt8);
-  gt_img_ = (gt_img.cpu() * 255).to(torch::kUInt8);
+  gt_img_ = gt_img.scalar_type() == torch::kUInt8
+      ? gt_img.cpu().contiguous()
+      : (gt_img.cpu() * 255).to(torch::kUInt8);
 }
 
 void Visualizer::DrawInern() {

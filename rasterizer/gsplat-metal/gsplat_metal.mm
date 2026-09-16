@@ -542,11 +542,15 @@ std::tuple<torch::Tensor, torch::Tensor> map_gaussian_to_intersects_tensor(
 
 torch::Tensor get_tile_bin_edges_tensor(
     int num_intersects,
-    const torch::Tensor &isect_ids_sorted
+    const torch::Tensor &isect_ids_sorted,
+    const std::tuple<int, int, int> tile_bounds
 ) {
     CHECK_INPUT(isect_ids_sorted);
+    // Indexed by tile id, so it must cover every tile even when few
+    // gaussians intersect the image
+    const int num_tiles = std::get<0>(tile_bounds) * std::get<1>(tile_bounds);
     torch::Tensor tile_bins = torch::zeros(
-        {num_intersects, 2}, isect_ids_sorted.options().dtype(torch::kInt32)
+        {num_tiles, 2}, isect_ids_sorted.options().dtype(torch::kInt32)
     );
 
     MetalContext* ctx = get_global_context();
@@ -940,6 +944,10 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
     const int W = rendered.size(1);
     const int C = rendered.size(2);
     const bool hasMask = mask.defined() && mask.numel() > 0;
+    // Ground truth is float [0,1] or uint8 [0,255]; the unused variant is a dummy buffer
+    const bool gtU8 = gt.scalar_type() == torch::kU8;
+    torch::Tensor gtF = gtU8 ? torch::empty({1}, rendered.options()) : gt;
+    torch::Tensor gtU = gtU8 ? gt : torch::empty({1}, rendered.options().dtype(torch::kU8));
     if (hasMask){ CHECK_INPUT(mask); }
 
     auto opts = rendered.options();
@@ -963,7 +971,9 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
         EncodeArg::scalar((int32_t)C),
         EncodeArg::scalar((int32_t)(want_grad ? 1 : 0)),
         EncodeArg::tensor(rendered),
-        EncodeArg::tensor(gt),
+        EncodeArg::tensor(gtF),
+        EncodeArg::scalar((int32_t)(gtU8 ? 1 : 0)),
+        EncodeArg::tensor(gtU),
         EncodeArg::tensor(ssimMap),
         EncodeArg::tensor(pMu),
         EncodeArg::tensor(pS1),
@@ -983,7 +993,9 @@ std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor(
         EncodeArg::scalar(ssim_weight),
         EncodeArg::scalar((int32_t)(valid_padding ? 1 : 0)),
         EncodeArg::tensor(rendered),
-        EncodeArg::tensor(gt),
+        EncodeArg::tensor(gtF),
+        EncodeArg::scalar((int32_t)(gtU8 ? 1 : 0)),
+        EncodeArg::tensor(gtU),
         EncodeArg::tensor(ssimMap),
         EncodeArg::tensor(maskBuf),
         EncodeArg::tensor(stats)
@@ -1010,6 +1022,10 @@ torch::Tensor fused_loss_backward_tensor(
     const int W = rendered.size(1);
     const int C = rendered.size(2);
     const bool hasMask = mask.defined() && mask.numel() > 0;
+    // Ground truth is float [0,1] or uint8 [0,255]; the unused variant is a dummy buffer
+    const bool gtU8 = gt.scalar_type() == torch::kU8;
+    torch::Tensor gtF = gtU8 ? torch::empty({1}, rendered.options()) : gt;
+    torch::Tensor gtU = gtU8 ? gt : torch::empty({1}, rendered.options().dtype(torch::kU8));
 
     torch::Tensor vRendered = torch::empty_like(rendered);
     torch::Tensor maskBuf = hasMask ? mask : torch::empty({1}, rendered.options());
@@ -1028,7 +1044,9 @@ torch::Tensor fused_loss_backward_tensor(
         EncodeArg::scalar(ssim_weight),
         EncodeArg::scalar((int32_t)(valid_padding ? 1 : 0)),
         EncodeArg::tensor(rendered),
-        EncodeArg::tensor(gt),
+        EncodeArg::tensor(gtF),
+        EncodeArg::scalar((int32_t)(gtU8 ? 1 : 0)),
+        EncodeArg::tensor(gtU),
         EncodeArg::tensor(maskBuf),
         EncodeArg::tensor(pMu),
         EncodeArg::tensor(pS1),

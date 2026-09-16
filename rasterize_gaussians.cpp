@@ -32,7 +32,7 @@ std::tuple<torch::Tensor,
     torch::Tensor gaussianIdsSorted = torch::gather(gaussianIds, 0, sortedIndices);
 
     // range of gaussians hit per tile
-    torch::Tensor tileBins = get_tile_bin_edges_tensor(numIntersects, isectIdsSorted);
+    torch::Tensor tileBins = get_tile_bin_edges_tensor(numIntersects, isectIdsSorted, tileBounds);
     return std::make_tuple(isectIds, gaussianIds, isectIdsSorted, gaussianIdsSorted, tileBins);
 }
 
