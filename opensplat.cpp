@@ -6,6 +6,10 @@
 #include "cv_utils.hpp"
 #include "constants.hpp"
 #include "zip_utils.hpp"
+#include "image_store.hpp"
+#include "image_pipeline.hpp"
+#include "sysinfo.hpp"
+#include <chrono>
 #include <cxxopts.hpp>
 
 #ifdef USE_VISUALIZATION
@@ -43,7 +47,6 @@ int main(int argc, char *argv[]){
         ("no-edge-guidance", "Disable Canny edge weighting of the densification importance", cxxopts::value<bool>()->default_value("false"))
         ("max-gaussians", "Maximum number of gaussians (0 = unlimited)", cxxopts::value<int>()->default_value("5000000"))
         ("no-masks", "Ignore image masks even when present", cxxopts::value<bool>()->default_value("false"))
-        ("no-gpu-cache", "Do not cache images/masks on the GPU (reduces VRAM usage, slower)", cxxopts::value<bool>()->default_value("false"))
 #ifdef USE_VISUALIZATION
         ("has-visualization", "Show the visualization steps of training", cxxopts::value<bool>()->default_value("0"))
 #endif
@@ -73,12 +76,15 @@ int main(int argc, char *argv[]){
 
 
     const std::string projectRoot = result["input"].as<std::string>();
+    // Default outputs and temporary directories go next to the input scene
+    // (for a .zip, next to the archive)
+    fs::path sceneDir = fs::absolute(fs::path(projectRoot));
+    if (sceneDir.filename().empty()) sceneDir = sceneDir.parent_path();
+    sceneDir = sceneDir.parent_path();
+
     std::string outputScene = result["output"].as<std::string>();
     if (result.count("output") == 0){
-        // Output next to the input scene, for a .zip, next to the archive
-        fs::path in = fs::absolute(fs::path(projectRoot));
-        if (in.filename().empty()) in = in.parent_path();
-        outputScene = (in.parent_path() / outputScene).string();
+        outputScene = (sceneDir / outputScene).string();
     }
     const std::string outputCameras = result["output-cameras"].as<std::string>();
     const int saveEvery = result["save-every"].as<int>();
@@ -128,7 +134,7 @@ int main(int argc, char *argv[]){
 
     try{
         std::string projectPath = projectRoot;
-        if (isZipArchive(projectRoot)) projectPath = extractZipToCache(projectRoot);
+        if (isZipArchive(projectRoot)) projectPath = extractZipToCache(projectRoot, sceneDir.string());
         InputData inputData = inputDataFromX(projectPath);
 
         int numMasks = 0;
@@ -140,9 +146,10 @@ int main(int argc, char *argv[]){
         }
         if (numMasks > 0) std::cout << "Found " << numMasks << " masks" << std::endl;
 
-        parallel_for(inputData.cameras.begin(), inputData.cameras.end(), [&downScaleFactor](Camera &cam){
-            cam.loadImage(downScaleFactor);
-        });
+        // Images are preprocessed once into a compressed cache (90% of RAM,
+        // saving to disk next to the scene) and decoded on demand while training
+        ImageStore imageStore(physicalRamBytes() / 10 * 9, sceneDir);
+        imageStore.prepare(inputData.cameras, downScaleFactor, numDownscales);
 
         // Withhold a validation camera if necessary
         auto t = inputData.getCameras(validate, valImage);
@@ -183,7 +190,11 @@ int main(int argc, char *argv[]){
                     device);
         model.trainCams = &cams;
         model.edgeGuidance = !result["no-edge-guidance"].as<bool>();
-        Camera::gpuCacheEnabled = !result["no-gpu-cache"].as<bool>();
+
+        const int hw = (std::max)(1u, std::thread::hardware_concurrency());
+        const int decodeThreads = device == torch::kCPU ? (std::max)(1, hw / 4) : (std::max)(1, (std::min)(8, hw / 2));
+        ImagePipeline images(imageStore, device, decodeThreads);
+        model.images = &images;
 
         std::vector< size_t > camIndices( cams.size() );
         std::iota( camIndices.begin(), camIndices.end(), 0 );
@@ -197,14 +208,22 @@ int main(int argc, char *argv[]){
         }
 
         for (; step <= numIters; step++){
+            auto stepStart = std::chrono::steady_clock::now();
             Camera& cam = cams[ camsIter.next() ];
 
+            // Keep the decoders ahead of the training loop
+            for (int k = 0; k < images.prefetchTarget(); k++){
+                images.request(cams[camsIter.peek(k)], model.getDownscaleFactor(step + 1 + k));
+            }
+
             torch::Tensor rgb = model.forward(cam, step);
-            torch::Tensor gt = cam.getImageGpu(model.getDownscaleFactor(step), device);
-            torch::Tensor mask = cam.getMaskGpu(model.getDownscaleFactor(step), device);
+            FrameLease frame = images.acquire(cam, model.getDownscaleFactor(step));
+            torch::Tensor gt = frame->image;
+            torch::Tensor mask = frame->mask;
 
             torch::Tensor mainLoss = model.mainLoss(rgb, gt, mask, ssimWeight);
             mainLoss.backward();
+            frame.reset();
 
             if (step % displayStep == 0) {
                 const float percentage = static_cast<float>(step) / numIters;
@@ -214,6 +233,7 @@ int main(int argc, char *argv[]){
             model.afterTrain(step);
             model.optimizerStepCadence(step);
             model.schedulersStep(step);
+            images.noteTrainStep(std::chrono::duration<double>(std::chrono::steady_clock::now() - stepStart).count());
 
             if (saveEvery > 0 && step % saveEvery == 0){
                 fs::path p(outputScene);
@@ -248,15 +268,17 @@ int main(int argc, char *argv[]){
         // Validate
         if (valCam != nullptr){
             torch::Tensor rgb = model.forward(*valCam, numIters);
-            torch::Tensor gt = valCam->getImageGpu(model.getDownscaleFactor(numIters), device);
-            torch::Tensor valMask = valCam->getMaskGpu(model.getDownscaleFactor(numIters), device);
+            FrameLease frame = images.acquire(*valCam, model.getDownscaleFactor(numIters));
+            torch::Tensor gt = frame->image;
+            torch::Tensor valMask = frame->mask;
             std::cout << valCam->filePath << " validation loss: " << model.mainLoss(rgb, gt, valMask, ssimWeight).item<float>() << std::endl;
 
+            torch::Tensor gtF = toUnitFloat(gt);
             torch::Tensor mse;
             if (valMask.defined() && valMask.numel() > 0){
-                mse = (valMask.unsqueeze(-1) * (rgb - gt).pow(2)).sum() / (valMask.sum() * gt.size(2) + 1e-8f);
+                mse = (valMask.unsqueeze(-1) * (rgb - gtF).pow(2)).sum() / (valMask.sum() * gtF.size(2) + 1e-8f);
             }else{
-                mse = (rgb - gt).pow(2).mean();
+                mse = (rgb - gtF).pow(2).mean();
             }
             std::cout << valCam->filePath << " validation PSNR: " << (10.0f * torch::log10(1.0f / mse)).item<float>() << std::endl;
         }

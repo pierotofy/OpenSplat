@@ -38,27 +38,11 @@ struct Camera{
         camToWorld(camToWorld), filePath(filePath) {}
     torch::Tensor getIntrinsicsMatrix();
     bool hasDistortionParameters();
-    torch::Tensor getImage(int downscaleFactor);
-    torch::Tensor getMask(int downscaleFactor);
-    torch::Tensor getEdgeMap(int downscaleFactor);
-    torch::Tensor getImageGpu(int downscaleFactor, const torch::Device &device);
-    torch::Tensor getMaskGpu(int downscaleFactor, const torch::Device &device);
-    torch::Tensor getEdgeMapGpu(int downscaleFactor, const torch::Device &device);
-    bool hasMask() const { return mask.numel() > 0; }
 
-    void loadImage(float downscaleFactor);
     torch::Tensor K;
-    torch::Tensor image;
-    torch::Tensor mask; // [H,W] float 0/1, aligned with image
-
-    std::unordered_map<int, torch::Tensor> imagePyramids;
-    std::unordered_map<int, torch::Tensor> maskPyramids;
-    std::unordered_map<int, torch::Tensor> edgePyramids;
-    std::unordered_map<int, torch::Tensor> gpuImageCache;
-    std::unordered_map<int, torch::Tensor> gpuMaskCache;
-    std::unordered_map<int, torch::Tensor> gpuEdgeCache;
-
-    static bool gpuCacheEnabled;
+    // Pixels are not kept here; the ImageStore decodes them on demand by imageId
+    int imageId = -1;
+    bool hasMask = false;
 };
 
 struct Points{

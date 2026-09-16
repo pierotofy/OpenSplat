@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include <vector>
+#include <deque>
 #include <algorithm>
 #include <random>
 #include <iostream>
@@ -28,11 +29,41 @@ public:
 
     T next(){
         T ret = v[i++];
-        if (i >= v.size()) shuffleV();
+        if (i >= v.size()){
+            if (upcoming.empty()){
+                shuffleV();
+            }else{
+                v = std::move(upcoming.front());
+                upcoming.pop_front();
+                i = 0;
+            }
+        }
         return ret;
+    }
+
+    // Element that next() will return k calls from now (k = 0 is the next one).
+    // Looking ahead does not change the sequence
+    T peek(size_t k){
+        size_t idx = i + k;
+        size_t available = v.size();
+        for (const VecType &p : upcoming) available += p.size();
+        while (idx >= available){
+            VecType p = upcoming.empty() ? v : upcoming.back();
+            std::shuffle(std::begin(p), std::end(p), engine);
+            available += p.size();
+            upcoming.push_back(std::move(p));
+        }
+        if (idx < v.size()) return v[idx];
+        idx -= v.size();
+        for (const VecType &p : upcoming){
+            if (idx < p.size()) return p[idx];
+            idx -= p.size();
+        }
+        return v[0];
     }
 private:
     VecType v;
+    std::deque<VecType> upcoming; // permutations generated ahead by peek()
     size_t i;
     std::default_random_engine engine;
 };

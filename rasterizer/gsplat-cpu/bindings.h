@@ -76,9 +76,8 @@ std::
         const torch::Tensor &v_xy_abs
     );
 
-// Fused L1 + DSSIM loss over [H,W,C] float images (same contract as
-// the GPU backends): stats[0] = loss, stats[1] = normalization denominator;
-// partials holds the SSIM derivative maps (empty when want_grad is false).
+// Fused L1 + DSSIM loss, same contract as the GPU backends. Returns {stats, partials}:
+// stats = {loss, normalization denominator}, partials = SSIM derivative maps for the backward
 std::tuple<torch::Tensor, torch::Tensor> fused_loss_forward_tensor_cpu(
     const torch::Tensor &rendered,
     const torch::Tensor &gt,

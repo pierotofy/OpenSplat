@@ -1578,10 +1578,8 @@ kernel void compute_cov2d_bounds_kernel(
     radii[row] = radius;
 }
 
-// Fused L1 + DSSIM loss over [H,W,C] images. One kernel computes the
-// SSIM map and the closed-form partials in a threadgroup-memory tile
-// (two-pass separable 11-tap blur), one reduces to the scalar loss
-// on-device, and one produces dL/dimage directly.
+// Fused L1 + DSSIM loss over [H,W,C] images in three kernels:
+// SSIM map + partials (tiled 11-tap blur), loss reduction, and dL/dimage
 
 #define LOSS_BX 16
 #define LOSS_BY 16
@@ -1608,6 +1606,17 @@ inline bool loss_valid(int y, int x, int H, int W, bool validPad){
     return x >= LOSS_HALO && x < W - LOSS_HALO && y >= LOSS_HALO && y < H - LOSS_HALO;
 }
 
+// Ground truth is float [0,1] (gt) or uint8 [0,255] (gtU8), selected by gtIsU8
+inline float gt_at(device const float* gt, device const uchar* gtU8, int gtIsU8, int idx){
+    return gtIsU8 ? (float)gtU8[idx] * (1.0f / 255.0f) : gt[idx];
+}
+
+inline float loss_pix_gt(device const float* gt, device const uchar* gtU8, int gtIsU8,
+                         int y, int x, int c, int H, int W, int C){
+    if (x < 0 || x >= W || y < 0 || y >= H) return 0.0f;
+    return gt_at(gt, gtU8, gtIsU8, (y * W + x) * C + c);
+}
+
 kernel void fused_loss_fwd_kernel(
     constant int& H,
     constant int& W,
@@ -1615,6 +1624,8 @@ kernel void fused_loss_fwd_kernel(
     constant int& wantGrad,
     device const float* rendered,
     device const float* gt,
+    constant int& gtIsU8,
+    device const uchar* gtU8,
     device float* ssimMap, // [H,W] channel mean
     device half* pMu,      // [H,W,C] each (dummy when !wantGrad)
     device half* pS1,
@@ -1643,7 +1654,7 @@ kernel void fused_loss_fwd_kernel(
                 const int gy = tileY + ly - LOSS_HALO;
                 const int gx = tileX + lx - LOSS_HALO;
                 sTile[ly][lx][0] = loss_pix(rendered, gy, gx, c, H, W, C);
-                sTile[ly][lx][1] = loss_pix(gt, gy, gx, c, H, W, C);
+                sTile[ly][lx][1] = loss_pix_gt(gt, gtU8, gtIsU8, gy, gx, c, H, W, C);
             }
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
@@ -1726,6 +1737,8 @@ kernel void fused_loss_reduce_kernel(
     constant int& validPad,
     device const float* rendered,
     device const float* gt,
+    constant int& gtIsU8,
+    device const uchar* gtU8,
     device const float* ssimMap,
     device const float* mask,
     device atomic_float* out,
@@ -1748,7 +1761,7 @@ kernel void fused_loss_reduce_kernel(
         if (gate != 0.0f){
             float l1 = 0.0f;
             for (int c = 0; c < C; c++){
-                l1 += fabs(rendered[p * C + c] - gt[p * C + c]);
+                l1 += fabs(rendered[p * C + c] - gt_at(gt, gtU8, gtIsU8, p * C + c));
             }
             const float contrib = (1.0f - ssimWeight) * l1
                                 + (float)C * ssimWeight * (1.0f - ssimMap[p]);
@@ -1795,6 +1808,8 @@ kernel void fused_loss_bwd_kernel(
     constant int& validPad,
     device const float* rendered,
     device const float* gt,
+    constant int& gtIsU8,
+    device const uchar* gtU8,
     device const float* mask,
     device const half* pMu,
     device const half* pS1,
@@ -1818,7 +1833,7 @@ kernel void fused_loss_bwd_kernel(
         float p1 = 0.f, p2 = 0.f;
         if (px < W && py < H){
             p1 = rendered[(py * W + px) * C + c];
-            p2 = gt[(py * W + px) * C + c];
+            p2 = gt_at(gt, gtU8, gtIsU8, (py * W + px) * C + c);
         }
 
         // Load the chain-weighted partials for the tile + halo
